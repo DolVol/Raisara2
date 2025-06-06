@@ -788,26 +788,26 @@
 
         // Load trees from server
         async function loadTreesFromServer() {
-            try {
-                console.log('Loading trees from server...');
-                
-                const response = await fetch(`/api/trees/${domeId}`);
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    console.log('Trees loaded successfully:', data.trees?.length || 0, 'trees');
-                    
-                    trees = data.trees || [];
-                    renderGrid();
-                } else {
-                    console.error('Failed to load trees from server, status:', response.status);
-                    renderGrid();
-                }
-            } catch (error) {
-                console.error('Error loading trees:', error);
-                renderGrid();
-            }
+    try {
+        console.log('Loading trees from server...');
+        
+        const response = await fetch(`/api/trees/${domeId}`);
+        
+        if (response.ok) {
+            const data = await response.json();
+            console.log('Trees loaded successfully:', data.trees?.length || 0, 'trees');
+            
+            trees = data.trees || [];
+            renderGrid();
+        } else {
+            console.error('Failed to load trees from server, status:', response.status);
+            renderGrid();
         }
+    } catch (error) {
+        console.error('Error loading trees:', error);
+        renderGrid();
+    }
+}
 
         function renderGrid() {
             console.log('Rendering grid with', trees.length, 'trees');
@@ -858,31 +858,42 @@
             updateStats();
         }
 
-        function createTreeElement(tree) {
-            console.log('Creating tree element for:', tree.name);
-            
-            // Always use static gunja image for trees
-            const imageHtml = `<div class="tree-image"></div>`;
-            
-            return `
-                <div class="tree-item" 
-                     draggable="true" 
-                     data-tree-id="${tree.id}"
-                     data-tree-row="${tree.row}"
-                     data-tree-col="${tree.col}"
-                     onclick="openTree(${tree.id})"
-                     ondragstart="handleDragStart(event)"
-                     ondragend="handleDragEnd(event)">
-                    ${imageHtml}
-                    <div class="tree-name">${tree.name}</div>
-                    <div class="tree-actions">
-                        <button class="action-btn edit-btn" onclick="event.stopPropagation(); editTree(${tree.id})" title="Edit">✏️</button>
-                        <button class="action-btn delete-btn" onclick="event.stopPropagation(); deleteTree(${tree.id})" title="Delete">🗑️</button>
-                    </div>
-                </div>
-            `;
-        }
-
+ function createTreeElement(tree) {
+    console.log('Creating tree element for:', tree.name, 'with image:', tree.image_url);
+    
+    // Use custom image if available, otherwise use default
+    let imageStyle = '';
+    if (tree.image_url) {
+        // Add timestamp to prevent caching
+        imageStyle = `background-image: url('${tree.image_url}?t=${Date.now()}');`;
+    } else {
+        imageStyle = `background-image: url('/static/images/gunja.jpg');`;
+    }
+    
+    const imageHtml = `<div class="tree-image" style="${imageStyle}"></div>`;
+    
+    return `
+        <div class="tree-item" 
+             draggable="true" 
+             data-tree-id="${tree.id}"
+             data-tree-row="${tree.row}"
+             data-tree-col="${tree.col}"
+             onclick="openTree(${tree.id})"
+             ondragstart="handleDragStart(event)"
+             ondragend="handleDragEnd(event)">
+            ${imageHtml}
+            <div class="tree-name">${tree.name}</div>
+            <div class="tree-actions">
+                <button class="action-btn edit-btn" onclick="event.stopPropagation(); editTree(${tree.id})" title="Edit">✏️</button>
+                <button class="action-btn delete-btn" onclick="event.stopPropagation(); deleteTree(${tree.id})" title="Delete">🗑️</button>
+            </div>
+        </div>
+    `;
+}
+function refreshTreeInGrid(treeId) {
+    // Reload trees from server to get updated image URLs
+    loadTreesFromServer();
+}
         // Drag and Drop Functions
         function handleDragStart(event) {
             const treeId = event.target.dataset.treeId;
@@ -929,7 +940,16 @@
                 }
             }
         }
-
+        function refreshTreeImage(treeId, imageUrl) {
+    const treeElement = document.querySelector(`[data-tree-id="${treeId}"] .tree-image`);
+    if (treeElement) {
+        if (imageUrl) {
+            treeElement.style.backgroundImage = `url('${imageUrl}?t=${Date.now()}')`;
+        } else {
+            treeElement.style.backgroundImage = `url('/static/images/gunja.jpg')`;
+        }
+    }
+}
         function handleDragLeave(event) {
             event.currentTarget.classList.remove('drag-over', 'swap-target');
         }

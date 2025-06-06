@@ -64,6 +64,9 @@ class Dome(db.Model):
     internal_cols = db.Column(db.Integer, default=10)
     trees = db.relationship('Tree', backref='dome', cascade='all, delete-orphan')
     
+    # ✅ ADD THIS LINE - Image URL for dome
+    image_url = db.Column(db.String(200), nullable=True)
+    
     # Deprecated fields (remove after migration)
     x = db.Column(db.Integer, default=0)
     y = db.Column(db.Integer, default=0)
@@ -80,11 +83,15 @@ class Row(db.Model):
 class Tree(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100))
-    dome_id = db.Column(db.Integer, db.ForeignKey('dome.id'))
     row = db.Column(db.Integer, default=0)
     col = db.Column(db.Integer, default=0)
     info = db.Column(db.Text)
     life_days = db.Column(db.Integer, default=0)
+    
+    # ✅ ADD THIS LINE - Image URL for tree
+    image_url = db.Column(db.String(200), nullable=True)
+    
+    # Foreign keys
+    dome_id = db.Column(db.Integer, db.ForeignKey('dome.id'))
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     user = db.relationship('User', backref='trees')
-    dome_id = db.Column(db.Integer, db.ForeignKey('dome.id'))
