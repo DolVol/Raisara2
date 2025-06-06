@@ -1,11 +1,14 @@
 from dotenv import load_dotenv
 import os
-
+import qrcode
+import io
+import base64
+from PIL import Image
 # Load environment variables from .env file
 load_dotenv()
 
 # Now import other modules
-from flask import Flask, render_template, request, jsonify, send_from_directory
+from flask import Flask, render_template, request, jsonify, send_from_directory,send_file
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user,UserMixin
 from models import db, Dome, Row, Tree, GridSettings, User
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -81,6 +84,7 @@ def send_reset_email(email, token, username):
         msg = Message(
             subject="Password Reset Request",
             recipients=[email],
+            sender=os.getenv('MAIL_USERNAME'),  # ← ADD THIS LINE
             body=f"""Password reset requested for: {email} ({username})
 Reset URL: {reset_url}
 
@@ -848,55 +852,96 @@ def upload_tree_image(tree_id):
 # ============= QR CODE GENERATION =============
 
 @app.route('/generate_qr/<int:tree_id>', methods=['POST'])
+@login_required
 def generate_qr(tree_id):
+    """Generate QR code for tree information page"""
     try:
-        import qrcode
-        import io
-        import base64
-        from PIL import Image
+        # Get tree and check ownership
+        tree = Tree.query.filter_by(id=tree_id, user_id=current_user.id).first()
+        if not tree:
+            return jsonify({'error': 'Tree not found'}), 404
         
-        # Get the URL from request
+        # Get the URL from request or construct it
         data = request.get_json()
-        url = data.get('url', request.url_root + f'tree_info/{tree_id}')
+        tree_url = data.get('url') if data else None
         
-        # Create QR code
+        if not tree_url:
+            # Construct the tree info URL
+            tree_url = f"{request.url_root}tree_info/{tree_id}"
+        
+        # Generate QR code
         qr = qrcode.QRCode(
             version=1,
-            error_correction=qrcode.constants.ERROR_CORRECT_M,
+            error_correction=qrcode.constants.ERROR_CORRECT_L,
             box_size=10,
             border=4,
         )
-        qr.add_data(url)
+        qr.add_data(tree_url)
         qr.make(fit=True)
         
-        # Create QR code image with custom colors
-        img = qr.make_image(fill_color="#2e8b57", back_color="white")
+        # Create QR code image
+        qr_img = qr.make_image(fill_color="black", back_color="white")
         
         # Convert to base64
-        buffer = io.BytesIO()
-        img.save(buffer, format='PNG')
-        buffer.seek(0)
+        img_buffer = io.BytesIO()
+        qr_img.save(img_buffer, format='PNG')
+        img_buffer.seek(0)
         
         # Encode to base64
-        qr_base64 = base64.b64encode(buffer.getvalue()).decode()
+        qr_base64 = base64.b64encode(img_buffer.getvalue()).decode()
         
         return jsonify({
             'success': True,
             'qr_code': qr_base64,
-            'url': url
+            'url': tree_url,
+            'tree_name': tree.name
         })
         
-    except ImportError:
-        return jsonify({
-            'success': False,
-            'error': 'QR code library not installed. Please install: pip install qrcode[pil]'
-        }), 500
     except Exception as e:
-        return jsonify({
-            'success': False,
-            'error': f'Error generating QR code: {str(e)}'
-        }), 500
-
+        print(f"Error generating QR code: {e}")
+        return jsonify({'error': f'Failed to generate QR code: {str(e)}'}), 500
+    
+@app.route('/qr_image/<int:tree_id>')
+@login_required
+def qr_image(tree_id):
+    """Serve QR code as PNG image"""
+    try:
+        # Get tree and check ownership
+        tree = Tree.query.filter_by(id=tree_id, user_id=current_user.id).first()
+        if not tree:
+            return jsonify({'error': 'Tree not found'}), 404
+        
+        # Construct the tree info URL
+        tree_url = f"{request.url_root}tree_info/{tree_id}"
+        
+        # Generate QR code
+        qr = qrcode.QRCode(
+            version=1,
+            error_correction=qrcode.constants.ERROR_CORRECT_L,
+            box_size=10,
+            border=4,
+        )
+        qr.add_data(tree_url)
+        qr.make(fit=True)
+        
+        # Create QR code image
+        qr_img = qr.make_image(fill_color="black", back_color="white")
+        
+        # Convert to bytes
+        img_buffer = io.BytesIO()
+        qr_img.save(img_buffer, format='PNG')
+        img_buffer.seek(0)
+        
+        return send_file(
+            img_buffer,
+            mimetype='image/png',
+            as_attachment=False,
+            download_name=f'tree_{tree_id}_qr.png'
+        )
+        
+    except Exception as e:
+        print(f"Error serving QR image: {e}")
+        return jsonify({'error': 'Failed to generate QR image'}), 500
 # ============= TREE MANAGEMENT =============
 
 @app.route('/add_tree/<int:dome_id>/<int:row>/<int:col>', methods=['POST'])
