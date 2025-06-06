@@ -1,0 +1,11 @@
+*.pyc
+__pycache__/
+.env
+instance/
+*.sqlite3
+uploads/
+.DS_Store
+.vscode/
+.idea/
+migrations/versions/
+node_modules/

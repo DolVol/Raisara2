@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Dome Information - {{ dome.name }}</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #f0f0f0;
+        }
+        .dome-info-container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            background: white;
+        }
+        .dome-image-section {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .dome-image {
+            width: 200px;
+            height: 200px;
+            background-image: url('/static/images/dome.jpg');
+            background-size: cover;
+            background-position: center;
+            border-radius: 10px;
+            border: 3px solid #2e8b57;
+            margin: 0 auto 15px;
+            position: relative;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        .dome-image::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 7px;
+        }
+        .dome-name {
+            font-size: 24px;
+            text-align: center;
+            margin-bottom: 20px;
+            color: #2e8b57;
+        }
+        .edit-form {
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #333;
+        }
+        .form-group input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 14px;
+        }
+        .btn-primary {
+            background: #4CAF50;
+            color: white;
+        }
+        .btn-primary:hover {
+            background: #45a049;
+        }
+        .btn-danger {
+            background: #f44336;
+            color: white;
+        }
+        .btn-danger:hover {
+            background: #da190b;
+        }
+        .btn-secondary {
+            background: #007bff;
+            color: white;
+        }
+        .btn-secondary:hover {
+            background: #0056b3;
+        }
+        .dome-stats {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f9f9f9;
+            border-radius: 8px;
+        }
+        .dome-stats p {
+            margin: 5px 0;
+        }
+        .button-group {
+            text-align: center;
+            margin-top: 20px;
+        }
+        .dome-info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .info-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #2e8b57;
+        }
+        .info-card h4 {
+            margin: 0 0 10px 0;
+            color: #2e8b57;
+            font-size: 16px;
+        }
+        .info-card p {
+            margin: 5px 0;
+            color: #555;
+        }
+        .tree-count {
+            font-size: 24px;
+            font-weight: bold;
+            color: #4CAF50;
+        }
+    </style>
+</head>
+<body>
+    <div class="dome-info-container">
+        <button class="btn btn-secondary" onclick="goBack()">กลับ</button>
+        
+        <!-- Dome Image Section - Static dome image -->
+        <div class="dome-image-section">
+            <div class="dome-image"></div>
+        </div>
+        
+        <h1 class="dome-name">{{ dome.name }}</h1>
+        
+        <div class="edit-form">
+            <div class="form-group">
+                <label for="domeNameInput">Dome Name:</label>
+                <input type="text" id="domeNameInput" value="{{ dome.name }}" placeholder="Enter dome name">
+            </div>
+            
+            <div class="button-group">
+                <button class="btn btn-primary" onclick="updateDomeName()">Update Name</button>
+                <button class="btn btn-secondary" onclick="viewGrid()">View Grid</button>
+                <button class="btn btn-danger" onclick="deleteDome()">Delete Dome</button>
+            </div>
+        </div>
+        
+        <!-- Enhanced Dome Information Grid -->
+        <div class="dome-info-grid">
+            <div class="info-card">
+                <h4>📍 Position</h4>
+                <p><strong>Grid Row:</strong> {{ dome.grid_row }}</p>
+                <p><strong>Grid Column:</strong> {{ dome.grid_col }}</p>
+            </div>
+            
+            <div class="info-card">
+                <h4>📏 Grid Size</h4>
+                <p><strong>Internal Grid:</strong> {{ dome.internal_rows }}×{{ dome.internal_cols }}</p>
+                <p><strong>Total Cells:</strong> {{ dome.internal_rows * dome.internal_cols }}</p>
+            </div>
+            
+            <div class="info-card">
+                <h4>🌳 Trees</h4>
+                <p class="tree-count">{{ dome.trees|length }}</p>
+                <p>trees planted</p>
+            </div>
+            
+            <div class="info-card">
+                <h4>📊 Occupancy</h4>
+                <p><strong>Available Spots:</strong> {{ (dome.internal_rows * dome.internal_cols) - dome.trees|length }}</p>
+                <p><strong>Occupancy Rate:</strong> {{ "%.1f"|format((dome.trees|length / (dome.internal_rows * dome.internal_cols) * 100) if (dome.internal_rows * dome.internal_cols) > 0 else 0) }}%</p>
+            </div>
+        </div>
+        
+        <!-- Traditional Stats Section -->
+        <div class="dome-stats">
+            <h3 style="color: #2e8b57; margin-bottom: 15px;">📋 Dome Summary</h3>
+            <p><strong>Dome Name:</strong> {{ dome.name }}</p>
+            <p><strong>Grid Position:</strong> Row {{ dome.grid_row }}, Column {{ dome.grid_col }}</p>
+            <p><strong>Internal Grid Size:</strong> {{ dome.internal_rows }}×{{ dome.internal_cols }}</p>
+            <p><strong>Total Trees:</strong> {{ dome.trees|length }} trees planted</p>
+            <p><strong>Available Space:</strong> {{ (dome.internal_rows * dome.internal_cols) - dome.trees|length }} empty spots</p>
+            {% if dome.trees|length > 0 %}
+                <p><strong>Tree Names:</strong> 
+                    {% for tree in dome.trees %}
+                        {{ tree.name }}{% if not loop.last %}, {% endif %}
+                    {% endfor %}
+                </p>
+            {% endif %}
+        </div>
+    </div>
+
+    <script>
+        const domeId = {{ dome.id }};
+        let nameChanged = false;
+        
+        function goBack() {
+            if (nameChanged) {
+                const currentName = document.querySelector('.dome-name').textContent;
+                localStorage.setItem('domeNameUpdated', 'true');
+                localStorage.setItem(`dome_${domeId}_name`, currentName);
+            }
+            window.location.href = '/';
+        }
+        
+        async function deleteDome() {
+            if (confirm('Are you sure you want to delete this dome? This will also delete all trees in this dome.')) {
+                try {
+                    const response = await fetch(`/delete_dome/${domeId}`, {
+                        method: 'DELETE'
+                    });
+                    
+                    if (response.ok) {
+                        alert('Dome deleted successfully');
+                        window.location.href = '/';
+                    } else {
+                        const error = await response.json();
+                        alert(error.error || 'Failed to delete dome');
+                    }
+                } catch (error) {
+                    console.error('Error deleting dome:', error);
+                    alert('Error deleting dome. Please try again.');
+                }
+            }
+        }
+        
+        function viewGrid() {
+            window.location.href = `/grid/${domeId}`;
+        }
+        
+        async function updateDomeName() {
+            const newName = document.getElementById('domeNameInput').value.trim();
+            if (!newName) {
+                alert('Please enter a name');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/update_dome_name/${domeId}`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({name: newName})
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    // Update the displayed name
+                    document.querySelector('.dome-name').textContent = newName;
+                    
+                    // Mark that name was changed
+                    nameChanged = true;
+                    
+                    // Store the updated name in localStorage for the main page
+                    localStorage.setItem('domeNameUpdated', 'true');
+                    localStorage.setItem(`dome_${domeId}_name`, newName);
+                    
+                    alert('Name updated successfully');
+                } else {
+                    alert(result.error || 'Failed to update name');
+                }
+            } catch (error) {
+                console.error('Error updating dome name:', error);
+                alert('Error updating dome name. Please try again.');
+            }
+        }
+        
+        // Add event listener for beforeunload to handle page refresh or close
+        window.addEventListener('beforeunload', function() {
+            if (nameChanged) {
+                const currentName = document.querySelector('.dome-name').textContent;
+                localStorage.setItem('domeNameUpdated', 'true');
+                localStorage.setItem(`dome_${domeId}_name`, currentName);
+            }
+        });
+    </script>
+</body>
+</html>

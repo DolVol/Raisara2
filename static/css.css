@@ -1,0 +1,199 @@
+/* Main dome card styling */
+.dome-card {
+    resize: both;
+    overflow: auto;
+    min-width: 300px;
+    min-height: 200px;
+    background: #f5f5f5;
+    border-radius: 10px;
+    padding: 15px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    margin: 10px;
+    transition: transform 0.3s ease;
+    cursor: move;
+    transition: transform 0.2s;
+}
+
+.dome-card.moving {
+    transform: scale(0.95);
+    opacity: 0.8;
+}
+
+/* Controls container */
+.dome-controls {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+    align-items: center;
+}
+
+/* Button base styles */
+.move-btn {
+    background: #007bff;
+    color: white;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+.delete-btn {
+    background: #dc3545;
+}
+
+/* Specific button styles */
+.move-btn {
+    background: #007bff;
+    color: white;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.delete-btn {
+    background: #dc3545;
+    color: white;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+/* Hover states */
+.move-btn:hover {
+    background: #0056b3;
+}
+
+.delete-btn:hover {
+    background: #c82333;
+}
+
+/* Vertical controls container */
+.vertical-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+/* Dome header styling */
+.dome-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+/* Table styling */
+.dome-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+    margin-top: 10px;
+}
+
+.dome-table td {
+    border: 1px solid #ddd;
+    height: 50px;
+    text-align: center;
+    cursor: pointer;
+    position: relative;
+}
+
+.dome-table td.empty {
+    background: #f9f9f9;
+}
+
+.dome-table td:hover {
+    background: #e6ffe6;
+}
+.controls {
+    display: flex;
+    gap: 5px;
+}
+.row-controls {
+    margin-top: 10px;
+    text-align: center;
+}
+
+
+.dome-card.dragging {
+    opacity: 0.5;
+    transform: scale(0.95);
+  
+}
+
+.dome-name-input {
+    font-size: 1.2em;
+    padding: 4px;
+    border: 2px solid #007bff;
+    border-radius: 4px;
+    outline: none; /* Remove outline */
+    box-shadow: none; /* Remove any shadow */
+}
+*:focus {
+   outline: none !important;
+}
+.dome-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+    margin-top: 20px;
+    grid-auto-flow: dense; /* Add this line */
+}
+
+.dome-card {
+    order: calc(var(--y) * 1000 + var(--x));
+    transition: all 0.3s ease;
+}
+.grid-container {
+  display: grid;
+  gap: 2px;
+  background: #f0f0f0;
+  padding: 5px;
+  border: 1px solid #ccc;
+}
+
+.grid-cell {
+  background: white;
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 50px;
+  min-height: 50px;
+  border: 1px solid #ddd;
+}
+body {
+    background: #f0f0f0;
+    font-family: Arial, sans-serif;
+    padding: 20px;
+}
+
+.btn {
+    background: #4CAF50;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+.btn:hover {
+    background: #45a049;
+}
+
+.dome {
+    width: 90%;
+    height: 90%;
+    background-image: url('/static/images/dome.jpg') !important;
+    background-color: #2e8b57; /* Fallback color if image fails to load */
+    background-size: cover;
+    background-position: center;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+}
