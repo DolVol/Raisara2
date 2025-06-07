@@ -1,5 +1,5 @@
-import os
 from dotenv import load_dotenv
+import os
 import qrcode
 import io
 from flask import current_app, make_response
@@ -27,17 +27,22 @@ mail = Mail()
 UPLOAD_FOLDER = 'uploads'
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 
-# ✅ FIXED: Database configuration for both development and production
+# ✅ FIXED: Database configuration with better error handling
 def get_database_url():
     """Get database URL based on environment"""
     # Check if we're on Render (production)
     if os.getenv('RENDER'):
         # Use PostgreSQL on Render
         database_url = os.getenv('DATABASE_URL')
-        if database_url and database_url.startswith('postgres://'):
-            # Fix for SQLAlchemy 1.4+ compatibility
-            database_url = database_url.replace('postgres://', 'postgresql://', 1)
-        return database_url
+        if database_url:
+            if database_url.startswith('postgres://'):
+                # Fix for SQLAlchemy 1.4+ compatibility
+                database_url = database_url.replace('postgres://', 'postgresql://', 1)
+            return database_url
+        else:
+            # Fallback to SQLite if DATABASE_URL is not set
+            print("⚠️ WARNING: DATABASE_URL not found on Render, falling back to SQLite")
+            return 'sqlite:///db.sqlite3'
     else:
         # Use SQLite for local development
         return 'sqlite:///db.sqlite3'
@@ -55,22 +60,31 @@ MAIL_PASSWORD = os.getenv('MAIL_PASSWORD')
 print(f"Environment: {'Production (Render)' if os.getenv('RENDER') else 'Development'}")
 print(f"Loaded MAIL_USERNAME: {MAIL_USERNAME}")
 print(f"Loaded SECRET_KEY: {SECRET_KEY[:20]}...")
-print(f"Database URL: {DATABASE_URL[:50]}..." if DATABASE_URL else "No DATABASE_URL")
+if DATABASE_URL:
+    print(f"Database URL: {DATABASE_URL[:50]}..." if len(DATABASE_URL) > 50 else f"Database URL: {DATABASE_URL}")
+else:
+    print("No DATABASE_URL")
+
+# ✅ FIXED: Initialize TreeLifeUpdater with proper error handling
+try:
+    life_updater = TreeLifeUpdater(DATABASE_URL)
+except Exception as e:
+    print(f"⚠️ Warning: Could not initialize TreeLifeUpdater: {e}")
+    life_updater = None
 
 # Initialize Flask-Login
 login_manager = LoginManager()
-life_updater = TreeLifeUpdater(DATABASE_URL)
 
 def create_app():
     app = Flask(__name__)
     
-    # ✅ FIXED: Production-ready configuration
+    # ✅ FIXED: Use the determined database URL
     app.config['SECRET_KEY'] = SECRET_KEY
     app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
     
-    # ✅ NEW: Production security settings
+    # ✅ Production security settings
     if os.getenv('RENDER'):
         # Production settings for Render
         app.config['REMEMBER_COOKIE_SECURE'] = True  # HTTPS only
@@ -117,7 +131,6 @@ def create_app():
     
     with app.app_context():
         try:
-            # ✅ NEW: Create tables and initialize defaults
             db.create_all()
             initialize_defaults()
             print("✅ Database initialized successfully")
@@ -165,11 +178,14 @@ def allowed_file(filename):
 def initialize_scheduler():
     """Initialize the daily life updater when the app starts"""
     global life_updater
-    try:
-        life_updater.start_scheduler()
-        print("Tree life updater scheduler initialized successfully")
-    except Exception as e:
-        print(f"Failed to initialize scheduler: {str(e)}")
+    if life_updater:
+        try:
+            life_updater.start_scheduler()
+            print("Tree life updater scheduler initialized successfully")
+        except Exception as e:
+            print(f"Failed to initialize scheduler: {str(e)}")
+    else:
+        print("⚠️ TreeLifeUpdater not available, skipping scheduler initialization")
 
 app = create_app()
 

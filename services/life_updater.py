@@ -1,62 +1,107 @@
-import logging
-from datetime import datetime
-from apscheduler.schedulers.background import BackgroundScheduler
-from apscheduler.triggers.cron import CronTrigger
 import sqlite3
-import atexit
+import psycopg2
+from psycopg2.extras import RealDictCursor
+from apscheduler.schedulers.background import BackgroundScheduler
+from datetime import datetime, time
+import os
+import logging
 
-# Configure logging
+# Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class TreeLifeUpdater:
-    def __init__(self, database_url):
-        """Initialize the tree life updater service"""
-        self.database_url = database_url.replace('sqlite:///', '')  # Remove sqlite:/// prefix
+    def __init__(self, database_url=None):
+        """Initialize the TreeLifeUpdater with database URL"""
+        self.database_url = database_url
         self.scheduler = BackgroundScheduler()
+        self.is_postgresql = False
         
-    def update_all_trees_life_days(self):
-        """Update life days for all trees by incrementing by 1"""
+        # Determine database type
+        if database_url:
+            if database_url.startswith('postgresql://') or database_url.startswith('postgres://'):
+                self.is_postgresql = True
+                # Fix postgres:// to postgresql:// for psycopg2
+                if database_url.startswith('postgres://'):
+                    self.database_url = database_url.replace('postgres://', 'postgresql://', 1)
+            elif database_url.startswith('sqlite:///'):
+                self.is_postgresql = False
+                self.database_url = database_url.replace('sqlite:///', '')
+            else:
+                logger.warning(f"Unknown database URL format: {database_url}")
+                self.database_url = 'db.sqlite3'  # Fallback to SQLite
+        else:
+            # Fallback to SQLite if no URL provided
+            self.database_url = 'db.sqlite3'
+            self.is_postgresql = False
+            logger.warning("No database URL provided, using SQLite fallback")
+        
+        logger.info(f"TreeLifeUpdater initialized with {'PostgreSQL' if self.is_postgresql else 'SQLite'}")
+
+    def get_connection(self):
+        """Get database connection based on database type"""
         try:
-            conn = sqlite3.connect(self.database_url)
+            if self.is_postgresql:
+                return psycopg2.connect(self.database_url)
+            else:
+                return sqlite3.connect(self.database_url)
+        except Exception as e:
+            logger.error(f"Failed to connect to database: {e}")
+            return None
+
+    def update_tree_life_days(self):
+        """Update life_days for all trees by incrementing by 1"""
+        try:
+            conn = self.get_connection()
+            if not conn:
+                logger.error("Could not establish database connection")
+                return 0
+            
             cursor = conn.cursor()
             
-            # Ensure life_days column exists
-            try:
-                cursor.execute('ALTER TABLE tree ADD COLUMN life_days INTEGER DEFAULT 0')
-                cursor.execute('ALTER TABLE tree ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP')
-                conn.commit()
-                logger.info("Added life_days and updated_at columns to tree table")
-            except:
-                pass  # Columns already exist
+            if self.is_postgresql:
+                # PostgreSQL syntax
+                cursor.execute("""
+                    UPDATE tree 
+                    SET life_days = COALESCE(life_days, 0) + 1
+                    WHERE life_days IS NOT NULL OR life_days IS NULL
+                """)
+                affected_rows = cursor.rowcount
+            else:
+                # SQLite syntax
+                cursor.execute("""
+                    UPDATE tree 
+                    SET life_days = COALESCE(life_days, 0) + 1
+                """)
+                affected_rows = cursor.rowcount
             
-            # Update all trees' life_days by adding 1
-            cursor.execute('''
-                UPDATE tree 
-                SET life_days = COALESCE(life_days, 0) + 1,
-                    updated_at = ?
-                WHERE id IS NOT NULL
-            ''', (datetime.now(),))
-            
-            affected_rows = cursor.rowcount
             conn.commit()
             conn.close()
             
-            logger.info(f"Successfully updated life days for {affected_rows} trees")
+            logger.info(f"Updated life_days for {affected_rows} trees")
             return affected_rows
             
         except Exception as e:
-            logger.error(f"Error updating tree life days: {str(e)}")
+            logger.error(f"Error updating tree life days: {e}")
+            if conn:
+                conn.close()
             return 0
-    
+
+    def run_manual_update(self):
+        """Manually trigger the life days update"""
+        logger.info("Manual tree life days update triggered")
+        return self.update_tree_life_days()
+
     def start_scheduler(self):
-        """Start the daily scheduler"""
+        """Start the background scheduler for daily updates"""
         try:
-            # Schedule daily update at midnight (00:00)
+            # Schedule daily update at midnight
             self.scheduler.add_job(
-                func=self.update_all_trees_life_days,
-                trigger=CronTrigger(hour=0, minute=0),  # Run at midnight every day
-                id='daily_tree_life_update',
+                func=self.update_tree_life_days,
+                trigger="cron",
+                hour=0,
+                minute=0,
+                id='daily_tree_update',
                 name='Daily Tree Life Days Update',
                 replace_existing=True
             )
@@ -64,39 +109,27 @@ class TreeLifeUpdater:
             self.scheduler.start()
             logger.info("Tree life updater scheduler started successfully")
             
-            # Ensure scheduler shuts down when the application exits
-            atexit.register(lambda: self.scheduler.shutdown())
-            
         except Exception as e:
-            logger.error(f"Error starting scheduler: {str(e)}")
-    
+            logger.error(f"Failed to start scheduler: {e}")
+
     def stop_scheduler(self):
-        """Stop the scheduler"""
-        if self.scheduler.running:
-            self.scheduler.shutdown()
-            logger.info("Tree life updater scheduler stopped")
-    
-    def run_manual_update(self):
-        """Manually trigger the life days update (for testing)"""
-        logger.info("Running manual tree life days update...")
-        return self.update_all_trees_life_days()
-    
+        """Stop the background scheduler"""
+        try:
+            if self.scheduler.running:
+                self.scheduler.shutdown()
+                logger.info("Tree life updater scheduler stopped")
+        except Exception as e:
+            logger.error(f"Error stopping scheduler: {e}")
+
     def get_scheduler_status(self):
-        """Get current scheduler status"""
-        is_running = self.scheduler.running if self.scheduler else False
-        jobs = []
-        
-        if is_running:
-            jobs = [
-                {
-                    "id": job.id,
-                    "name": job.name,
-                    "next_run": job.next_run_time.isoformat() if job.next_run_time else None
-                }
-                for job in self.scheduler.get_jobs()
-            ]
-        
-        return {
-            "scheduler_running": is_running,
-            "jobs": jobs
-        }
+        """Get the current status of the scheduler"""
+        try:
+            return {
+                "running": self.scheduler.running if self.scheduler else False,
+                "jobs": len(self.scheduler.get_jobs()) if self.scheduler else 0,
+                "database_type": "PostgreSQL" if self.is_postgresql else "SQLite",
+                "database_url": self.database_url[:50] + "..." if len(self.database_url) > 50 else self.database_url
+            }
+        except Exception as e:
+            logger.error(f"Error getting scheduler status: {e}")
+            return {"error": str(e)}
