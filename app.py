@@ -5,12 +5,13 @@ import io
 from flask import current_app, make_response
 import base64
 from PIL import Image
+
 # Load environment variables from .env file
 load_dotenv()
 
 # Now import other modules
-from flask import Flask, render_template, request, jsonify, send_from_directory,send_file
-from flask_login import LoginManager, login_user, logout_user, login_required, current_user,UserMixin
+from flask import Flask, render_template, request, jsonify, send_from_directory, send_file
+from flask_login import LoginManager, login_user, logout_user, login_required, current_user, UserMixin
 from models import db, Dome, Row, Tree, GridSettings, User
 from werkzeug.security import generate_password_hash, check_password_hash
 import secrets
@@ -19,46 +20,55 @@ from flask_migrate import Migrate
 from werkzeug.utils import secure_filename
 from services.life_updater import TreeLifeUpdater
 from flask_mail import Mail, Message
+
 mail = Mail()
 
 # Configuration constants
-
-SQLALCHEMY_DATABASE_URI = 'sqlite:///db.sqlite3'
-SQLALCHEMY_TRACK_MODIFICATIONS = False
 UPLOAD_FOLDER = 'uploads'
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
-# Initialize the tree life updater
-DATABASE_URL = SQLALCHEMY_DATABASE_URI
+
+# ✅ FIXED: Use root directory for database (where your data is)
+DATABASE_URL = 'sqlite:///db.sqlite3'
+
 # Configuration
 SECRET_KEY = os.getenv('SECRET_KEY', 'fallback-secret-key')
 MAIL_SERVER = 'smtp.gmail.com'
 MAIL_PORT = 587
 MAIL_USE_TLS = True
 MAIL_USERNAME = os.getenv('MAIL_USERNAME')
-MAIL_PASSWORD = os.getenv('MAIL_PASSWORD') 
+MAIL_PASSWORD = os.getenv('MAIL_PASSWORD')
+
 print(f"Loaded MAIL_USERNAME: {MAIL_USERNAME}")
 print(f"Loaded SECRET_KEY: {SECRET_KEY[:20]}...")
+print(f"Database URL: {DATABASE_URL}")
 
 # Initialize Flask-Login
 login_manager = LoginManager()
 life_updater = TreeLifeUpdater(DATABASE_URL)
+
 def create_app():
     app = Flask(__name__)
     
-    # Use the loaded configuration
+    # ✅ FIXED: Use consistent database configuration
     app.config['SECRET_KEY'] = SECRET_KEY
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///db.sqlite3'
+    app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
-    app.config['MAIL_SERVER'] = 'smtp.gmail.com'
-    app.config['MAIL_PORT'] = 587
-    app.config['MAIL_USE_TLS'] = True
-    app.config['MAIL_USERNAME'] = os.getenv('MAIL_USERNAME')
-    app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD')
-    app.config['MAIL_DEFAULT_SENDER'] = os.getenv('MAIL_USERNAME')
+    
+    # Mail configuration
+    app.config['MAIL_SERVER'] = MAIL_SERVER
+    app.config['MAIL_PORT'] = MAIL_PORT
+    app.config['MAIL_USE_TLS'] = MAIL_USE_TLS
+    app.config['MAIL_USERNAME'] = MAIL_USERNAME
+    app.config['MAIL_PASSWORD'] = MAIL_PASSWORD
+    app.config['MAIL_DEFAULT_SENDER'] = MAIL_USERNAME
+    
+    # Upload configuration
     app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-    # ... rest of your code ...
+    
+    # Initialize mail
     mail.init_app(app)
+    
     # Initialize extensions
     db.init_app(app)
     Migrate(app, db)
@@ -66,13 +76,17 @@ def create_app():
     login_manager.login_view = 'login'
     login_manager.login_message = 'Please log in to access this page.'
     
-    # Create uploads directory
-    os.makedirs(app.config.get('UPLOAD_FOLDER', 'uploads'), exist_ok=True)
+    # ✅ FIXED: Create necessary directories
+    os.makedirs(UPLOAD_FOLDER, exist_ok=True)
     
     with app.app_context():
-        db.create_all()
-        initialize_defaults()
-        
+        try:
+            db.create_all()
+            initialize_defaults()
+            print("✅ Database initialized successfully")
+        except Exception as e:
+            print(f"❌ Database initialization error: {e}")
+            
     return app
 
 @login_manager.user_loader
@@ -86,7 +100,7 @@ def send_reset_email(email, token, username):
         msg = Message(
             subject="Password Reset Request",
             recipients=[email],
-            sender=os.getenv('MAIL_USERNAME'),  # ← ADD THIS LINE
+            sender=os.getenv('MAIL_USERNAME'),
             body=f"""Password reset requested for: {email} ({username})
 Reset URL: {reset_url}
 
@@ -99,6 +113,7 @@ If you did not request this, please ignore this email.
     except Exception as e:
         print(f"Failed to send reset email: {e}")
         raise
+
 def initialize_defaults():
     """Initialize default grid settings"""
     if not GridSettings.query.first():
@@ -109,6 +124,7 @@ def initialize_defaults():
 def allowed_file(filename):
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
 def initialize_scheduler():
     """Initialize the daily life updater when the app starts"""
     global life_updater
@@ -117,9 +133,12 @@ def initialize_scheduler():
         print("Tree life updater scheduler initialized successfully")
     except Exception as e:
         print(f"Failed to initialize scheduler: {str(e)}")
+
 app = create_app()
+
 with app.app_context():
     initialize_scheduler()
+
 # ============= AUTHENTICATION ROUTES =============
 
 @app.route('/register', methods=['GET', 'POST'])
@@ -180,6 +199,23 @@ def register():
     except Exception as e:
         print(f"Register route error: {e}")
         return jsonify({'success': False, 'error': 'Registration page error'}), 500
+
+@app.route('/debug/database')
+def debug_database():
+    try:
+        user_count = User.query.count()
+        dome_count = Dome.query.count()
+        tree_count = Tree.query.count()
+        
+        return jsonify({
+            'database_uri': app.config['SQLALCHEMY_DATABASE_URI'],
+            'users': user_count,
+            'domes': dome_count,
+            'trees': tree_count,
+            'current_user': current_user.username if current_user.is_authenticated else 'Not logged in'
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)})
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -293,7 +329,6 @@ def reset_password():
     
     return render_template('auth/reset_password.html', token=token)
 
-
 @app.route('/profile')
 @login_required
 def profile():
@@ -321,7 +356,7 @@ def change_password():
     db.session.commit()
     
     return jsonify({'success': True, 'message': 'Password changed successfully'})
-# ============= MAIN ROUTES =============
+
 # ============= LIFE DAY MANAGEMENT ROUTES =============
 
 @app.route('/admin/update_tree_life', methods=['POST'])
@@ -344,6 +379,9 @@ def scheduler_status():
         return jsonify(status)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+# ============= MAIN ROUTES =============
+
 @app.route('/')
 @login_required
 def index():
@@ -354,7 +392,7 @@ def index():
         db.session.commit()
     
     # Get only current user's domes
-    domes = Dome.query.filter_by(user_id=current_user.id).order_by(Dome.grid_row, Dome.grid_col).all()  # <-- FIX THIS
+    domes = Dome.query.filter_by(user_id=current_user.id).order_by(Dome.grid_row, Dome.grid_col).all()
     
     return render_template('index.html', 
                          grid_rows=grid.rows,
@@ -362,24 +400,23 @@ def index():
                          domes=domes,
                          user=current_user)
 
-# 3. FIX DOME_INFO ROUTE
 @app.route('/dome_info/<int:dome_id>', methods=['GET'])
 @login_required
 def dome_info(dome_id):
-    dome = Dome.query.filter_by(id=dome_id, user_id=current_user.id).first()  # <-- FIX THIS
+    dome = Dome.query.filter_by(id=dome_id, user_id=current_user.id).first()
     if not dome:
         return jsonify(success=False, error="Dome not found"), 404
     return render_template('dome_info.html', dome=dome)
 
 @app.route('/grid/<int:dome_id>')
-@login_required  # <-- ADD THIS
+@login_required
 def view_grid(dome_id):
-    dome = Dome.query.filter_by(id=dome_id, user_id=current_user.id).first()  # <-- FIX THIS
+    dome = Dome.query.filter_by(id=dome_id, user_id=current_user.id).first()
     if not dome:
         return jsonify(success=False, error="Dome not found"), 404
     
     # Get only current user's trees for this dome
-    trees_query = Tree.query.filter_by(dome_id=dome_id, user_id=current_user.id).all()  # <-- FIX THIS
+    trees_query = Tree.query.filter_by(dome_id=dome_id, user_id=current_user.id).all()
     
     # Convert trees to dictionaries for JSON serialization
     trees = []
@@ -430,10 +467,6 @@ def tree_info(tree_id):
     
     return response
 
-# ============= FILE SERVING =============
-
-
-
 # ============= DOME MANAGEMENT =============
 
 @app.route('/add_dome', methods=['POST'])
@@ -460,7 +493,7 @@ def add_dome():
         internal_cols=10,
         grid_row=grid_row,
         grid_col=grid_col,
-        user_id=current_user.id  # <-- FIXED: added comma and user_id
+        user_id=current_user.id
     )
     
     db.session.add(dome)
@@ -476,9 +509,9 @@ def add_dome():
     })
 
 @app.route('/update_dome_name/<int:dome_id>', methods=['POST'])
-@login_required  # <-- ADD THIS
+@login_required
 def update_dome_name(dome_id):
-    dome = Dome.query.filter_by(id=dome_id, user_id=current_user.id).first()  # <-- FIX THIS
+    dome = Dome.query.filter_by(id=dome_id, user_id=current_user.id).first()
     if not dome:
         return jsonify(success=False, error="Dome not found"), 404
     
@@ -489,9 +522,9 @@ def update_dome_name(dome_id):
     return jsonify(success=True)
 
 @app.route('/delete_dome/<int:dome_id>', methods=['DELETE'])
-@login_required  # <-- ADD THIS
+@login_required
 def delete_dome(dome_id):
-    dome = Dome.query.filter_by(id=dome_id, user_id=current_user.id).first()  # <-- FIX THIS
+    dome = Dome.query.filter_by(id=dome_id, user_id=current_user.id).first()
     if not dome:
         return jsonify(success=False, error="Dome not found"), 404
     
@@ -596,10 +629,10 @@ def move_dome(dome_id):
         })
 
 @app.route('/swap_domes/<int:dome_id1>/<int:dome_id2>', methods=['POST'])
-@login_required  # <-- ADD THIS
+@login_required
 def swap_domes(dome_id1, dome_id2):
-    dome1 = Dome.query.filter_by(id=dome_id1, user_id=current_user.id).first()  # <-- FIX THIS
-    dome2 = Dome.query.filter_by(id=dome_id2, user_id=current_user.id).first()  # <-- FIX THIS
+    dome1 = Dome.query.filter_by(id=dome_id1, user_id=current_user.id).first()
+    dome2 = Dome.query.filter_by(id=dome_id2, user_id=current_user.id).first()
     
     if not dome1 or not dome2:
         return jsonify(success=False, error="Dome not found"), 404
@@ -660,98 +693,6 @@ def update_dome_grid(dome_id):
         return jsonify({'error': f'Server error: {str(e)}'}), 500
 
 # ============= IMAGE UPLOAD ROUTES =============
-
-@app.route('/upload_dome_image/<int:dome_id>', methods=['POST'])
-@login_required 
-def upload_dome_image(dome_id):
-    try:
-        print(f"📤 Uploading image for dome {dome_id}")
-        
-        dome = db.session.get(Dome, dome_id)
-        if not dome:
-            return jsonify({'success': False, 'error': 'Dome not found'}), 404
-        
-        if 'image' not in request.files:
-            return jsonify({'success': False, 'error': 'No image file provided'}), 400
-        
-        file = request.files['image']
-        if file.filename == '':
-            return jsonify({'success': False, 'error': 'No file selected'}), 400
-        
-        if file and allowed_file(file.filename):
-            # Create secure filename with timestamp
-            import time
-            timestamp = int(time.time())
-            filename = secure_filename(file.filename)
-            name, ext = os.path.splitext(filename)
-            filename = f"dome_{dome_id}_{timestamp}_{name}{ext}"
-            
-            # Ensure uploads directory exists
-            os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-            
-            # Save file
-            filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-            file.save(filepath)
-            print(f"💾 File saved to: {filepath}")
-            
-            # Update dome image URL using raw SQL to ensure it works
-            image_url = f"/uploads/{filename}"
-            
-            try:
-                # First try SQLAlchemy way
-                if hasattr(dome, 'image_url'):
-                    dome.image_url = image_url
-                    db.session.commit()
-                    print("✅ Updated dome image_url via SQLAlchemy")
-                else:
-                    # Fallback to raw SQL
-                    import sqlite3
-                    conn = sqlite3.connect('db.sqlite3')
-                    cursor = conn.cursor()
-                    
-                    # Ensure column exists
-                    try:
-                        cursor.execute('ALTER TABLE dome ADD COLUMN image_url VARCHAR(200)')
-                        conn.commit()
-                        print("✅ Added image_url column to dome table")
-                    except:
-                        pass  # Column already exists
-                    
-                    # Update the image URL
-                    cursor.execute('UPDATE dome SET image_url = ? WHERE id = ?', (image_url, dome_id))
-                    conn.commit()
-                    conn.close()
-                    print("✅ Updated dome image_url via raw SQL")
-                    
-                    # Refresh SQLAlchemy session
-                    db.session.expire(dome)
-                    
-            except Exception as e:
-                print(f"⚠️ Error updating database: {e}")
-                # Even if database update fails, file is saved, so return success
-            
-            # Verify the file exists
-            if os.path.exists(filepath):
-                file_size = os.path.getsize(filepath)
-                print(f"✅ File verified: {filename} ({file_size} bytes)")
-                
-                return jsonify({
-                    'success': True,
-                    'image_url': image_url,
-                    'filename': filename,
-                    'file_size': file_size,
-                    'message': 'Image uploaded successfully'
-                })
-            else:
-                return jsonify({'success': False, 'error': 'File save failed'}), 500
-                
-        else:
-            return jsonify({'success': False, 'error': 'Invalid file type. Please use PNG, JPG, JPEG, or GIF'}), 400
-            
-    except Exception as e:
-        print(f"❌ Upload error: {str(e)}")
-        db.session.rollback()
-        return jsonify({'success': False, 'error': f'Upload failed: {str(e)}'}), 500
 
 @app.route('/upload_tree_image/<int:tree_id>', methods=['POST'])
 @login_required
@@ -826,12 +767,13 @@ def upload_tree_image(tree_id):
             })
                 
         else:
-            return jsonify({'success': False, 'error': 'Invalid file type. Please use PNG, JPG, JPEG, or GIF'}), 400
-            
+                return jsonify({'success': False, 'error': 'Invalid file type. Please use PNG, JPG, JPEG, or GIF'}), 400
+                
     except Exception as e:
         print(f"❌ Upload error: {str(e)}")
         db.session.rollback()
         return jsonify({'success': False, 'error': f'Upload failed: {str(e)}'}), 500
+
 @app.route('/remove_tree_image/<int:tree_id>', methods=['POST'])
 @login_required
 def remove_tree_image(tree_id):
@@ -845,7 +787,8 @@ def remove_tree_image(tree_id):
         # Remove image file if exists
         if hasattr(tree, 'image_url') and tree.image_url:
             filename = tree.image_url.split('/')[-1]
-            filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            upload_folder = current_app.config.get('UPLOAD_FOLDER', 'uploads')
+            filepath = os.path.join(upload_folder, filename)
             if os.path.exists(filepath):
                 os.remove(filepath)
                 print(f"🗑️ Removed image file: {filepath}")
@@ -864,7 +807,120 @@ def remove_tree_image(tree_id):
         print(f"❌ Remove error: {str(e)}")
         db.session.rollback()
         return jsonify({'success': False, 'error': f'Remove failed: {str(e)}'}), 500
-# ============= QR CODE GENERATION =============
+
+@app.route('/upload_dome_image/<int:dome_id>', methods=['POST'])
+@login_required 
+def upload_dome_image(dome_id):
+    try:
+        print(f"📤 Uploading image for dome {dome_id}")
+        
+        dome = Dome.query.filter_by(id=dome_id, user_id=current_user.id).first()
+        if not dome:
+            return jsonify({'success': False, 'error': 'Dome not found'}), 404
+        
+        if 'image' not in request.files:
+            return jsonify({'success': False, 'error': 'No image file provided'}), 400
+        
+        file = request.files['image']
+        if file.filename == '':
+            return jsonify({'success': False, 'error': 'No file selected'}), 400
+        
+        if file and allowed_file(file.filename):
+            # Create secure filename with timestamp
+            import time
+            timestamp = int(time.time())
+            filename = secure_filename(file.filename)
+            name, ext = os.path.splitext(filename)
+            filename = f"dome_{dome_id}_{timestamp}_{name}{ext}"
+            
+            # Get upload folder from config or use default
+            upload_folder = current_app.config.get('UPLOAD_FOLDER', 'uploads')
+            
+            # Ensure uploads directory exists
+            os.makedirs(upload_folder, exist_ok=True)
+            
+            # Save file
+            filepath = os.path.join(upload_folder, filename)
+            file.save(filepath)
+            print(f"💾 File saved to: {filepath}")
+            
+            # Update dome image URL
+            image_url = f"/uploads/{filename}"
+            
+            try:
+                # Remove old image file if exists
+                if hasattr(dome, 'image_url') and dome.image_url:
+                    old_filename = dome.image_url.split('/')[-1]
+                    old_filepath = os.path.join(upload_folder, old_filename)
+                    if os.path.exists(old_filepath):
+                        os.remove(old_filepath)
+                        print(f"🗑️ Removed old image: {old_filepath}")
+                
+                dome.image_url = image_url
+                db.session.commit()
+                print("✅ Updated dome image_url")
+                    
+            except Exception as e:
+                print(f"⚠️ Error updating database: {e}")
+                # Fallback to raw SQL if needed
+                try:
+                    db.session.execute(
+                        'UPDATE dome SET image_url = :image_url WHERE id = :dome_id',
+                        {'image_url': image_url, 'dome_id': dome_id}
+                    )
+                    db.session.commit()
+                    print("✅ Updated dome image_url via raw SQL")
+                except Exception as sql_error:
+                    print(f"❌ SQL update failed: {sql_error}")
+            
+            return jsonify({
+                'success': True,
+                'image_url': image_url,
+                'filename': filename,
+                'message': 'Dome image uploaded successfully'
+            })
+                
+        else:
+            return jsonify({'success': False, 'error': 'Invalid file type. Please use PNG, JPG, JPEG, or GIF'}), 400
+            
+    except Exception as e:
+        print(f"❌ Upload error: {str(e)}")
+        db.session.rollback()
+        return jsonify({'success': False, 'error': f'Upload failed: {str(e)}'}), 500
+
+@app.route('/remove_dome_image/<int:dome_id>', methods=['POST'])
+@login_required
+def remove_dome_image(dome_id):
+    try:
+        print(f"🗑️ Removing image for dome {dome_id}")
+        
+        dome = Dome.query.filter_by(id=dome_id, user_id=current_user.id).first()
+        if not dome:
+            return jsonify({'success': False, 'error': 'Dome not found'}), 404
+        
+        # Remove image file if exists
+        if hasattr(dome, 'image_url') and dome.image_url:
+            filename = dome.image_url.split('/')[-1]
+            upload_folder = current_app.config.get('UPLOAD_FOLDER', 'uploads')
+            filepath = os.path.join(upload_folder, filename)
+            if os.path.exists(filepath):
+                os.remove(filepath)
+                print(f"🗑️ Removed image file: {filepath}")
+            
+            # Clear image URL from database
+            dome.image_url = None
+            db.session.commit()
+            print("✅ Cleared dome image_url")
+        
+        return jsonify({
+            'success': True,
+            'message': 'Dome image removed successfully'
+        })
+        
+    except Exception as e:
+        print(f"❌ Remove error: {str(e)}")
+        db.session.rollback()
+        return jsonify({'success': False, 'error': f'Remove failed: {str(e)}'}), 500
 
 @app.route('/uploads/<filename>')
 def uploaded_file(filename):
@@ -883,7 +939,8 @@ def uploaded_file(filename):
         print(f"❌ Error serving file {filename}: {e}")
         return jsonify({'error': 'File not found'}), 404
 
-# Add QR code generation route
+# ============= QR CODE ROUTES =============
+
 @app.route('/generate_qr/<int:tree_id>', methods=['POST'])
 @login_required
 def generate_qr(tree_id):
@@ -899,10 +956,6 @@ def generate_qr(tree_id):
             tree_url = f"{request.url_root}tree_info/{tree_id}"
         
         # Generate QR code
-        import qrcode
-        import io
-        import base64
-        
         qr = qrcode.QRCode(
             version=1,
             error_correction=qrcode.constants.ERROR_CORRECT_L,
@@ -930,304 +983,6 @@ def generate_qr(tree_id):
     except Exception as e:
         print(f"Error generating QR code: {e}")
         return jsonify({'error': f'Failed to generate QR code: {str(e)}'}), 500
-    
-@app.route('/qr_image/<int:tree_id>')
-@login_required
-def qr_image(tree_id):
-    """Serve QR code as PNG image"""
-    try:
-        # Get tree and check ownership
-        tree = Tree.query.filter_by(id=tree_id, user_id=current_user.id).first()
-        if not tree:
-            return jsonify({'error': 'Tree not found'}), 404
-        
-        # Construct the tree info URL
-        tree_url = f"{request.url_root}tree_info/{tree_id}"
-        
-        # Generate QR code
-        qr = qrcode.QRCode(
-            version=1,
-            error_correction=qrcode.constants.ERROR_CORRECT_L,
-            box_size=10,
-            border=4,
-        )
-        qr.add_data(tree_url)
-        qr.make(fit=True)
-        
-        # Create QR code image
-        qr_img = qr.make_image(fill_color="black", back_color="white")
-        
-        # Convert to bytes
-        img_buffer = io.BytesIO()
-        qr_img.save(img_buffer, format='PNG')
-        img_buffer.seek(0)
-        
-        return send_file(
-            img_buffer,
-            mimetype='image/png',
-            as_attachment=False,
-            download_name=f'tree_{tree_id}_qr.png'
-        )
-        
-    except Exception as e:
-        print(f"Error serving QR image: {e}")
-        return jsonify({'error': 'Failed to generate QR image'}), 500
-# ============= TREE MANAGEMENT =============
-
-@app.route('/add_tree/<int:dome_id>/<int:row>/<int:col>', methods=['POST'])
-@login_required  # <-- ADD THIS
-def add_tree_to_grid(dome_id, row, col):
-    try:
-        data = request.get_json()
-        if not data:
-            return jsonify({'error': 'No data provided'}), 400
-            
-        name = data.get('name', '').strip()
-        if not name:
-            return jsonify({'error': 'Tree name is required'}), 400
-
-        # Get the dome and check ownership
-        dome = Dome.query.filter_by(id=dome_id, user_id=current_user.id).first()  # <-- FIX THIS
-        if not dome:
-            return jsonify({'error': 'Dome not found'}), 404
-
-        # Validate position bounds
-        if row < 0 or row >= dome.internal_rows or col < 0 or col >= dome.internal_cols:
-            error_msg = f'Position out of bounds. Valid range: 0-{dome.internal_rows-1}, 0-{dome.internal_cols-1}'
-            return jsonify({'error': error_msg}), 400
-
-        # Check if position is already occupied (filter by user)
-        existing_tree = db.session.query(Tree).filter(
-            Tree.dome_id == dome_id,
-            Tree.row == row,
-            Tree.col == col,
-            Tree.user_id == current_user.id  # <-- ADD THIS
-        ).first()
-        
-        if existing_tree:
-            return jsonify({'error': 'Position already occupied by another tree'}), 400
-
-        # Create new tree with user_id
-        tree = Tree(
-            name=name,
-            dome_id=dome_id,
-            row=row,
-            col=col,
-            user_id=current_user.id  # <-- FIX SYNTAX ERROR (was missing comma)
-        )
-
-        db.session.add(tree)
-        db.session.commit()
-        
-        return jsonify({
-            'id': tree.id,
-            'name': tree.name,
-            'row': tree.row,
-            'col': tree.col,
-            'dome_id': tree.dome_id
-        }), 200
-
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({'error': f'Server error: {str(e)}'}), 500
-@app.route('/api/tree/<int:tree_id>')
-@login_required
-def get_single_tree_api(tree_id):
-    try:
-        tree = Tree.query.filter_by(id=tree_id, user_id=current_user.id).first()
-        if not tree:
-            return jsonify({'success': False, 'error': 'Tree not found'}), 404
-        
-        # Force refresh from database
-        db.session.refresh(tree)
-        
-        tree_data = {
-            'id': tree.id,
-            'name': tree.name,
-            'row': tree.row,
-            'col': tree.col,
-            'dome_id': tree.dome_id
-        }
-        
-        # Include image URL if available
-        if hasattr(tree, 'image_url') and tree.image_url:
-            tree_data['image_url'] = tree.image_url
-            print(f"✅ API returning image_url: {tree.image_url}")
-        else:
-            print(f"⚠️ No image_url found for tree {tree_id}")
-        
-        # Include other attributes if available
-        if hasattr(tree, 'info') and tree.info:
-            tree_data['info'] = tree.info
-        if hasattr(tree, 'life_days') and tree.life_days is not None:
-            tree_data['life_days'] = tree.life_days
-            
-        return jsonify({
-            'success': True,
-            'tree': tree_data
-        })
-        
-    except Exception as e:
-        print(f"❌ Error getting tree: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
-@app.route('/update_tree/<int:tree_id>', methods=['POST'])
-@login_required  # <-- ADD THIS
-def update_tree(tree_id):
-    tree = Tree.query.filter_by(id=tree_id, user_id=current_user.id).first()  # <-- FIX THIS
-    if not tree:
-        return jsonify(success=False, error="Tree not found"), 404
-    
-    data = request.json
-    
-    # Update tree properties
-    if 'name' in data:
-        tree.name = data['name']
-    if 'info' in data and hasattr(tree, 'info'):
-        tree.info = data['info']
-    if 'life_days' in data and hasattr(tree, 'life_days'):
-        tree.life_days = data['life_days']
-    
-    try:
-        db.session.commit()
-        return jsonify(success=True)
-    except Exception as e:
-        db.session.rollback()
-        return jsonify(success=False, error=str(e)), 500
-
-@app.route('/delete_tree/<int:tree_id>', methods=['DELETE'])
-@login_required  # <-- ADD THIS
-def delete_tree(tree_id):
-    tree = Tree.query.filter_by(id=tree_id, user_id=current_user.id).first()  # <-- FIX THIS
-    if not tree:
-        return jsonify(success=False, error="Tree not found"), 404
-    
-    try:
-        db.session.delete(tree)
-        db.session.commit()
-        return jsonify(success=True)
-    except Exception as e:
-        db.session.rollback()
-        return jsonify(success=False, error=str(e)), 500
-@app.route('/debug/tree/<int:tree_id>')
-@login_required
-def debug_tree(tree_id):
-    tree = Tree.query.filter_by(id=tree_id, user_id=current_user.id).first()
-    if not tree:
-        return jsonify({'error': 'Tree not found'}), 404
-    
-    return jsonify({
-        'tree_id': tree_id,
-        'name': tree.name,
-        'has_image_url_attr': hasattr(tree, 'image_url'),
-        'image_url_value': getattr(tree, 'image_url', 'Attribute not found'),
-        'all_columns': [column.name for column in tree.__table__.columns]
-    })
-@app.route('/move_tree/<int:tree_id>', methods=['POST'])
-@login_required  # <-- ADD THIS
-def move_tree(tree_id):
-    tree = Tree.query.filter_by(id=tree_id, user_id=current_user.id).first()  # <-- FIX THIS
-    if not tree:
-        return jsonify(success=False, error="Tree not found"), 404
-    
-    data = request.json
-    new_row = data.get('new_row')
-    new_col = data.get('new_col')
-    
-    # Convert to integers
-    try:
-        new_row = int(new_row)
-        new_col = int(new_col)
-    except (ValueError, TypeError):
-        return jsonify(success=False, error="Invalid position data"), 400
-    
-    # Validate new position
-    if (new_row < 0 or new_row >= tree.dome.internal_rows or 
-        new_col < 0 or new_col >= tree.dome.internal_cols):
-        return jsonify(success=False, error="Position out of bounds"), 400
-    
-    # Check for existing tree (filter by user)
-    existing = db.session.query(Tree).filter(
-        Tree.id != tree_id,
-        Tree.dome_id == tree.dome_id,
-        Tree.row == new_row,
-        Tree.col == new_col,
-        Tree.user_id == current_user.id  # <-- ADD THIS
-    ).first()
-    
-    if existing:
-        return jsonify(success=False, error="Position occupied"), 400
-    
-    # Update position
-    tree.row = new_row
-    tree.col = new_col
-    db.session.commit()
-    
-    return jsonify(success=True)
-
-@app.route('/swap_trees/<int:tree1_id>/<int:tree2_id>', methods=['POST'])
-@login_required  # <-- ADD THIS
-def swap_trees(tree1_id, tree2_id):
-    try:
-        tree1 = Tree.query.filter_by(id=tree1_id, user_id=current_user.id).first()  # <-- FIX THIS
-        tree2 = Tree.query.filter_by(id=tree2_id, user_id=current_user.id).first()  # <-- FIX THIS
-        
-        if not tree1 or not tree2:
-            return jsonify({'error': 'One or both trees not found'}), 404
-        
-        if tree1.dome_id != tree2.dome_id:
-            return jsonify({'error': 'Trees must be in the same dome'}), 400
-        
-        # Swap positions
-        tree1.row, tree2.row = tree2.row, tree1.row
-        tree1.col, tree2.col = tree2.col, tree1.col
-        
-        db.session.commit()
-        
-        return jsonify({
-            'success': True,
-            'tree1': {'id': tree1.id, 'row': tree1.row, 'col': tree1.col},
-            'tree2': {'id': tree2.id, 'row': tree2.row, 'col': tree2.col}
-        })
-        
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({'error': f'Server error: {str(e)}'}), 500
-
-# ============= GRID SETTINGS =============
-
-@app.route('/grid_size', methods=['GET', 'POST'])
-def manage_grid():
-    if request.method == 'POST':
-        data = request.json
-        grid = GridSettings.query.first()
-        if not grid:
-            grid = GridSettings()
-            db.session.add(grid)
-        grid.rows = data.get('rows', 5)
-        grid.cols = data.get('cols', 5)
-        db.session.commit()
-        return jsonify(success=True)
-    
-    grid = GridSettings.query.first()
-    if not grid:
-        grid = GridSettings(rows=5, cols=5)
-        db.session.add(grid)
-        db.session.commit()
-    return jsonify(rows=grid.rows, cols=grid.cols)
-
-@app.route('/validate_position/<int:dome_id>', methods=['POST'])
-def validate_position(dome_id):
-    data = request.json
-    dome = db.session.get(Dome, dome_id)
-    other_domes = Dome.query.filter(Dome.id != dome_id).all()
-    
-    valid = True
-    for d in other_domes:
-        if d.grid_row == data['grid_row'] and d.grid_col == data['grid_col']:
-            valid = False
-            break
-            
-    return jsonify(valid=valid)
 
 # ============= API ROUTES =============
 
@@ -1278,108 +1033,47 @@ def get_trees_api(dome_id):
         print(f"Error getting trees: {e}")
         return jsonify({'error': str(e)}), 500
 
-# ============= UTILITY ROUTES =============
-
-@app.route('/domes')
-@login_required  # <-- ADD THIS
-def get_domes():
-    domes = Dome.query.filter_by(user_id=current_user.id).order_by(Dome.grid_row, Dome.grid_col).all()  # <-- FIX THIS
-    return jsonify([{
-        'id': d.id,
-        'name': d.name,
-        'grid_row': d.grid_row,
-        'grid_col': d.grid_col,
-        'internal_rows': d.internal_rows,
-        'internal_cols': d.internal_cols
-    } for d in domes])
-
-@app.route('/clear_database', methods=['POST'])
-def clear_database():
-    """Clear all data from the database (for testing/reset purposes)"""
+@app.route('/api/tree/<int:tree_id>')
+@login_required
+def get_single_tree_api(tree_id):
     try:
-        Tree.query.delete()
-        Dome.query.delete()
-        db.session.commit()
-        return jsonify(success=True, message="Database cleared successfully")
-    except Exception as e:
-        db.session.rollback()
-        return jsonify(success=False, error=str(e)), 500
-@app.route('/swap_trees_by_position/<int:dome_id>', methods=['POST'])
-def swap_trees_by_position(dome_id):
-    """Swap two trees by their positions"""
-    try:
-        data = request.json
-        tree1_row = data.get('tree1_row')
-        tree1_col = data.get('tree1_col')
-        tree2_row = data.get('tree2_row')
-        tree2_col = data.get('tree2_col')
+        tree = Tree.query.filter_by(id=tree_id, user_id=current_user.id).first()
+        if not tree:
+            return jsonify({'success': False, 'error': 'Tree not found'}), 404
         
-        # Get both trees
-        tree1 = db.session.query(Tree).filter(
-            Tree.dome_id == dome_id,
-            Tree.row == tree1_row,
-            Tree.col == tree1_col
-        ).first()
+        # Force refresh from database
+        db.session.refresh(tree)
         
-        tree2 = db.session.query(Tree).filter(
-            Tree.dome_id == dome_id,
-            Tree.row == tree2_row,
-            Tree.col == tree2_col
-        ).first()
+        tree_data = {
+            'id': tree.id,
+            'name': tree.name,
+            'row': tree.row,
+            'col': tree.col,
+            'dome_id': tree.dome_id
+        }
         
-        if not tree1 or not tree2:
-            return jsonify({'success': False, 'error': 'One or both trees not found'}), 404
+        # Include image URL if available
+        if hasattr(tree, 'image_url') and tree.image_url:
+            tree_data['image_url'] = tree.image_url
+            print(f"✅ API returning image_url: {tree.image_url}")
+        else:
+            print(f"⚠️ No image_url found for tree {tree_id}")
         
-        # Swap positions
-        tree1.row, tree2.row = tree2.row, tree1.row
-        tree1.col, tree2.col = tree2.col, tree1.col
-        
-        db.session.commit()
-        
+        # Include other attributes if available
+        if hasattr(tree, 'info') and tree.info:
+            tree_data['info'] = tree.info
+        if hasattr(tree, 'life_days') and tree.life_days is not None:
+            tree_data['life_days'] = tree.life_days
+            
         return jsonify({
             'success': True,
-            'tree1': {'id': tree1.id, 'row': tree1.row, 'col': tree1.col},
-            'tree2': {'id': tree2.id, 'row': tree2.row, 'col': tree2.col}
+            'tree': tree_data
         })
         
     except Exception as e:
-        db.session.rollback()
-        return jsonify({'success': False, 'error': f'Server error: {str(e)}'}), 500
-    
-@app.route('/debug/images')
-def debug_images():
-    """Debug route to check image status"""
-    try:
-        # Check uploads folder
-        uploads_path = app.config['UPLOAD_FOLDER']
-        if not os.path.exists(uploads_path):
-            return jsonify({'error': 'Uploads folder does not exist'})
-        
-        # List all files in uploads
-        files = os.listdir(uploads_path)
-        
-        # Check database for image URLs
-        import sqlite3
-        conn = sqlite3.connect('db.sqlite3')
-        cursor = conn.cursor()
-        
-        cursor.execute("SELECT id, name, image_url FROM tree WHERE image_url IS NOT NULL")
-        trees_with_images = cursor.fetchall()
-        
-        cursor.execute("SELECT id, name, image_url FROM dome WHERE image_url IS NOT NULL")
-        domes_with_images = cursor.fetchall()
-        
-        conn.close()
-        
-        return jsonify({
-            'uploads_folder': uploads_path,
-            'files_in_uploads': files,
-            'trees_with_images': [{'id': t[0], 'name': t[1], 'image_url': t[2]} for t in trees_with_images],
-            'domes_with_images': [{'id': d[0], 'name': d[1], 'image_url': d[2]} for d in domes_with_images]
-        })
-        
-    except Exception as e:
-        return jsonify({'error': str(e)})
+        print(f"❌ Error getting tree: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @app.route('/api/dome/<int:dome_id>')
 @login_required
 def get_single_dome_api(dome_id):
@@ -1409,69 +1103,212 @@ def get_single_dome_api(dome_id):
     except Exception as e:
         print(f"Error getting dome: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
-@app.route('/remove_dome_image/<int:dome_id>', methods=['POST'])
+
+# ============= TREE MANAGEMENT =============
+
+@app.route('/add_tree', methods=['POST'])
 @login_required
-def remove_dome_image(dome_id):
+def add_tree():
     try:
-        print(f"🗑️ Removing image for dome {dome_id}")
+        data = request.json
+        name = data.get('name', 'ต้นใหม่')
+        row = data.get('row', 0)
+        col = data.get('col', 0)
+        dome_id = data.get('dome_id')
         
+        # Validate dome ownership
         dome = Dome.query.filter_by(id=dome_id, user_id=current_user.id).first()
         if not dome:
-            return jsonify({'success': False, 'error': 'Dome not found'}), 404
+            return jsonify(success=False, error="Dome not found"), 404
         
-        # Remove image file if exists
-        if hasattr(dome, 'image_url') and dome.image_url:
-            filename = dome.image_url.split('/')[-1]
-            filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-            if os.path.exists(filepath):
-                os.remove(filepath)
-                print(f"🗑️ Removed image file: {filepath}")
-            
-            # Clear image URL from database
-            dome.image_url = None
-            db.session.commit()
-            print("✅ Cleared dome image_url")
+        # Validate position
+        if row >= dome.internal_rows or col >= dome.internal_cols:
+            return jsonify(success=False, error="Position out of bounds"), 400
+        
+        # Check if position is occupied
+        existing = Tree.query.filter_by(dome_id=dome_id, row=row, col=col, user_id=current_user.id).first()
+        if existing:
+            return jsonify(success=False, error="Position occupied"), 400
+        
+        # Create new tree
+        tree = Tree(
+            name=name,
+            row=row,
+            col=col,
+            dome_id=dome_id,
+            user_id=current_user.id,
+            info='',
+            life_days=0
+        )
+        
+        db.session.add(tree)
+        db.session.commit()
         
         return jsonify({
             'success': True,
-            'message': 'Dome image removed successfully'
+            'tree': {
+                'id': tree.id,
+                'name': tree.name,
+                'row': tree.row,
+                'col': tree.col,
+                'dome_id': tree.dome_id,
+                'info': tree.info,
+                'life_days': tree.life_days
+            }
         })
         
     except Exception as e:
-        print(f"❌ Remove error: {str(e)}")
         db.session.rollback()
-        return jsonify({'success': False, 'error': f'Remove failed: {str(e)}'}), 500
-@app.route('/debug/fix_images', methods=['POST'])
-def fix_images():
-    """Debug route to fix image issues"""
+        print(f"Error adding tree: {e}")
+        return jsonify(success=False, error=str(e)), 500
+
+@app.route('/update_tree/<int:tree_id>', methods=['POST'])
+@login_required
+def update_tree(tree_id):
     try:
-        # Run the schema fix
-        import sqlite3
-        conn = sqlite3.connect('db.sqlite3')
-        cursor = conn.cursor()
+        tree = Tree.query.filter_by(id=tree_id, user_id=current_user.id).first()
+        if not tree:
+            return jsonify(success=False, error="Tree not found"), 404
         
-        # Ensure image columns exist
-        try:
-            cursor.execute('ALTER TABLE dome ADD COLUMN image_url VARCHAR(200)')
-        except:
-            pass
-            
-        try:
-            cursor.execute('ALTER TABLE tree ADD COLUMN image_url VARCHAR(200)')
-            cursor.execute('ALTER TABLE tree ADD COLUMN info TEXT')
-            cursor.execute('ALTER TABLE tree ADD COLUMN life_days INTEGER DEFAULT 0')
-        except:
-            pass
+        data = request.json
+        tree.name = data.get('name', tree.name)
+        tree.info = data.get('info', tree.info)
+        tree.life_days = data.get('life_days', tree.life_days)
         
-        conn.commit()
-        conn.close()
+        db.session.commit()
         
-        # Create uploads folder
-        os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-        
-        return jsonify({'success': True, 'message': 'Image system fixed'})
+        return jsonify(success=True)
         
     except Exception as e:
-        return jsonify({'success': False, 'error': str(e)})
+        db.session.rollback()
+        print(f"Error updating tree: {e}")
+        return jsonify(success=False, error=str(e)), 500
+
+@app.route('/delete_tree/<int:tree_id>', methods=['DELETE'])
+@login_required
+def delete_tree(tree_id):
+    try:
+        tree = Tree.query.filter_by(id=tree_id, user_id=current_user.id).first()
+        if not tree:
+            return jsonify(success=False, error="Tree not found"), 404
+        
+        # Remove image file if exists
+        if hasattr(tree, 'image_url') and tree.image_url:
+            filename = tree.image_url.split('/')[-1]
+            upload_folder = current_app.config.get('UPLOAD_FOLDER', 'uploads')
+            filepath = os.path.join(upload_folder, filename)
+            if os.path.exists(filepath):
+                os.remove(filepath)
+                print(f"🗑️ Removed image file: {filepath}")
+        
+        db.session.delete(tree)
+        db.session.commit()
+        
+        return jsonify(success=True)
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error deleting tree: {e}")
+        return jsonify(success=False, error=str(e)), 500
+
+@app.route('/move_tree/<int:tree_id>', methods=['POST'])
+@login_required
+def move_tree(tree_id):
+    try:
+        data = request.json
+        tree = Tree.query.filter_by(id=tree_id, user_id=current_user.id).first()
+        if not tree:
+            return jsonify(success=False, error="Tree not found"), 404
+        
+        new_row = data.get('row')
+        new_col = data.get('col')
+        
+        # Validate new position
+        dome = Dome.query.filter_by(id=tree.dome_id, user_id=current_user.id).first()
+        if new_row >= dome.internal_rows or new_col >= dome.internal_cols:
+            return jsonify(success=False, error="Position out of bounds"), 400
+        
+        # Check if position is occupied
+        existing = Tree.query.filter(
+            Tree.id != tree_id,
+            Tree.dome_id == tree.dome_id,
+            Tree.row == new_row,
+            Tree.col == new_col,
+            Tree.user_id == current_user.id
+        ).first()
+        
+        if existing:
+            # Swap positions
+            existing.row, tree.row = tree.row, new_row
+            existing.col, tree.col = tree.col, new_col
+        else:
+            # Move to empty position
+            tree.row = new_row
+            tree.col = new_col
+        
+        db.session.commit()
+        return jsonify(success=True)
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error moving tree: {e}")
+        return jsonify(success=False, error=str(e)), 500
+
+# ============= GRID SETTINGS =============
+
+@app.route('/update_grid_settings', methods=['POST'])
+@login_required
+def update_grid_settings():
+    try:
+        data = request.json
+        rows = data.get('rows', 5)
+        cols = data.get('cols', 5)
+        
+        # Validate grid size
+        if rows < 1 or cols < 1 or rows > 50 or cols > 50:
+            return jsonify(success=False, error="Grid size must be between 1x1 and 50x50"), 400
+        
+        # Check if any domes would be out of bounds
+        out_of_bounds_domes = Dome.query.filter(
+            Dome.user_id == current_user.id,
+            db.or_(Dome.grid_row >= rows, Dome.grid_col >= cols)
+        ).all()
+        
+        if out_of_bounds_domes:
+            dome_names = [dome.name for dome in out_of_bounds_domes]
+            return jsonify({
+                'success': False,
+                'error': f'Cannot resize: Domes would be out of bounds: {", ".join(dome_names)}'
+            }), 400
+        
+        # Update grid settings
+        grid = GridSettings.query.first()
+        if not grid:
+            grid = GridSettings()
+            db.session.add(grid)
+        
+        grid.rows = rows
+        grid.cols = cols
+        db.session.commit()
+        
+        return jsonify(success=True)
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify(success=False, error=str(e)), 500
+
+# ============= ERROR HANDLERS =============
+
+@app.errorhandler(404)
+def not_found_error(error):
+    return render_template('errors/404.html'), 404
+
+@app.errorhandler(500)
+def internal_error(error):
+    db.session.rollback()
+    return render_template('errors/500.html'), 500
+
+# ============= MAIN APPLICATION =============
+
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True, host='0.0.0.0', port=5000)

@@ -197,13 +197,13 @@
             background: #e8f5e8;
         }
         .grid-cell.drag-over {
-            border: 2px solid #ff9800;
-            background: #fff3e0;
+            border: 2px solid #ff9800 !important;
+            background: #fff3e0 !important;
             transform: scale(1.05);
         }
         .grid-cell.swap-target {
-            border: 2px solid #9c27b0;
-            background: #f3e5f5;
+            border: 2px solid #9c27b0 !important;
+            background: #f3e5f5 !important;
             transform: scale(1.05);
         }
         .tree-item {
@@ -312,6 +312,7 @@
             align-items: center;
             justify-content: center;
             box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+            pointer-events: auto;
         }
         .edit-btn {
             background: #2196F3;
@@ -533,6 +534,19 @@
                 --cell-size: 130px;
                 --grid-gap: 12px;
             }
+        }
+
+        /* Prevent text selection during drag */
+        .tree-item * {
+            pointer-events: none;
+        }
+        
+        .tree-item .tree-actions {
+            pointer-events: auto;
+        }
+        
+        .tree-item .tree-actions button {
+            pointer-events: auto;
         }
     </style>
 </head>
@@ -788,26 +802,26 @@
 
         // Load trees from server
         async function loadTreesFromServer() {
-    try {
-        console.log('Loading trees from server...');
-        
-        const response = await fetch(`/api/trees/${domeId}`);
-        
-        if (response.ok) {
-            const data = await response.json();
-            console.log('Trees loaded successfully:', data.trees?.length || 0, 'trees');
-            
-            trees = data.trees || [];
-            renderGrid();
-        } else {
-            console.error('Failed to load trees from server, status:', response.status);
-            renderGrid();
+            try {
+                console.log('Loading trees from server...');
+                
+                const response = await fetch(`/api/trees/${domeId}`);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('Trees loaded successfully:', data.trees?.length || 0, 'trees');
+                    
+                    trees = data.trees || [];
+                    renderGrid();
+                } else {
+                    console.error('Failed to load trees from server, status:', response.status);
+                    renderGrid();
+                }
+            } catch (error) {
+                console.error('Error loading trees:', error);
+                renderGrid();
+            }
         }
-    } catch (error) {
-        console.error('Error loading trees:', error);
-        renderGrid();
-    }
-}
 
         function renderGrid() {
             console.log('Rendering grid with', trees.length, 'trees');
@@ -824,11 +838,6 @@
                     cell.dataset.row = row;
                     cell.dataset.col = col;
                     
-                    // Add drag and drop event listeners
-                    cell.addEventListener('dragover', handleDragOver);
-                    cell.addEventListener('drop', handleDrop);
-                    cell.addEventListener('dragleave', handleDragLeave);
-                    
                     // Add coordinate label
                     const coordLabel = document.createElement('div');
                     coordLabel.className = 'coordinate-label';
@@ -840,9 +849,7 @@
                     
                     if (tree) {
                         cell.classList.add('occupied');
-                        const treeElement = document.createElement('div');
-                        treeElement.innerHTML = createTreeElement(tree);
-                        cell.appendChild(treeElement);
+                        cell.innerHTML += createTreeElement(tree);
                     } else {
                         const addBtn = document.createElement('button');
                         addBtn.className = 'add-tree-btn';
@@ -855,349 +862,316 @@
                 }
             }
             
+            // Add drag and drop event listeners to all cells after rendering
+            addDragDropListeners();
             updateStats();
         }
 
- function createTreeElement(tree) {
-    console.log('Creating tree element for:', tree.name, 'with image:', tree.image_url);
-    
-    // Use custom image if available, otherwise use default
-    let imageStyle = '';
-    if (tree.image_url) {
-        // Add timestamp to prevent caching
-        imageStyle = `background-image: url('${tree.image_url}?t=${Date.now()}');`;
-    } else {
-        imageStyle = `background-image: url('/static/images/gunja.jpg');`;
-    }
-    
-    const imageHtml = `<div class="tree-image" style="${imageStyle}"></div>`;
-    
-    return `
-        <div class="tree-item" 
-             draggable="true" 
-             data-tree-id="${tree.id}"
-             data-tree-row="${tree.row}"
-             data-tree-col="${tree.col}"
-             onclick="openTree(${tree.id})"
-             ondragstart="handleDragStart(event)"
-             ondragend="handleDragEnd(event)">
-            ${imageHtml}
-            <div class="tree-name">${tree.name}</div>
-            <div class="tree-actions">
-                <button class="action-btn edit-btn" onclick="event.stopPropagation(); editTree(${tree.id})" title="Edit">✏️</button>
-                <button class="action-btn delete-btn" onclick="event.stopPropagation(); deleteTree(${tree.id})" title="Delete">🗑️</button>
-            </div>
-        </div>
-    `;
-}
-function refreshTreeInGrid(treeId) {
-    // Reload trees from server to get updated image URLs
-    loadTreesFromServer();
-}
-        // Drag and Drop Functions
-        function handleDragStart(event) {
-            const treeId = event.target.dataset.treeId;
-            const treeRow = parseInt(event.target.dataset.treeRow);
-            const treeCol = parseInt(event.target.dataset.treeCol);
+        // Add drag and drop event listeners to grid cells
+        function addDragDropListeners() {
+            const cells = document.querySelectorAll('.grid-cell');
+            cells.forEach(cell => {
+                // Add drop event listeners
+                cell.addEventListener('dragover', handleDragOver);
+                cell.addEventListener('dragleave', handleDragLeave);
+                cell.addEventListener('drop', handleDrop);
+            });
             
+            // Add drag event listeners to tree items
+            const treeItems = document.querySelectorAll('.tree-item');
+            treeItems.forEach(item => {
+                item.addEventListener('dragstart', handleDragStart);
+                item.addEventListener('dragend', handleDragEnd);
+            });
+        }
+
+        // Drag and drop event handlers
+        function handleDragStart(event) {
             draggedTree = {
-                id: parseInt(treeId),
-                row: treeRow,
-                col: treeCol,
-                element: event.target
+                id: parseInt(event.target.dataset.treeId),
+                row: parseInt(event.target.dataset.treeRow),
+                col: parseInt(event.target.dataset.treeCol)
             };
             
+            console.log('Drag started:', draggedTree);
+            
+            // Add visual feedback
             event.target.classList.add('dragging');
+            
+            // Set drag effect
             event.dataTransfer.effectAllowed = 'move';
             event.dataTransfer.setData('text/html', event.target.outerHTML);
         }
 
         function handleDragEnd(event) {
+            console.log('Drag ended');
+            
+            // Reset visual feedback
             event.target.classList.remove('dragging');
-            document.querySelectorAll('.drag-over, .swap-target').forEach(cell => {
+            
+            // Clear drag data
+            draggedTree = null;
+            
+            // Remove all drag-over classes
+            document.querySelectorAll('.grid-cell').forEach(cell => {
                 cell.classList.remove('drag-over', 'swap-target');
             });
-            draggedTree = null;
         }
 
         function handleDragOver(event) {
             event.preventDefault();
             event.dataTransfer.dropEffect = 'move';
             
-            const cell = event.currentTarget;
-            const isOccupied = cell.classList.contains('occupied');
-            const isDraggedTreeCell = draggedTree && 
-                cell.dataset.row == draggedTree.row && 
-                cell.dataset.col == draggedTree.col;
+            if (!draggedTree) return;
             
-            cell.classList.remove('drag-over', 'swap-target');
+            const cell = event.target.closest('.grid-cell');
+            if (!cell) return;
             
-            if (!isDraggedTreeCell) {
-                if (isOccupied) {
-                    cell.classList.add('swap-target');
-                } else {
-                    cell.classList.add('drag-over');
-                }
+            // Remove previous drag-over classes
+            document.querySelectorAll('.grid-cell').forEach(c => {
+                c.classList.remove('drag-over', 'swap-target');
+            });
+            
+            // Check if cell has a tree (for swapping)
+            const hasTree = cell.querySelector('.tree-item');
+            if (hasTree) {
+                cell.classList.add('swap-target');
+            } else {
+                cell.classList.add('drag-over');
             }
         }
-        function refreshTreeImage(treeId, imageUrl) {
-    const treeElement = document.querySelector(`[data-tree-id="${treeId}"] .tree-image`);
-    if (treeElement) {
-        if (imageUrl) {
-            treeElement.style.backgroundImage = `url('${imageUrl}?t=${Date.now()}')`;
-        } else {
-            treeElement.style.backgroundImage = `url('/static/images/gunja.jpg')`;
-        }
-    }
-}
+
         function handleDragLeave(event) {
-            event.currentTarget.classList.remove('drag-over', 'swap-target');
+            const cell = event.target.closest('.grid-cell');
+            if (cell) {
+                cell.classList.remove('drag-over', 'swap-target');
+            }
         }
 
         function handleDrop(event) {
             event.preventDefault();
-            const cell = event.currentTarget;
+            
+            const cell = event.target.closest('.grid-cell');
+            if (!cell || !draggedTree) return;
+            
+            // Remove visual feedback
             cell.classList.remove('drag-over', 'swap-target');
             
-            if (!draggedTree) return;
+            // Get target position
+            const targetRow = parseInt(cell.dataset.row);
+            const targetCol = parseInt(cell.dataset.col);
             
-            const newRow = parseInt(cell.dataset.row);
-            const newCol = parseInt(cell.dataset.col);
+            console.log(`Dropping tree ${draggedTree.id} at position (${targetRow}, ${targetCol})`);
             
-            if (newRow === draggedTree.row && newCol === draggedTree.col) {
+            // Don't move if dropping on same position
+            if (draggedTree.row === targetRow && draggedTree.col === targetCol) {
+                console.log('Dropped on same position, no action needed');
                 return;
             }
             
-            const targetTree = trees.find(t => t.row === newRow && t.col === newCol);
-            
-            if (targetTree && targetTree.id !== draggedTree.id) {
-                swapTrees(draggedTree.row, draggedTree.col, newRow, newCol);
-            } else if (!targetTree) {
-                moveTreeToPosition(draggedTree.id, newRow, newCol);
+            // Move the tree
+            moveTreeToPosition(draggedTree.id, targetRow, targetCol);
+        }
+
+        // Move tree to new position
+        async function moveTreeToPosition(treeId, newRow, newCol) {
+            try {
+                console.log(`Moving tree ${treeId} to position (${newRow}, ${newCol})`);
+                
+                // Show swap indicator if there's a tree at target position
+                const targetTree = trees.find(t => t.row === newRow && t.col === newCol);
+                if (targetTree) {
+                    showSwapIndicator();
+                }
+                
+                const response = await fetch(`/move_tree/${treeId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        row: newRow,
+                        col: newCol
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    console.log('Tree moved successfully');
+                    // Reload trees from server to get updated positions
+                    await loadTreesFromServer();
+                } else {
+                    console.error('Failed to move tree:', result.error);
+                    alert(`Failed to move tree: ${result.error}`);
+                }
+                
+            } catch (error) {
+                console.error('Error moving tree:', error);
+                alert('Error moving tree. Please try again.');
+            } finally {
+                hideSwapIndicator();
             }
         }
 
-        function swapTrees(tree1Row, tree1Col, tree2Row, tree2Col) {
+        // Show/hide swap indicator
+        function showSwapIndicator() {
             const indicator = document.getElementById('swapIndicator');
-            indicator.style.display = 'block';
-            
-            fetch(`/swap_trees_by_position/${domeId}`, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({
-                    tree1_row: tree1Row,
-                    tree1_col: tree1Col,
-                    tree2_row: tree2Row,
-                    tree2_col: tree2Col
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                indicator.style.display = 'none';
-                if (data.success) {
-                    const tree1 = trees.find(t => t.row === tree1Row && t.col === tree1Col);
-                    const tree2 = trees.find(t => t.row === tree2Row && t.col === tree2Col);
-                    
-                    if (tree1 && tree2) {
-                        tree1.row = tree2Row;
-                        tree1.col = tree2Col;
-                        tree2.row = tree1Row;
-                        tree2.col = tree1Col;
-                    }
-                    
-                    renderGrid();
-                } else {
-                    alert(data.error || 'Failed to swap trees');
-                    renderGrid();
-                }
-            })
-            .catch(error => {
-                indicator.style.display = 'none';
-                console.error('Error:', error);
-                alert('Error swapping trees');
-                renderGrid();
-            });
-        }
-
-        function moveTreeToPosition(treeId, newRow, newCol) {
-            fetch(`/move_tree/${treeId}`, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({new_row: newRow, new_col: newCol})
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    const tree = trees.find(t => t.id == treeId);
-                    if (tree) {
-                        tree.row = newRow;
-                        tree.col = newCol;
-                    }
-                    renderGrid();
-                } else {
-                    alert(data.error || 'Failed to move tree');
-                    renderGrid();
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('Error moving tree');
-                renderGrid();
-            });
-        }
-
-        function addTreeAtPosition(row, col) {
-            const name = prompt('Enter tree name:', 'New Tree');
-            if (!name) return;
-            
-            fetch(`/add_tree/${domeId}/${row}/${col}`, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({name: name})
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.id) {
-                    loadTreesFromServer();
-                    alert('Tree added successfully!');
-                } else {
-                    alert(data.error || 'Failed to add tree');
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('Error adding tree');
-            });
-        }
-
-        function addRandomTree() {
-            for (let row = 0; row < currentRows; row++) {
-                for (let col = 0; col < currentCols; col++) {
-                    const occupied = trees.some(t => t.row === row && t.col === col);
-                    if (!occupied) {
-                        addTreeAtPosition(row, col);
-                        return;
-                    }
-                }
+            if (indicator) {
+                indicator.style.display = 'block';
             }
-            alert('No available positions in the grid!');
         }
 
+        function hideSwapIndicator() {
+            const indicator = document.getElementById('swapIndicator');
+            if (indicator) {
+                indicator.style.display = 'none';
+            }
+        }
+
+        // Create tree element HTML
+        function createTreeElement(tree) {
+            console.log('Creating tree element for:', tree.name, 'with image:', tree.image_url);
+            
+            // Use custom image if available, otherwise use default
+            let imageHtml;
+            if (tree.image_url) {
+                imageHtml = `<div class="tree-image" style="background-image: url('${tree.image_url}?t=${Date.now()}');"></div>`;
+            } else {
+                imageHtml = `<div class="tree-placeholder">🌱</div>`;
+            }
+            
+            return `
+                <div class="tree-item" 
+                     draggable="true" 
+                     data-tree-id="${tree.id}"
+                     data-tree-row="${tree.row}"
+                     data-tree-col="${tree.col}"
+                     onclick="openTree(${tree.id})">
+                    ${imageHtml}
+                    <div class="tree-name">${tree.name}</div>
+                    <div class="tree-actions">
+                        <button class="action-btn edit-btn" onclick="event.stopPropagation(); editTree(${tree.id})" title="Edit">✏️</button>
+                        <button class="action-btn delete-btn" onclick="event.stopPropagation(); deleteTree(${tree.id})" title="Delete">🗑️</button>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Tree management functions
         function openTree(treeId) {
             window.location.href = `/tree_info/${treeId}`;
         }
 
-        function editTree(treeId) {
+        async function editTree(treeId) {
             const tree = trees.find(t => t.id === treeId);
             if (!tree) return;
             
             const newName = prompt('Enter new tree name:', tree.name);
             if (!newName || newName === tree.name) return;
             
-            fetch(`/update_tree/${treeId}`, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({name: newName})
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    loadTreesFromServer();
-                    alert('Tree name updated successfully!');
+            try {
+                const response = await fetch(`/update_tree/${treeId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        name: newName
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    console.log('Tree updated successfully');
+                    await loadTreesFromServer();
                 } else {
-                    alert('Failed to update tree name');
+                    alert('Failed to update tree');
                 }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('Error updating tree name');
-            });
+            } catch (error) {
+                console.error('Error updating tree:', error);
+                alert('Error updating tree');
+            }
         }
 
-        function deleteTree(treeId) {
-            if (!confirm('Are you sure you want to delete this tree? This action cannot be undone.')) {
-                return;
-            }
+        async function deleteTree(treeId) {
+            if (!confirm('Are you sure you want to delete this tree?')) return;
             
-            fetch(`/delete_tree/${treeId}`, {
-                method: 'DELETE'
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    loadTreesFromServer();
-                    alert('Tree deleted successfully!');
+            try {
+                const response = await fetch(`/delete_tree/${treeId}`, {
+                    method: 'DELETE'
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    console.log('Tree deleted successfully');
+                    await loadTreesFromServer();
                 } else {
                     alert('Failed to delete tree');
                 }
-            })
-            .catch(error => {
-                console.error('Error:', error);
+            } catch (error) {
+                console.error('Error deleting tree:', error);
                 alert('Error deleting tree');
-            });
+            }
         }
 
-        function updateGridSize() {
-            const rows = parseInt(document.getElementById('gridRows').value);
-            const cols = parseInt(document.getElementById('gridCols').value);
-            
-            if (rows < 1 || cols < 1 || rows > 100 || cols > 100) {
-                alert('Grid size must be between 1x1 and 100x100');
-                return;
+        async function addTreeAtPosition(row, col) {
+            // Check if position is occupied
+            const existingTree = trees.find(tree => tree.row === row && tree.col === col);
+            if (existingTree) {
+                return; // Position occupied
             }
             
-            if (rows > 50 || cols > 50) {
-                if (!confirm('Large grids (50×50+) may impact performance. Continue?')) {
-                    return;
-                }
-            }
+            const treeName = prompt('Enter tree name:', 'New Tree');
+            if (!treeName) return;
             
-            fetch(`/update_dome_grid/${domeId}`, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({rows: rows, cols: cols})
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    currentRows = rows;
-                    currentCols = cols;
-                    updateGridDisplay();
-                    loadTreesFromServer();
-                    alert('Grid size updated successfully!');
+            try {
+                const response = await fetch('/add_tree', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        name: treeName,
+                        row: row,
+                        col: col,
+                        dome_id: domeId
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    console.log('Tree added successfully');
+                    await loadTreesFromServer();
                 } else {
-                    alert(data.error || 'Failed to update grid size');
+                    alert(`Failed to add tree: ${result.error}`);
                 }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('Error updating grid size');
-            });
+            } catch (error) {
+                console.error('Error adding tree:', error);
+                alert('Error adding tree');
+            }
+        }
+
+        // Utility functions
+        function updateStats() {
+            const totalTrees = trees.length;
+            const totalCells = currentRows * currentCols;
+            const availablePositions = totalCells - totalTrees;
+            const occupancyRate = totalCells > 0 ? (totalTrees / totalCells * 100).toFixed(1) : 0;
+            
+            document.getElementById('totalTrees').textContent = totalTrees;
+            document.getElementById('treeCount').textContent = totalTrees;
+            document.getElementById('currentGridSize').textContent = `${currentRows}×${currentCols}`;
+            document.getElementById('availablePositions').textContent = availablePositions;
+            document.getElementById('occupancyRate').textContent = occupancyRate + '%';
         }
 
         function refreshGrid() {
+            console.log('Refreshing grid...');
             loadTreesFromServer();
-        }
-
-        function clearAllTrees() {
-            if (!confirm('Are you sure you want to delete ALL trees in this dome? This action cannot be undone!')) {
-                return;
-            }
-            
-            const deletePromises = trees.map(tree => 
-                fetch(`/delete_tree/${tree.id}`, { method: 'DELETE' })
-            );
-            
-            Promise.all(deletePromises)
-                .then(() => {
-                    loadTreesFromServer();
-                    alert('All trees cleared successfully!');
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    alert('Error clearing trees');
-                    loadTreesFromServer();
-                });
         }
 
         function goBack() {
@@ -1208,58 +1182,89 @@ function refreshTreeInGrid(treeId) {
             window.location.href = `/dome_info/${domeId}`;
         }
 
-        function updateStats() {
-            const totalTrees = trees.length;
-            const totalPositions = currentRows * currentCols;
-            const availablePositions = totalPositions - totalTrees;
-            const occupancyRate = totalPositions > 0 ? (totalTrees / totalPositions * 100).toFixed(1) : 0;
+        async function addRandomTree() {
+            // Find available positions
+            const availablePositions = [];
+            for (let row = 0; row < currentRows; row++) {
+                for (let col = 0; col < currentCols; col++) {
+                    const existingTree = trees.find(t => t.row === row && t.col === col);
+                    if (!existingTree) {
+                        availablePositions.push({ row, col });
+                    }
+                }
+            }
             
-            document.getElementById('totalTrees').textContent = totalTrees;
-            document.getElementById('treeCount').textContent = totalTrees;
-            document.getElementById('currentGridSize').textContent = `${currentRows}×${currentCols}`;
-            document.getElementById('availablePositions').textContent = availablePositions;
-            document.getElementById('occupancyRate').textContent = occupancyRate + '%';
+            if (availablePositions.length === 0) {
+                alert('No available positions for new trees!');
+                return;
+            }
+            
+            // Pick random position
+            const randomPos = availablePositions[Math.floor(Math.random() * availablePositions.length)];
+            
+            // Generate random tree name
+            const treeNames = ['Cannabis', 'Green Leaf', 'Bud Master', 'Herb King', 'Plant Pro', 'Grow Star'];
+            const randomName = treeNames[Math.floor(Math.random() * treeNames.length)] + ' ' + Math.floor(Math.random() * 1000);
+            
+            await addTreeAtPosition(randomPos.row, randomPos.col);
         }
+
+        async function clearAllTrees() {
+            if (!confirm('Are you sure you want to delete ALL trees? This cannot be undone!')) return;
+            
+            try {
+                for (const tree of trees) {
+                    await fetch(`/delete_tree/${tree.id}`, { method: 'DELETE' });
+                }
+                
+                console.log('All trees cleared');
+                await loadTreesFromServer();
+            } catch (error) {
+                console.error('Error clearing trees:', error);
+                alert('Error clearing trees');
+            }
+        }
+
+        async function updateGridSize() {
+            const newRows = parseInt(document.getElementById('gridRows').value);
+            const newCols = parseInt(document.getElementById('gridCols').value);
+            
+            if (newRows < 1 || newCols < 1 || newRows > 100 || newCols > 100) {
+                alert('Grid size must be between 1x1 and 100x100');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/update_dome_grid/${domeId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        rows: newRows,
+                        cols: newCols
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    currentRows = newRows;
+                    currentCols = newCols;
+                    updateGridDisplay();
+                    renderGrid();
+                    console.log('Grid size updated successfully');
+                } else {
+                    alert(`Failed to update grid size: ${result.error}`);
+                }
+            } catch (error) {
+                console.error('Error updating grid size:', error);
+                alert('Error updating grid size');
+            }
+        }
+
+        // Initialize the page
+        console.log('Grid JavaScript loaded successfully');
     </script>
 </body>
 </html>
-</qodoArtifact>
-
-## **Key Changes Made:**
-
-### **1. Fixed Grid Size Validation:**
-- **Maximum size**: Changed to **100×100** in `updateGridSize()` function
-- **Error message**: Updated to show "Grid size must be between 1x1 and 100x100"
-- **HTML inputs**: Set `max="100"` in the input fields
-- **Visual indicator**: Added text showing "Maximum: 100×100 grid"
-
-### **2. Fixed Scroll Start Position:**
-- **`scrollToStart()` function**: New function that sets scroll to left (0,0)
-- **`updateGridDisplay()`**: Changed from `centerGrid()` to `scrollToStart()`
-- **Page load behavior**: Grid now starts from the top-left corner instead of center
-
-### **3. Enhanced Cell Size Scaling:**
-- **Ultra-large grids**: Added support for 80+ and 60+ column grids
-- **Minimum cell size**: Reduced to 25px for very large grids
-- **Better scaling**: More granular cell size adjustments
-
-### **4. Improved Navigation:**
-- **Smooth scrolling**: Added `scroll-behavior: smooth` to grid container
-- **Better keyboard navigation**: Enhanced arrow key scrolling
-- **Touch support**: Improved mobile scrolling experience
-
-### **5. Complete Function Set:**
-- **All drag & drop functions**: Complete implementation
-- **Tree management**: Add, edit, delete, move, swap
-- **Grid management**: Resize, refresh, clear all
-- **Statistics**: Real-time updates
-
-Now your `grid.html` supports:
-- ✅ **100×100 maximum grid size**
-- ✅ **Starts from left position** (0,0) when page loads
-- ✅ **Enhanced cell scaling** for ultra-large grids
-- ✅ **Complete drag & drop functionality**
-- ✅ **Smooth navigation** and scrolling
-- ✅ **Mobile-friendly** touch controls
-
-The grid will now properly handle very large grids up to 100×100 and always start from the left side for easier navigation!
