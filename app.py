@@ -1,5 +1,5 @@
-from dotenv import load_dotenv
 import os
+from dotenv import load_dotenv
 import qrcode
 import io
 from flask import current_app, make_response
@@ -27,8 +27,22 @@ mail = Mail()
 UPLOAD_FOLDER = 'uploads'
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 
-# ✅ FIXED: Use root directory for database (where your data is)
-DATABASE_URL = 'sqlite:///db.sqlite3'
+# ✅ FIXED: Database configuration for both development and production
+def get_database_url():
+    """Get database URL based on environment"""
+    # Check if we're on Render (production)
+    if os.getenv('RENDER'):
+        # Use PostgreSQL on Render
+        database_url = os.getenv('DATABASE_URL')
+        if database_url and database_url.startswith('postgres://'):
+            # Fix for SQLAlchemy 1.4+ compatibility
+            database_url = database_url.replace('postgres://', 'postgresql://', 1)
+        return database_url
+    else:
+        # Use SQLite for local development
+        return 'sqlite:///db.sqlite3'
+
+DATABASE_URL = get_database_url()
 
 # Configuration
 SECRET_KEY = os.getenv('SECRET_KEY', 'fallback-secret-key')
@@ -38,9 +52,10 @@ MAIL_USE_TLS = True
 MAIL_USERNAME = os.getenv('MAIL_USERNAME')
 MAIL_PASSWORD = os.getenv('MAIL_PASSWORD')
 
+print(f"Environment: {'Production (Render)' if os.getenv('RENDER') else 'Development'}")
 print(f"Loaded MAIL_USERNAME: {MAIL_USERNAME}")
 print(f"Loaded SECRET_KEY: {SECRET_KEY[:20]}...")
-print(f"Database URL: {DATABASE_URL}")
+print(f"Database URL: {DATABASE_URL[:50]}..." if DATABASE_URL else "No DATABASE_URL")
 
 # Initialize Flask-Login
 login_manager = LoginManager()
@@ -49,19 +64,28 @@ life_updater = TreeLifeUpdater(DATABASE_URL)
 def create_app():
     app = Flask(__name__)
     
-    # ✅ FIXED: Add persistent session configuration
+    # ✅ FIXED: Production-ready configuration
     app.config['SECRET_KEY'] = SECRET_KEY
     app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
     
-    # ✅ NEW: Session configuration for persistence
-    app.config['REMEMBER_COOKIE_DURATION'] = timedelta(days=30)  # Remember for 30 days
-    app.config['REMEMBER_COOKIE_SECURE'] = False  # Set to True in production with HTTPS
-    app.config['REMEMBER_COOKIE_HTTPONLY'] = True
-    app.config['SESSION_COOKIE_SECURE'] = False  # Set to True in production with HTTPS
-    app.config['SESSION_COOKIE_HTTPONLY'] = True
-    app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7)  # Session lasts 7 days
+    # ✅ NEW: Production security settings
+    if os.getenv('RENDER'):
+        # Production settings for Render
+        app.config['REMEMBER_COOKIE_SECURE'] = True  # HTTPS only
+        app.config['SESSION_COOKIE_SECURE'] = True   # HTTPS only
+        app.config['SESSION_COOKIE_HTTPONLY'] = True
+        app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+    else:
+        # Development settings
+        app.config['REMEMBER_COOKIE_SECURE'] = False
+        app.config['SESSION_COOKIE_SECURE'] = False
+        app.config['SESSION_COOKIE_HTTPONLY'] = True
+    
+    # Session configuration for persistence
+    app.config['REMEMBER_COOKIE_DURATION'] = timedelta(days=30)
+    app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7)
     
     # Mail configuration
     app.config['MAIL_SERVER'] = MAIL_SERVER
@@ -84,15 +108,16 @@ def create_app():
     login_manager.login_view = 'login'
     login_manager.login_message = 'Please log in to access this page.'
     
-    # ✅ NEW: Configure Flask-Login for persistence
+    # Configure Flask-Login for persistence
     login_manager.remember_cookie_duration = timedelta(days=30)
     login_manager.session_protection = "strong"
     
-    # ✅ FIXED: Create necessary directories
+    # Create necessary directories
     os.makedirs(UPLOAD_FOLDER, exist_ok=True)
     
     with app.app_context():
         try:
+            # ✅ NEW: Create tables and initialize defaults
             db.create_all()
             initialize_defaults()
             print("✅ Database initialized successfully")
