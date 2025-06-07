@@ -49,11 +49,19 @@ life_updater = TreeLifeUpdater(DATABASE_URL)
 def create_app():
     app = Flask(__name__)
     
-    # ✅ FIXED: Use consistent database configuration
+    # ✅ FIXED: Add persistent session configuration
     app.config['SECRET_KEY'] = SECRET_KEY
     app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
+    
+    # ✅ NEW: Session configuration for persistence
+    app.config['REMEMBER_COOKIE_DURATION'] = timedelta(days=30)  # Remember for 30 days
+    app.config['REMEMBER_COOKIE_SECURE'] = False  # Set to True in production with HTTPS
+    app.config['REMEMBER_COOKIE_HTTPONLY'] = True
+    app.config['SESSION_COOKIE_SECURE'] = False  # Set to True in production with HTTPS
+    app.config['SESSION_COOKIE_HTTPONLY'] = True
+    app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7)  # Session lasts 7 days
     
     # Mail configuration
     app.config['MAIL_SERVER'] = MAIL_SERVER
@@ -75,6 +83,10 @@ def create_app():
     login_manager.init_app(app)
     login_manager.login_view = 'login'
     login_manager.login_message = 'Please log in to access this page.'
+    
+    # ✅ NEW: Configure Flask-Login for persistence
+    login_manager.remember_cookie_duration = timedelta(days=30)
+    login_manager.session_protection = "strong"
     
     # ✅ FIXED: Create necessary directories
     os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -225,7 +237,7 @@ def login():
             
             username = data.get('username', '').strip()
             password = data.get('password', '')
-            remember = data.get('remember', False)
+            remember = data.get('remember', True)  # ✅ Default to True for persistence
             
             print(f"Login attempt for: {username}")
             
@@ -240,8 +252,12 @@ def login():
             print(f"User found: {user is not None}")
             
             if user and user.check_password(password):
-                login_user(user, remember=remember)
-                print(f"Login successful for user: {user.username}")
+                # ✅ NEW: Set permanent session and remember user
+                from flask import session
+                session.permanent = True
+                
+                login_user(user, remember=remember, duration=timedelta(days=30))
+                print(f"Login successful for user: {user.username} (Remember: {remember})")
                 return jsonify({'success': True, 'message': 'Login successful'})
             else:
                 print("Invalid username or password")
@@ -252,7 +268,50 @@ def login():
             return jsonify({'success': False, 'error': 'Login failed due to server error'}), 500
     
     return render_template('auth/login.html')
-
+@app.route('/api/auth/status')
+def auth_status():
+    """Check if user is logged in"""
+    if current_user.is_authenticated:
+        return jsonify({
+            'authenticated': True,
+            'user': {
+                'id': current_user.id,
+                'username': current_user.username,
+                'email': current_user.email
+            }
+        })
+    else:
+        return jsonify({'authenticated': False})
+@app.route('/')
+@login_required
+def index():
+    # ✅ NEW: Extend session if user is active
+    from flask import session
+    session.permanent = True
+    
+    grid = GridSettings.query.first()
+    if not grid:
+        grid = GridSettings()
+        db.session.add(grid)
+        db.session.commit()
+    
+    # Get only current user's domes
+    domes = Dome.query.filter_by(user_id=current_user.id).order_by(Dome.grid_row, Dome.grid_col).all()
+    
+    return render_template('index.html', 
+                         grid_rows=grid.rows,
+                         grid_cols=grid.cols,
+                         domes=domes,
+                         user=current_user)
+@app.route('/debug/session')
+def debug_session():
+    from flask import session
+    return jsonify({
+        'session_data': dict(session),
+        'permanent': session.permanent,
+        'user_authenticated': current_user.is_authenticated,
+        'user_id': current_user.id if current_user.is_authenticated else None
+    })
 @app.route('/logout')
 @login_required
 def logout():
@@ -382,23 +441,7 @@ def scheduler_status():
 
 # ============= MAIN ROUTES =============
 
-@app.route('/')
-@login_required
-def index():
-    grid = GridSettings.query.first()
-    if not grid:
-        grid = GridSettings()
-        db.session.add(grid)
-        db.session.commit()
-    
-    # Get only current user's domes
-    domes = Dome.query.filter_by(user_id=current_user.id).order_by(Dome.grid_row, Dome.grid_col).all()
-    
-    return render_template('index.html', 
-                         grid_rows=grid.rows,
-                         grid_cols=grid.cols,
-                         domes=domes,
-                         user=current_user)
+
 
 @app.route('/dome_info/<int:dome_id>', methods=['GET'])
 @login_required

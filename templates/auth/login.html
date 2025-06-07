@@ -136,8 +136,8 @@
             </div>
             
             <div class="checkbox-group">
-                <input type="checkbox" id="remember" name="remember">
-                <label for="remember">Remember me</label>
+                <input type="checkbox" id="remember" name="remember" checked>
+                <label for="remember">Remember me for 30 days</label>
             </div>
             
             <button type="submit" class="btn">Login</button>
@@ -153,6 +153,22 @@
     </div>
 
     <script>
+        // Check if user is already logged in when page loads
+        document.addEventListener('DOMContentLoaded', async function() {
+            try {
+                const response = await fetch('/api/auth/status');
+                const data = await response.json();
+                
+                if (data.authenticated) {
+                    // User is already logged in, redirect to main page
+                    window.location.href = '/';
+                }
+            } catch (error) {
+                // If auth check fails, just continue with login page
+                console.log('Auth check failed, showing login page');
+            }
+        });
+
         document.getElementById('loginForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             
@@ -162,6 +178,8 @@
                 password: formData.get('password'),
                 remember: formData.get('remember') === 'on'
             };
+            
+            console.log('Login attempt with remember:', data.remember);
             
             try {
                 const response = await fetch('/login', {
@@ -177,6 +195,12 @@
                 
                 if (result.success) {
                     messageDiv.innerHTML = '<div class="success">' + result.message + '</div>';
+                    
+                    // Store login preference in localStorage
+                    if (data.remember) {
+                        localStorage.setItem('rememberLogin', 'true');
+                    }
+                    
                     setTimeout(() => {
                         window.location.href = '/';
                     }, 1000);
@@ -184,7 +208,16 @@
                     messageDiv.innerHTML = '<div class="error">' + result.error + '</div>';
                 }
             } catch (error) {
+                console.error('Login error:', error);
                 document.getElementById('message').innerHTML = '<div class="error">Login failed. Please try again.</div>';
+            }
+        });
+
+        // Auto-fill remember me checkbox based on previous preference
+        window.addEventListener('load', function() {
+            const rememberPref = localStorage.getItem('rememberLogin');
+            if (rememberPref === 'true') {
+                document.getElementById('remember').checked = true;
             }
         });
     </script>
