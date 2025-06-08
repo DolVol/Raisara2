@@ -959,20 +959,31 @@ def create_dome():
         name = data.get('name')
         grid_row = data.get('grid_row')
         grid_col = data.get('grid_col')
-        farm_id = data.get('farm_id')  # Optional - for farm-specific domes
+        farm_id = data.get('farm_id')  # Required for farm-specific domes
         
         if not name or grid_row is None or grid_col is None:
             return jsonify({'success': False, 'error': 'Missing required fields'})
         
-        # Check if position is already occupied
-        existing_dome = Dome.query.filter_by(
-            grid_row=grid_row, 
-            grid_col=grid_col,
-            user_id=current_user.id
-        ).first()
+        # ✅ FIXED: Check if position is occupied ONLY within the same farm context
+        if farm_id:
+            # Farm-specific dome - check within this farm only
+            existing_dome = Dome.query.filter_by(
+                grid_row=grid_row, 
+                grid_col=grid_col,
+                user_id=current_user.id,
+                farm_id=farm_id  # ✅ KEY FIX: Only check within same farm
+            ).first()
+        else:
+            # Global dome - check within global context only
+            existing_dome = Dome.query.filter_by(
+                grid_row=grid_row, 
+                grid_col=grid_col,
+                user_id=current_user.id,
+                farm_id=None  # ✅ KEY FIX: Only check global domes
+            ).first()
         
         if existing_dome:
-            return jsonify({'success': False, 'error': 'Position already occupied'})
+            return jsonify({'success': False, 'error': 'Position already occupied in this context'})
         
         # Create new dome
         new_dome = Dome(
@@ -980,13 +991,14 @@ def create_dome():
             grid_row=grid_row,
             grid_col=grid_col,
             user_id=current_user.id,
-            farm_id=farm_id  # Can be None for general domes
+            farm_id=farm_id  # Can be None for global domes
         )
         
         db.session.add(new_dome)
         db.session.commit()
         
-        print(f"✅ Dome created: {new_dome.name} at ({grid_row}, {grid_col})")
+        context = f"farm {farm_id}" if farm_id else "global"
+        print(f"✅ Dome created: {new_dome.name} at ({grid_row}, {grid_col}) in {context}")
         
         return jsonify({
             'success': True, 
@@ -995,14 +1007,15 @@ def create_dome():
                 'id': new_dome.id,
                 'name': new_dome.name,
                 'grid_row': new_dome.grid_row,
-                'grid_col': new_dome.grid_col
+                'grid_col': new_dome.grid_col,
+                'farm_id': new_dome.farm_id
             }
         })
         
     except Exception as e:
         db.session.rollback()
         print(f"❌ Error creating dome: {str(e)}")
-        return jsonify({'success': False, 'error': str(e)})
+        return jsonify({'success': False, 'error': str(e)})@app.route('/move_dome/<int:dome_id>', methods=['POST'])
 @app.route('/move_dome/<int:dome_id>', methods=['POST'])
 @login_required
 def move_dome(dome_id):
@@ -1019,15 +1032,26 @@ def move_dome(dome_id):
         if not dome:
             return jsonify({'success': False, 'error': 'Dome not found'})
         
-        # Check if target position is occupied
-        existing_dome = Dome.query.filter_by(
-            grid_row=new_row, 
-            grid_col=new_col,
-            user_id=current_user.id
-        ).first()
+        # ✅ FIXED: Check if target position is occupied ONLY within the same farm context
+        if dome.farm_id:
+            # Farm-specific dome - check within this farm only
+            existing_dome = Dome.query.filter_by(
+                grid_row=new_row, 
+                grid_col=new_col,
+                user_id=current_user.id,
+                farm_id=dome.farm_id  # ✅ KEY FIX: Only check within same farm
+            ).first()
+        else:
+            # Global dome - check within global context only
+            existing_dome = Dome.query.filter_by(
+                grid_row=new_row, 
+                grid_col=new_col,
+                user_id=current_user.id,
+                farm_id=None  # ✅ KEY FIX: Only check global domes
+            ).first()
         
         if existing_dome and existing_dome.id != dome_id:
-            return jsonify({'success': False, 'error': 'Target position already occupied'})
+            return jsonify({'success': False, 'error': 'Target position already occupied in this context'})
         
         # Update dome position
         old_position = f"({dome.grid_row}, {dome.grid_col})"
@@ -1035,7 +1059,8 @@ def move_dome(dome_id):
         dome.grid_col = new_col
         db.session.commit()
         
-        print(f"✅ Dome moved: {dome.name} from {old_position} to ({new_row}, {new_col})")
+        context = f"farm {dome.farm_id}" if dome.farm_id else "global"
+        print(f"✅ Dome moved: {dome.name} from {old_position} to ({new_row}, {new_col}) in {context}")
         
         return jsonify({'success': True, 'message': 'Dome moved successfully'})
         
@@ -1066,6 +1091,10 @@ def swap_domes():
         if not dome1 or not dome2:
             return jsonify({'success': False, 'error': 'One or both domes not found'})
         
+        # ✅ FIXED: Ensure both domes are in the same context (same farm or both global)
+        if dome1.farm_id != dome2.farm_id:
+            return jsonify({'success': False, 'error': 'Cannot swap domes between different farm contexts'})
+        
         # Store old positions for logging
         dome1_old = f"({dome1.grid_row}, {dome1.grid_col})"
         dome2_old = f"({dome2.grid_row}, {dome2.grid_col})"
@@ -1078,7 +1107,8 @@ def swap_domes():
         
         db.session.commit()
         
-        print(f"✅ Domes swapped: {dome1.name} {dome1_old} ↔ {dome2.name} {dome2_old}")
+        context = f"farm {dome1.farm_id}" if dome1.farm_id else "global"
+        print(f"✅ Domes swapped: {dome1.name} {dome1_old} ↔ {dome2.name} {dome2_old} in {context}")
         
         return jsonify({'success': True, 'message': 'Domes swapped successfully'})
         
@@ -1742,32 +1772,19 @@ def farm_domes(farm_id):
             flash('Farm not found', 'error')
             return redirect(url_for('farms'))
         
-        # Get grid settings for domes
-        grid_settings = GridSettings.query.filter_by(
-            user_id=current_user.id, 
-            grid_type='dome'
-        ).first()
+        # ✅ FIXED: Use smaller grid for farm-specific domes (5x5)
+        grid_rows = 5
+        grid_cols = 5
         
-        if not grid_settings:
-            grid_settings = GridSettings(
-                user_id=current_user.id,
-                grid_type='dome',
-                rows=10,
-                cols=10
-            )
-            db.session.add(grid_settings)
-            db.session.commit()
-            print("✅ Created default dome grid settings")
-        
-        # Get domes for this specific farm
+        # ✅ FIXED: Get domes for this specific farm ONLY
         domes = Dome.query.filter_by(farm_id=farm_id, user_id=current_user.id).all()
         
-        print(f"✅ Found {len(domes)} domes for farm {farm.name}")
+        print(f"✅ Found {len(domes)} domes for farm {farm.name} (5x5 grid)")
         
         return render_template('dome.html', 
                              domes=domes,
-                             grid_rows=grid_settings.rows,
-                             grid_cols=grid_settings.cols,
+                             grid_rows=grid_rows,
+                             grid_cols=grid_cols,
                              farm_id=farm_id,
                              page_title=f"{farm.name} - Domes",
                              timestamp=int(time.time()),
@@ -1781,9 +1798,9 @@ def farm_domes(farm_id):
 @login_required
 def domes():
     try:
-        print("🏠 Loading all domes")
+        print("🏠 Loading all global domes")
         
-        # Get grid settings for domes
+        # Get grid settings for global domes
         grid_settings = GridSettings.query.filter_by(
             user_id=current_user.id, 
             grid_type='dome'
@@ -1800,24 +1817,58 @@ def domes():
             db.session.commit()
             print("✅ Created default dome grid settings")
         
-        # Get all domes for this user
-        domes = Dome.query.filter_by(user_id=current_user.id).all()
+        # ✅ FIXED: Get only global domes (farm_id is None)
+        domes = Dome.query.filter_by(user_id=current_user.id, farm_id=None).all()
         
-        print(f"✅ Found {len(domes)} total domes")
+        print(f"✅ Found {len(domes)} global domes")
         
         return render_template('dome.html', 
                              domes=domes,
                              grid_rows=grid_settings.rows,
                              grid_cols=grid_settings.cols,
                              farm_id=None,  # No specific farm context
-                             page_title="All Domes",
+                             page_title="Global Domes",
                              timestamp=int(time.time()),
                              user=current_user)
                              
     except Exception as e:
         print(f"❌ Error loading domes: {str(e)}")
         flash('Error loading domes', 'error')
-        return redirect(url_for('index'))@app.route('/add_dome', methods=['POST'])
+        return redirect(url_for('index'))
+@app.route('/api/dome_context/<int:farm_id>')
+@login_required
+def dome_context_info(farm_id):
+    try:
+        farm = Farm.query.filter_by(id=farm_id, user_id=current_user.id).first()
+        if not farm:
+            return jsonify({'success': False, 'error': 'Farm not found'})
+        
+        domes = Dome.query.filter_by(farm_id=farm_id, user_id=current_user.id).all()
+        
+        dome_positions = []
+        for dome in domes:
+            dome_positions.append({
+                'id': dome.id,
+                'name': dome.name,
+                'row': dome.grid_row,
+                'col': dome.grid_col,
+                'farm_id': dome.farm_id
+            })
+        
+        return jsonify({
+            'success': True,
+            'farm': {
+                'id': farm.id,
+                'name': farm.name
+            },
+            'grid_size': '5x5',
+            'dome_count': len(domes),
+            'domes': dome_positions
+        })
+        
+    except Exception as e:
+        print(f"❌ Error getting dome context: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)})
 @login_required
 def add_dome():
     try:
