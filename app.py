@@ -1127,113 +1127,156 @@ def debug_all_grid_settings():
 @app.route('/farm_info/<int:farm_id>')
 @login_required
 def farm_info(farm_id):
-    """Farm information and dome management page"""
-    farm = Farm.query.filter_by(id=farm_id, user_id=current_user.id).first()
-    if not farm:
-        abort(404)
-    
-    # Initialize variables
-    domes = []
-    total_trees = 0
-    error_message = None
-    
-    # Try to get domes in this farm
+    """Enhanced farm information page with error handling"""
     try:
-        # First, check if farm_id column exists
-        with db.engine.connect() as conn:
-            if is_postgresql():
-                # ✅ FIXED: PostgreSQL version
-                result = conn.execute(text("""
-                    SELECT column_name 
-                    FROM information_schema.columns 
-                    WHERE table_name = 'dome' AND column_name = 'farm_id'
-                """))
-                columns = [row[0] for row in result.fetchall()]
-            else:
-                # SQLite version
-                result = conn.execute(text("PRAGMA table_info(dome)"))
-                columns = [row[1] for row in result.fetchall()]
-            
-            if 'farm_id' not in columns:
-                print("❌ farm_id column missing - showing all user domes instead")
-                error_message = "Farm system not fully configured. Showing all your domes."
-                
-                # Fallback: show all user's domes
-                try:
-                    domes = Dome.query.filter_by(user_id=current_user.id).order_by(Dome.grid_row, Dome.grid_col).all()
-                except Exception as e:
-                    print(f"⚠️ Fallback query failed: {e}")
-                    domes = []
-            else:
-                # farm_id column exists, try normal query
-                try:
-                    domes = Dome.query.filter_by(farm_id=farm_id, user_id=current_user.id).order_by(Dome.grid_row, Dome.grid_col).all()
-                    print(f"✅ SQLAlchemy query successful for farm {farm_id}, found {len(domes)} domes")
-                except Exception as e:
-                    print(f"⚠️ SQLAlchemy query failed, using raw SQL: {e}")
-                    try:
-                        # Fallback to raw SQL
-                        result = conn.execute(
-                            text("SELECT * FROM dome WHERE farm_id = :farm_id AND user_id = :user_id ORDER BY grid_row, grid_col"),
-                            {"farm_id": farm_id, "user_id": current_user.id}
-                        )
-                        
-                        # Convert raw results to Dome objects
-                        domes = []
-                        for row in result:
-                            dome = Dome()
-                            dome.id = row.id
-                            dome.name = row.name
-                            dome.grid_row = row.grid_row
-                            dome.grid_col = row.grid_col
-                            dome.internal_rows = row.internal_rows
-                            dome.internal_cols = row.internal_cols
-                            dome.image_url = row.image_url
-                            dome.user_id = row.user_id
-                            dome.farm_id = getattr(row, 'farm_id', farm_id)
-                            dome.created_at = getattr(row, 'created_at', None)
-                            dome.updated_at = getattr(row, 'updated_at', None)
-                            domes.append(dome)
-                        
-                        print(f"✅ Raw SQL query successful, found {len(domes)} domes")
-                    except Exception as e2:
-                        print(f"⚠️ Raw SQL query also failed: {e2}")
-                        error_message = f"Database error: {str(e2)}"
-                        domes = []
-    
-    except Exception as e:
-        print(f"⚠️ Database connection error: {e}")
-        error_message = f"Database connection error: {str(e)}"
+        # Get the farm and verify ownership
+        farm = Farm.query.filter_by(id=farm_id, user_id=current_user.id).first()
+        if not farm:
+            flash('Farm not found or access denied', 'error')
+            return redirect(url_for('farms'))
+        
+        # Initialize variables
         domes = []
-    
-    # Calculate total trees across all domes
-    for dome in domes:
+        total_trees = 0
+        error_message = None
+        
+        # Try to get domes with multiple fallback strategies
         try:
-            tree_count = Tree.query.filter_by(dome_id=dome.id, user_id=current_user.id).count()
-            total_trees += tree_count
-        except Exception as e:
-            print(f"⚠️ Error counting trees for dome {dome.id}: {e}")
-            # Fallback to raw SQL for tree count
+            # Strategy 1: Try normal SQLAlchemy query
+            domes = Dome.query.filter_by(farm_id=farm_id, user_id=current_user.id).order_by(Dome.grid_row, Dome.grid_col).all()
+            print(f"✅ Strategy 1 successful: Found {len(domes)} domes for farm {farm_id}")
+            
+        except Exception as e1:
+            print(f"⚠️ Strategy 1 failed: {e1}")
+            
             try:
+                # Strategy 2: Raw SQL query
                 with db.engine.connect() as conn:
-                    result = conn.execute(
-                        text("SELECT COUNT(*) as count FROM tree WHERE dome_id = :dome_id AND user_id = :user_id"),
-                        {"dome_id": dome.id, "user_id": current_user.id}
-                    )
-                    tree_count = result.fetchone().count
-                    total_trees += tree_count
+                    if is_postgresql():
+                        # PostgreSQL version
+                        result = conn.execute(text("""
+                            SELECT id, name, grid_row, grid_col, internal_rows, internal_cols, 
+                                   image_url, user_id, farm_id, created_at, updated_at
+                            FROM dome 
+                            WHERE farm_id = :farm_id AND user_id = :user_id 
+                            ORDER BY grid_row, grid_col
+                        """), {"farm_id": farm_id, "user_id": current_user.id})
+                    else:
+                        # SQLite version
+                        result = conn.execute(text("""
+                            SELECT id, name, grid_row, grid_col, internal_rows, internal_cols, 
+                                   image_url, user_id, farm_id, created_at, updated_at
+                            FROM dome 
+                            WHERE farm_id = ? AND user_id = ? 
+                            ORDER BY grid_row, grid_col
+                        """), (farm_id, current_user.id))
+                    
+                    # Convert raw results to Dome-like objects
+                    domes = []
+                    for row in result:
+                        dome = type('Dome', (), {})()  # Create a simple object
+                        dome.id = row[0]
+                        dome.name = row[1]
+                        dome.grid_row = row[2]
+                        dome.grid_col = row[3]
+                        dome.internal_rows = row[4] or 5
+                        dome.internal_cols = row[5] or 5
+                        dome.image_url = row[6]
+                        dome.user_id = row[7]
+                        dome.farm_id = row[8]
+                        dome.created_at = row[9]
+                        dome.updated_at = row[10]
+                        domes.append(dome)
+                    
+                    print(f"✅ Strategy 2 successful: Found {len(domes)} domes using raw SQL")
+                    
             except Exception as e2:
-                print(f"⚠️ Raw SQL tree count also failed: {e2}")
-    
-    # Add timestamp for cache busting
-    timestamp = int(time.time())
-    
-    return render_template('farm_info.html', 
-                         farm=farm, 
-                         domes=domes,
-                         total_trees=total_trees,
-                         timestamp=timestamp,
-                         error_message=error_message)
+                print(f"⚠️ Strategy 2 failed: {e2}")
+                
+                try:
+                    # Strategy 3: Get all user's domes (fallback)
+                    domes = Dome.query.filter_by(user_id=current_user.id).order_by(Dome.grid_row, Dome.grid_col).all()
+                    error_message = f"Database issue detected. Showing all your domes instead of farm-specific ones. (Error: {str(e2)[:100]})"
+                    print(f"✅ Strategy 3 successful: Found {len(domes)} total user domes")
+                    
+                except Exception as e3:
+                    print(f"⚠️ Strategy 3 failed: {e3}")
+                    domes = []
+                    error_message = f"Unable to load domes due to database issues. Please contact support. (Error: {str(e3)[:100]})"
+        
+        # Calculate total trees across all domes
+        for dome in domes:
+            try:
+                if hasattr(dome, 'id'):
+                    tree_count = Tree.query.filter_by(dome_id=dome.id, user_id=current_user.id).count()
+                    total_trees += tree_count
+            except Exception as tree_error:
+                print(f"⚠️ Error counting trees for dome {getattr(dome, 'id', 'unknown')}: {tree_error}")
+                # Try raw SQL for tree count
+                try:
+                    with db.engine.connect() as conn:
+                        if is_postgresql():
+                            result = conn.execute(text("""
+                                SELECT COUNT(*) as count 
+                                FROM tree 
+                                WHERE dome_id = :dome_id AND user_id = :user_id
+                            """), {"dome_id": dome.id, "user_id": current_user.id})
+                        else:
+                            result = conn.execute(text("""
+                                SELECT COUNT(*) as count 
+                                FROM tree 
+                                WHERE dome_id = ? AND user_id = ?
+                            """), (dome.id, current_user.id))
+                        
+                        tree_count = result.fetchone()[0]
+                        total_trees += tree_count
+                except Exception as tree_error2:
+                    print(f"⚠️ Raw SQL tree count also failed: {tree_error2}")
+        
+        # Add timestamp for cache busting
+        timestamp = int(time.time())
+        
+        return render_template('farm_info.html', 
+                             farm=farm, 
+                             domes=domes,
+                             total_trees=total_trees,
+                             timestamp=timestamp,
+                             error_message=error_message)
+        
+    except Exception as e:
+        print(f"❌ Critical error in farm_info route: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        
+        # Try to redirect to farm domes instead
+        try:
+            flash(f'Error loading farm info. Redirecting to farm domes. (Error: {str(e)[:100]})', 'warning')
+            return redirect(url_for('farm_domes', farm_id=farm_id))
+        except:
+            # Last resort: redirect to farms list
+            flash('Unable to load farm information due to database issues.', 'error')
+            return redirect(url_for('farms'))
+@app.route('/farm/<int:farm_id>/info')
+@login_required
+def farm_info_simple(farm_id):
+    """Simple farm info route as fallback"""
+    try:
+        farm = Farm.query.filter_by(id=farm_id, user_id=current_user.id).first()
+        if not farm:
+            return jsonify({'error': 'Farm not found'}), 404
+        
+        return f"""
+        <h2>🚜 Farm: {farm.name}</h2>
+        <p><strong>Position:</strong> Row {farm.grid_row}, Column {farm.grid_col}</p>
+        <p><strong>Created:</strong> {farm.created_at.strftime('%Y-%m-%d %H:%M') if farm.created_at else 'Unknown'}</p>
+        <hr>
+        <p><a href="/farm/{farm_id}/domes">🏠 View Domes in this Farm</a></p>
+        <p><a href="/farms">🚜 Back to All Farms</a></p>
+        <hr>
+        <p><em>This is a simplified view due to database compatibility issues.</em></p>
+        """
+    except Exception as e:
+        return f"<h2>Error</h2><p>{str(e)}</p><p><a href='/farms'>Back to Farms</a></p>"
 @app.route('/farm')
 @login_required
 def farm_redirect():

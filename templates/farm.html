@@ -1129,11 +1129,42 @@ function adjustCellSize() {
         }
 
         // Handle farm clicks for viewing farm info
-function handleFarmClick(event, farmId) {
+// Handle farm clicks for viewing farm info
+async function handleFarmClick(event, farmId) {
     event.stopPropagation();
-    if (!isDragging) {
-        console.log('Going to farm info page');
+    if (isDragging) return;
+    
+    console.log('Navigating to farm info for farm ID:', farmId);
+    
+    // Show loading indicator
+    const originalCursor = document.body.style.cursor;
+    document.body.style.cursor = 'wait';
+    
+    try {
+        // Try the main farm info route
         window.location.href = `/farm_info/${farmId}`;
+        
+    } catch (error) {
+        console.error('Error accessing farm:', error);
+        
+        // Reset cursor
+        document.body.style.cursor = originalCursor;
+        
+        // Show user-friendly error with options
+        const userChoice = confirm(
+            `Unable to access farm information.\n\n` +
+            `Would you like to:\n` +
+            `• OK - Try viewing farm domes instead\n` +
+            `• Cancel - Stay on this page`
+        );
+        
+        if (userChoice) {
+            try {
+                window.location.href = `/farm/${farmId}/domes`;
+            } catch (fallbackError) {
+                alert('Unable to access farm. Please refresh the page and try again.');
+            }
+        }
     }
 }
         // Add new farm
