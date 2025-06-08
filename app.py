@@ -194,24 +194,41 @@ def initialize_defaults():
         # Don't crash - the app can work without this
 
 def save_image_to_database(image_file, entity_type, entity_id):
-    """Save image as base64 in database instead of filesystem"""
+    """Save image as compressed base64 in database"""
     try:
-        # Read and process the image
+        # Read the image
         image_data = image_file.read()
         
-        # Convert to base64
-        image_base64 = base64.b64encode(image_data).decode('utf-8')
+        # Open with PIL for processing
+        img = Image.open(io.BytesIO(image_data))
         
-        # Get file extension
-        filename = image_file.filename.lower()
-        if filename.endswith(('.png', '.jpg', '.jpeg', '.gif', '.webp')):
-            ext = filename.split('.')[-1]
-        else:
-            ext = 'jpg'
+        # ✅ COMPRESS: Resize if too large
+        max_size = (800, 600)  # Maximum dimensions
+        if img.size[0] > max_size[0] or img.size[1] > max_size[1]:
+            img.thumbnail(max_size, Image.Resampling.LANCZOS)
+            print(f"🔄 Resized image from original to {img.size}")
+        
+        # ✅ COMPRESS: Convert to RGB if needed and save as JPEG with compression
+        if img.mode in ('RGBA', 'P'):
+            # Convert RGBA/P to RGB
+            rgb_img = Image.new('RGB', img.size, (255, 255, 255))
+            rgb_img.paste(img, mask=img.split()[-1] if img.mode == 'RGBA' else None)
+            img = rgb_img
+        
+        # Save to bytes with compression
+        img_byte_arr = io.BytesIO()
+        img.save(img_byte_arr, format='JPEG', quality=85, optimize=True)
+        compressed_data = img_byte_arr.getvalue()
+        
+        # Convert to base64
+        image_base64 = base64.b64encode(compressed_data).decode('utf-8')
         
         # Create data URL
-        mime_type = f'image/{ext}' if ext != 'jpg' else 'image/jpeg'
-        data_url = f'data:{mime_type};base64,{image_base64}'
+        data_url = f'data:image/jpeg;base64,{image_base64}'
+        
+        # ✅ CHECK: Warn if still too large
+        if len(data_url) > 100000:  # 100KB warning
+            print(f"⚠️ Large image: {len(data_url)} characters")
         
         return data_url
         
@@ -2592,6 +2609,82 @@ def request_password_reset():
     
     # GET request - show password reset form
     return render_template('auth/reset_request.html')
+@app.route('/fix_image_columns')
+def fix_image_columns():
+    """Fix image_url columns to handle base64 data"""
+    try:
+        with db.engine.connect() as conn:
+            print("🔧 Fixing image_url column sizes...")
+            
+            is_postgresql = 'postgresql' in str(db.engine.url)
+            fixes_applied = []
+            
+            if is_postgresql:
+                # PostgreSQL version - change VARCHAR(255) to TEXT
+                try:
+                    # Fix farm table
+                    conn.execute(text("ALTER TABLE farm ALTER COLUMN image_url TYPE TEXT"))
+                    fixes_applied.append("✅ Fixed farm.image_url column")
+                except Exception as e:
+                    if "does not exist" in str(e):
+                        fixes_applied.append("ℹ️ farm.image_url column doesn't exist")
+                    else:
+                        fixes_applied.append(f"⚠️ farm.image_url: {str(e)[:100]}")
+                
+                try:
+                    # Fix dome table
+                    conn.execute(text("ALTER TABLE dome ALTER COLUMN image_url TYPE TEXT"))
+                    fixes_applied.append("✅ Fixed dome.image_url column")
+                except Exception as e:
+                    if "does not exist" in str(e):
+                        fixes_applied.append("ℹ️ dome.image_url column doesn't exist")
+                    else:
+                        fixes_applied.append(f"⚠️ dome.image_url: {str(e)[:100]}")
+                
+                try:
+                    # Fix tree table
+                    conn.execute(text("ALTER TABLE tree ALTER COLUMN image_url TYPE TEXT"))
+                    fixes_applied.append("✅ Fixed tree.image_url column")
+                except Exception as e:
+                    if "does not exist" in str(e):
+                        fixes_applied.append("ℹ️ tree.image_url column doesn't exist")
+                    else:
+                        fixes_applied.append(f"⚠️ tree.image_url: {str(e)[:100]}")
+                        
+            else:
+                # SQLite doesn't support ALTER COLUMN TYPE directly
+                # We'd need to recreate tables, but for now just note it
+                fixes_applied.append("ℹ️ SQLite detected - column types are flexible")
+            
+            conn.commit()
+            
+            # Clear SQLAlchemy cache
+            db.metadata.clear()
+            db.metadata.reflect(bind=db.engine)
+            
+            return f"""
+            <h2>✅ Image Column Fix Complete!</h2>
+            <ul>
+                {''.join([f'<li>{fix}</li>' for fix in fixes_applied])}
+            </ul>
+            
+            <h3>🎉 You can now upload images!</h3>
+            <p>The image_url columns have been changed from VARCHAR(255) to TEXT to handle base64 data.</p>
+            
+            <p><a href="/farms" style="background: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">🚜 Test Image Upload</a></p>
+            
+            <hr>
+            <p><small>Database: {'PostgreSQL (Render)' if is_postgresql else 'SQLite (Local)'}</small></p>
+            <p><small>You can remove this route after confirming image uploads work.</small></p>
+            """
+            
+    except Exception as e:
+        return f"""
+        <h2>❌ Image Column Fix Failed</h2>
+        <p><strong>Error:</strong> {str(e)}</p>
+        <p>This might be a permissions issue.</p>
+        <p><a href="/farms">Back to Farms</a></p>
+        """
 @app.route('/forgot_password', methods=['GET', 'POST'])
 def forgot_password():
     if request.method == 'POST':
