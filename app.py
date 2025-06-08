@@ -103,13 +103,13 @@ def get_grid_settings(grid_type='dome', user_id=None, farm_id=None):
         ).first()
         
         if not settings:
-            # Create default settings
+            # Create default settings with better defaults for different contexts
             if grid_type == 'farm':
                 default_rows, default_cols = 10, 10
             elif farm_id:  # Farm-specific dome settings
-                default_rows, default_cols = 8, 8  # Different default for farm domes
+                default_rows, default_cols = 8, 8  # Reasonable default for farm domes
             else:  # Global dome settings
-                default_rows, default_cols = 5, 5
+                default_rows, default_cols = 10, 10  # Larger default for global domes
             
             settings = GridSettings(
                 rows=default_rows,
@@ -141,14 +141,13 @@ def get_grid_settings(grid_type='dome', user_id=None, farm_id=None):
         elif farm_id:
             default_rows, default_cols = 8, 8
         else:
-            default_rows, default_cols = 5, 5
+            default_rows, default_cols = 10, 10
             
         return type('obj', (object,), {
             'rows': default_rows,
             'cols': default_cols,
             'grid_type': grid_type_key if 'grid_type_key' in locals() else grid_type
         })
-
 def update_grid_settings(grid_type, rows, cols, user_id=None, farm_id=None):
     """Update grid settings for specific type, user, and optionally farm"""
     try:
@@ -1660,20 +1659,22 @@ def farm_domes(farm_id):
             flash('Farm not found', 'error')
             return redirect(url_for('farms'))
         
-        # ✅ FIXED: Use smaller grid for farm-specific domes (5x5)
-        grid_rows = 5
-        grid_cols = 5
+        # ✅ FIXED: Get farm-specific dome grid settings instead of hardcoded 5x5
+        grid_settings = get_grid_settings('dome', current_user.id, farm_id)
         
-        # ✅ FIXED: Get domes for this specific farm ONLY
+        print(f"📏 Farm {farm_id} dome grid settings: {grid_settings.rows}x{grid_settings.cols}")
+        
+        # Get domes for this specific farm ONLY
         domes = Dome.query.filter_by(farm_id=farm_id, user_id=current_user.id).all()
         
-        print(f"✅ Found {len(domes)} domes for farm {farm.name} (5x5 grid)")
+        print(f"✅ Found {len(domes)} domes for farm {farm.name} ({grid_settings.rows}x{grid_settings.cols} grid)")
         
         return render_template('dome.html', 
                              domes=domes,
-                             grid_rows=grid_rows,
-                             grid_cols=grid_cols,
+                             grid_rows=grid_settings.rows,
+                             grid_cols=grid_settings.cols,
                              farm_id=farm_id,
+                             farm_name=farm.name,  # Add farm name for context
                              page_title=f"{farm.name} - Domes",
                              timestamp=int(time.time()),
                              user=current_user)
@@ -2091,25 +2092,52 @@ def update_grid_size():
         data = request.get_json()
         rows = data.get('rows')
         cols = data.get('cols')
-        farm_id = data.get('farm_id')  # ✅ Get farm_id from request
+        farm_id = data.get('farm_id')  # Get farm_id from request
         
         print(f"🔧 Updating dome grid size to {rows}x{cols} (farm_id: {farm_id})")
         
         if not rows or not cols:
             return jsonify({'success': False, 'error': 'Rows and columns are required'})
         
-        if rows < 1 or rows > 100 or cols < 1 or cols > 100:
-            return jsonify({'success': False, 'error': 'Grid size must be between 1 and 100'})
+        try:
+            rows = int(rows)
+            cols = int(cols)
+        except (ValueError, TypeError):
+            return jsonify({'success': False, 'error': 'Invalid grid size values'})
         
-        # ✅ FIXED: Update farm-specific or global dome settings
+        if rows < 1 or rows > 50 or cols < 1 or cols > 50:
+            return jsonify({'success': False, 'error': 'Grid size must be between 1x1 and 50x50'})
+        
+        # Check if shrinking would affect existing domes
+        if farm_id:
+            # Check domes in specific farm
+            affected_domes = Dome.query.filter(
+                Dome.farm_id == farm_id,
+                Dome.user_id == current_user.id,
+                (Dome.grid_row >= rows) | (Dome.grid_col >= cols)
+            ).all()
+        else:
+            # Check global domes
+            affected_domes = Dome.query.filter(
+                Dome.farm_id.is_(None),
+                Dome.user_id == current_user.id,
+                (Dome.grid_row >= rows) | (Dome.grid_col >= cols)
+            ).all()
+        
+        if affected_domes:
+            dome_names = [dome.name for dome in affected_domes]
+            return jsonify({
+                'success': False, 
+                'error': f'Cannot shrink grid. Domes would be affected: {", ".join(dome_names)}'
+            })
+        
+        # Update farm-specific or global dome settings
         success = update_grid_settings('dome', rows, cols, current_user.id, farm_id)
         
         if success:
-            if farm_id:
-                print(f"✅ Farm {farm_id} dome grid size updated to {rows}x{cols}")
-            else:
-                print(f"✅ Global dome grid size updated to {rows}x{cols}")
-            return jsonify({'success': True})
+            context = f"farm {farm_id}" if farm_id else "global"
+            print(f"✅ {context} dome grid size updated to {rows}x{cols}")
+            return jsonify({'success': True, 'message': f'Grid updated to {rows}x{cols}'})
         else:
             return jsonify({'success': False, 'error': 'Failed to update grid settings'})
         
@@ -2127,21 +2155,52 @@ def update_farm_dome_grid_size(farm_id):
             return jsonify({'success': False, 'error': 'Farm not found'}), 404
             
         data = request.json
-        rows = data.get('rows', 8)
-        cols = data.get('cols', 8)
+        rows = data.get('rows')
+        cols = data.get('cols')
         
-        print(f"🔧 Updating Farm {farm_id} dome grid size to {rows}x{cols}")
+        print(f"🔧 Updating Farm {farm_id} ({farm.name}) dome grid size to {rows}x{cols}")
         
-        # Validate size
-        if rows < 1 or cols < 1 or rows > 100 or cols > 100:
-            return jsonify({'success': False, 'error': 'Grid size must be between 1x1 and 100x100'}), 400
+        # Validation
+        if not rows or not cols:
+            return jsonify({'success': False, 'error': 'Rows and columns are required'}), 400
+        
+        try:
+            rows = int(rows)
+            cols = int(cols)
+        except (ValueError, TypeError):
+            return jsonify({'success': False, 'error': 'Invalid grid size values'}), 400
+        
+        # Validate size bounds
+        if rows < 1 or cols < 1 or rows > 50 or cols > 50:
+            return jsonify({'success': False, 'error': 'Grid size must be between 1x1 and 50x50'}), 400
+        
+        # Check if shrinking would affect existing domes
+        if rows < 10 or cols < 10:  # Warn if going below reasonable size
+            existing_domes = Dome.query.filter(
+                Dome.farm_id == farm_id,
+                Dome.user_id == current_user.id,
+                (Dome.grid_row >= rows) | (Dome.grid_col >= cols)
+            ).all()
+            
+            if existing_domes:
+                dome_names = [dome.name for dome in existing_domes]
+                return jsonify({
+                    'success': False, 
+                    'error': f'Cannot shrink grid. Domes would be affected: {", ".join(dome_names)}'
+                }), 400
         
         # Update farm-specific dome grid settings
         success = update_grid_settings('dome', rows, cols, current_user.id, farm_id)
         
         if success:
-            print(f"✅ Farm {farm_id} dome grid size updated to {rows}x{cols}")
-            return jsonify({'success': True})
+            print(f"✅ Farm {farm_id} ({farm.name}) dome grid size updated to {rows}x{cols}")
+            return jsonify({
+                'success': True,
+                'message': f'Dome grid updated to {rows}x{cols} for {farm.name}',
+                'farm_name': farm.name,
+                'rows': rows,
+                'cols': cols
+            })
         else:
             return jsonify({'success': False, 'error': 'Failed to update farm dome grid settings'}), 500
             
