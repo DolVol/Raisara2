@@ -838,30 +838,119 @@ def debug_routes():
 @app.route('/farms')
 @login_required
 def farms():
-    """Main farm management page"""
-    from flask import session
-    session.permanent = True
-    
-    # ✅ FIXED: Get FARM-specific grid settings
+    """Enhanced farms route with comprehensive error handling"""
     try:
-        grid = get_grid_settings('farm', current_user.id)
-        print(f"📏 Farm grid settings: {grid.rows}x{grid.cols}")
+        print(f"🚜 Farms route accessed by user: {current_user.id}")
+        
+        # Get grid settings with error handling
+        try:
+            grid_settings = get_grid_settings('farm', current_user.id)
+            grid_rows = grid_settings.rows
+            grid_cols = grid_settings.cols
+            print(f"📏 Farm grid settings: {grid_rows}x{grid_cols}")
+        except Exception as grid_error:
+            print(f"⚠️ Grid settings error: {grid_error}")
+            # Use default values
+            grid_rows = 10
+            grid_cols = 10
+            print(f"📏 Using default farm grid: {grid_rows}x{grid_cols}")
+        
+        # Get farms with multiple fallback strategies
+        farms = []
+        try:
+            # Strategy 1: Normal SQLAlchemy query
+            farms = Farm.query.filter_by(user_id=current_user.id).all()
+            print(f"✅ Strategy 1 successful: Found {len(farms)} farms")
+            
+        except Exception as e1:
+            print(f"⚠️ Strategy 1 failed: {e1}")
+            
+            try:
+                # Strategy 2: Raw SQL query
+                with db.engine.connect() as conn:
+                    if is_postgresql():
+                        result = conn.execute(text("""
+                            SELECT id, name, grid_row, grid_col, image_url, user_id, created_at, updated_at
+                            FROM farm 
+                            WHERE user_id = :user_id 
+                            ORDER BY grid_row, grid_col
+                        """), {"user_id": current_user.id})
+                    else:
+                        result = conn.execute(text("""
+                            SELECT id, name, grid_row, grid_col, image_url, user_id, created_at, updated_at
+                            FROM farm 
+                            WHERE user_id = ? 
+                            ORDER BY grid_row, grid_col
+                        """), (current_user.id,))
+                    
+                    # Convert raw results to Farm-like objects
+                    farms = []
+                    for row in result:
+                        farm = type('Farm', (), {})()
+                        farm.id = row[0]
+                        farm.name = row[1]
+                        farm.grid_row = row[2]
+                        farm.grid_col = row[3]
+                        farm.image_url = row[4]
+                        farm.user_id = row[5]
+                        farm.created_at = row[6]
+                        farm.updated_at = row[7]
+                        farms.append(farm)
+                    
+                    print(f"✅ Strategy 2 successful: Found {len(farms)} farms using raw SQL")
+                    
+            except Exception as e2:
+                print(f"⚠️ Strategy 2 failed: {e2}")
+                farms = []
+                print("⚠️ Using empty farms list")
+        
+        # Add timestamp for cache busting
+        timestamp = int(time.time())
+        
+        # Render template with error handling
+        try:
+            return render_template('farm.html', 
+                                 farms=farms,
+                                 grid_rows=grid_rows,
+                                 grid_cols=grid_cols,
+                                 timestamp=timestamp,
+                                 user=current_user)
+        except Exception as template_error:
+            print(f"❌ Template rendering error: {template_error}")
+            # Return a simple error page
+            return f"""
+            <h1>🚜 Farm System Temporarily Unavailable</h1>
+            <p>We're experiencing technical difficulties. Please try again in a moment.</p>
+            <p><a href="/login">← Back to Login</a></p>
+            <p><strong>Error:</strong> {str(template_error)}</p>
+            """, 500
+        
     except Exception as e:
-        print(f"⚠️ Farm grid settings error: {e}")
-        grid = type('obj', (object,), {'rows': 10, 'cols': 10})
-    
-    # Get only current user's farms
-    farms = Farm.query.filter_by(user_id=current_user.id).order_by(Farm.grid_row, Farm.grid_col).all()
-    
-    timestamp = int(time.time())
-    
-    return render_template('farm.html', 
-                         grid_rows=grid.rows,
-                         grid_cols=grid.cols,
-                         farms=farms,
-                         user=current_user,
-                         timestamp=timestamp)
-
+        print(f"❌ Critical error in farms route: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        
+        # Return simple error page instead of trying to render error template
+        return f"""
+        <h1>🚨 System Error</h1>
+        <p>Something went wrong. Please contact support.</p>
+        <p><a href="/login">← Back to Login</a></p>
+        <p><strong>Error:</strong> {str(e)}</p>
+        """, 500
+@app.errorhandler(500)
+def internal_error(error):
+    """Simple error handler that doesn't require templates"""
+    print(f"❌ 500 Error: {error}")
+    return f"""
+    <html>
+    <head><title>Server Error</title></head>
+    <body style="font-family: Arial; text-align: center; padding: 50px;">
+        <h1>🚨 Server Error</h1>
+        <p>Something went wrong. We're working to fix it.</p>
+        <p><a href="/farms">🚜 Try Farms Again</a> | <a href="/login">🔐 Back to Login</a></p>
+    </body>
+    </html>
+    """, 500
 @app.route('/add_farm', methods=['POST'])
 @login_required
 def add_farm():

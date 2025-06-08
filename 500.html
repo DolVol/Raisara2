@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Server Error - Tree Management System</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .error-container {
+            background: white;
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            text-align: center;
+            max-width: 500px;
+            width: 90%;
+        }
+        
+        .error-icon {
+            font-size: 4em;
+            margin-bottom: 20px;
+        }
+        
+        .error-title {
+            color: #e74c3c;
+            font-size: 2em;
+            margin-bottom: 20px;
+        }
+        
+        .error-message {
+            color: #666;
+            font-size: 1.1em;
+            margin-bottom: 30px;
+            line-height: 1.6;
+        }
+        
+        .error-actions {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+        
+        .btn-primary {
+            background: #4CAF50;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #45a049;
+            transform: translateY(-2px);
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #5a6268;
+            transform: translateY(-2px);
+        }
+        
+        .error-details {
+            background: #f8f9fa;
+            border-left: 4px solid #e74c3c;
+            padding: 15px;
+            margin-top: 20px;
+            text-align: left;
+            border-radius: 4px;
+        }
+        
+        .error-details h4 {
+            margin: 0 0 10px 0;
+            color: #e74c3c;
+        }
+        
+        .error-details p {
+            margin: 0;
+            font-family: monospace;
+            font-size: 0.9em;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="error-container">
+        <div class="error-icon">🚨</div>
+        <h1 class="error-title">Server Error</h1>
+        <p class="error-message">
+            Oops! Something went wrong on our end. We're working to fix this issue.
+        </p>
+        
+        <div class="error-actions">
+            <a href="/farms" class="btn btn-primary">🚜 Try Farms Again</a>
+            <a href="/login" class="btn btn-secondary">🔐 Back to Login</a>
+            <button class="btn btn-secondary" onclick="window.location.reload()">🔄 Refresh Page</button>
+        </div>
+        
+        <div class="error-details">
+            <h4>What you can do:</h4>
+            <p>• Try refreshing the page</p>
+            <p>• Go back to the login page</p>
+            <p>• Contact support if the problem persists</p>
+        </div>
+    </div>
+    
+    <script>
+        // Auto-redirect to login after 30 seconds
+        setTimeout(() => {
+            if (confirm('Would you like to return to the login page?')) {
+                window.location.href = '/login';
+            }
+        }, 30000);
+    </script>
+</body>
+</html>
