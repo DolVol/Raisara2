@@ -286,7 +286,7 @@
             background: #e8f5e8;
         }
         
-        /* ✅ ENHANCED: Drag and drop visual feedback */
+        /* Drag and drop visual feedback */
         .grid-cell.drag-over {
             border: 3px solid #2196F3 !important;
             background: rgba(33, 150, 243, 0.2) !important;
@@ -366,7 +366,7 @@
             cursor: grabbing;
         }
 
-        /* ✅ NEW: Dome image display for base64 data */
+        /* Dome image display for base64 data */
         .dome-with-image {
             position: relative;
             overflow: hidden;
@@ -530,6 +530,7 @@
             padding: 25px;
             border-radius: 12px;
             max-width: 90%;
+            width: 500px;
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
         }
 
@@ -551,6 +552,7 @@
             border-radius: 6px;
             font-size: 14px;
             transition: border-color 0.3s ease;
+            box-sizing: border-box;
         }
 
         .input-group input:focus {
@@ -565,7 +567,7 @@
             margin-top: 20px;
         }
 
-        /* ✅ NEW: Loading overlay */
+        /* Loading overlay */
         .loading-overlay {
             position: fixed;
             top: 0;
@@ -582,7 +584,7 @@
             font-weight: bold;
         }
 
-        /* ✅ NEW: Status messages */
+        /* Status messages */
         .status-message {
             position: fixed;
             top: 20px;
@@ -603,6 +605,26 @@
 
         .status-error {
             background: #dc3545;
+        }
+
+        /* Context info styling */
+        .context-info {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+
+        .context-info.global {
+            background: #e8f5e9;
+            border-left: 4px solid #4CAF50;
+            color: #2e7d32;
+        }
+
+        .context-info.farm {
+            background: #fff3cd;
+            border-left: 4px solid #8B4513;
+            color: #856404;
         }
 
         /* Responsive design */
@@ -677,7 +699,7 @@
                     <button class="nav-btn farm" onclick="goToFarms()">🚜 Farms</button>
                 {% endif %}
                 
-                <button class="nav-btn" onclick="showGridSizeModal()">📏 Resize</button>
+                <button class="nav-btn" onclick="showGridSizeModal()">📏 Edit Grid Size</button>
                 <button class="nav-btn secondary" onclick="centerGrid()">🎯 Center</button>
                 <button class="nav-btn secondary" onclick="fitToScreen()">📱 Fit</button>
                 {% if user %}
@@ -695,7 +717,7 @@
                 <div class="farm-context">
                     <h3>🚜 {{ page_title }}</h3>
                     <p style="margin: 0 0 15px 0; opacity: 0.9;">
-                        Viewing domes from a specific farm (5×5 grid). Each farm has its own isolated dome grid.
+                        Viewing domes from Farm {{ farm_id }}. Each farm has its own independent dome grid.
                     </p>
                     <div class="farm-context-nav">
                         <a href="/farms" class="farm-context-btn">
@@ -728,11 +750,11 @@
                 <strong>Current Grid:</strong> {{ grid_rows }}×{{ grid_cols }} 
                 ({{ grid_rows * grid_cols }} total cells)
                 {% if farm_id %}
-                    | <strong>Showing:</strong> {{ domes|length }} domes from this farm
-                    | <strong>Context:</strong> Farm-specific (isolated from other farms)
+                    | <strong>Showing:</strong> {{ domes|length }} domes from Farm {{ farm_id }}
+                    | <strong>Context:</strong> Farm-specific (independent grid)
                 {% else %}
                     | <strong>Total Domes:</strong> {{ domes|length }}
-                    | <strong>Context:</strong> Global domes (isolated from farm domes)
+                    | <strong>Context:</strong> Global domes (independent from farms)
                 {% endif %}
             </div>
 
@@ -740,18 +762,15 @@
             <div class="drag-instructions">
                 🎯 <strong>Drag & Drop:</strong> Drag domes to empty spaces to move them, or drop on another dome to swap positions. Click on a dome to view details.
                 {% if farm_id %}
-                <br>📍 <strong>Farm Context:</strong> This farm has its own 5×5 dome grid, completely separate from other farms.
+                <br>📍 <strong>Farm Context:</strong> This farm has its own dome grid, completely separate from other farms and global domes.
                 {% endif %}
+                <br>📏 <strong>Grid Size:</strong> Click "Edit Grid Size" button to resize this dome grid.
             </div>
             
             <!-- Grid Controls -->
             <div class="grid-controls">
                 <button class="btn" onclick="showGridSizeModal()">
-                    {% if farm_id %}
-                        📏 Grid Size (Fixed 5×5 for farms)
-                    {% else %}
-                        📏 Resize Grid (Current: {{ grid_rows }}×{{ grid_cols }})
-                    {% endif %}
+                    📏 Edit Grid Size ({{ grid_rows }}×{{ grid_cols }})
                 </button>
                 {% if not farm_id %}
                     <button class="btn" onclick="goToFarms()" style="background: #8B4513;">
@@ -793,727 +812,481 @@
                                             <img src="{{ dome.image_url }}" alt="Dome Image" class="dome-background-img">
                                             <span class="dome-name">{{ dome.name }}</span>
                                         </div>
-                                    {% elif dome.image_url and not dome.image_url.startswith('data:image/') %}
-                                        <!-- Dome with old file URL (fallback) -->
-                                        <div class="dome" 
-                                             data-dome-id="{{ dome.id }}"
-                                             draggable="true"
-                                             ondragstart="dragDome(event)"
-                                             ondragend="dragEnd(event)"
-                                             onclick="handleDomeClick(event, {{ dome.id }})"
-                                             style="background-image: url('{{ dome.image_url }}?t={{ timestamp }}');">
-                                            <span class="dome-name">{{ dome.name }}</span>
-                                        </div>
-                                    {% else %}
-                                        <!-- Dome placeholder (no image) -->
-                                        <div class="dome-placeholder" 
-                                             data-dome-id="{{ dome.id }}"
-                                             draggable="true"
-                                             ondragstart="dragDome(event)"
-                                             ondragend="dragEnd(event)"
-                                             onclick="handleDomeClick(event, {{ dome.id }})">
-                                            🏠
-                                            <span class="dome-name">{{ dome.name }}</span>
-                                        </div>
+{% elif dome.image_url and not dome.image_url.startswith('data:image/') %}
+                                            <!-- Dome with old file URL (fallback) -->
+                                            <div class="dome" 
+                                                 data-dome-id="{{ dome.id }}"
+                                                 draggable="true"
+                                                 ondragstart="dragDome(event)"
+                                                 ondragend="dragEnd(event)"
+                                                 onclick="handleDomeClick(event, {{ dome.id }})"
+                                                 style="background-image: url('{{ dome.image_url }}?t={{ timestamp }}');">
+                                                <span class="dome-name">{{ dome.name }}</span>
+                                            </div>
+                                        {% else %}
+                                            <!-- Dome placeholder (no image) -->
+                                            <div class="dome-placeholder" 
+                                                 data-dome-id="{{ dome.id }}"
+                                                 draggable="true"
+                                                 ondragstart="dragDome(event)"
+                                                 ondragend="dragEnd(event)"
+                                                 onclick="handleDomeClick(event, {{ dome.id }})">
+                                                <span class="dome-name">{{ dome.name }}</span>
+                                            </div>
+                                        {% endif %}
                                     {% endif %}
-                                {% endif %}
-                            </div>
+                                </div>
+                            {% endfor %}
                         {% endfor %}
-                    {% endfor %}
-                </div>
-            </div>
-        </div>
-
-        <!-- Grid Size Modal -->
-<div id="gridModal" class="modal">
-                    <div class="modal-content">
-                        <h3>Adjust Grid Size</h3>
-                        {% if farm_id %}
-                            <p style="color: #e74c3c; font-weight: bold;">
-                                ⚠️ Farm-specific domes use a fixed 5×5 grid.
-                                <br>Grid resizing is only available for global domes.
-                                <br><br>
-                                <strong>Current farm grid:</strong> 5×5 (25 total cells)
-                                <br>
-                                <strong>Farm context:</strong> Each farm has its own isolated dome grid.
-                            </p>
-                        {% else %}
-                            <div class="input-group">
-                                <label>Rows: <input type="number" id="gridRows" value="{{ grid_rows }}" min="1" max="100"></label>
-                                <label>Cols: <input type="number" id="gridCols" value="{{ grid_cols }}" min="1" max="100"></label>
-                            </div>
-                            <p style="color: #666; font-size: 12px;">
-                                💡 Large grids (20×20+) will show navigation controls. Maximum: 100×100
-                                <br>
-                                <strong>Note:</strong> This only affects global domes, not farm-specific domes.
-                            </p>
-                        {% endif %}
-                        <div class="modal-actions">
-                            {% if farm_id %}
-                                <button class="btn cancel" onclick="closeGridModal()">Close</button>
-                            {% else %}
-                                <button class="btn" onclick="updateGridSize()">Apply</button>
-                                <button class="btn cancel" onclick="closeGridModal()">Cancel</button>
-                            {% endif %}
-                        </div>
                     </div>
                 </div>
             </div>
+        </div>
+    </div>
 
-            <script>
-                // ✅ FIXED: Global variables with proper farm context
-                let currentDomeId = null;
-                let draggedDome = null;
-                let isDragging = false;
-                let dragStartTime = 0;
-                let gridRows = {{ grid_rows }};
-                let gridCols = {{ grid_cols }};
-                let farmId = {% if farm_id %}{{ farm_id }}{% else %}null{% endif %};
-                let isGlobalContext = farmId === null;
-                
-                console.log('🏠 Dome system initialized');
-                console.log('Context:', isGlobalContext ? 'Global domes' : `Farm ${farmId} domes`);
-                console.log('Grid size:', `${gridRows}x${gridCols}`);
-                
-                // ✅ FIXED: Navigation functions
-                function goToFarms() {
-                    console.log('Going to all farms');
-                    window.location.href = '/farms';
-                }
-                
-                function goBackToFarm() {
-                    console.log('Going back to farm info');
-                    if (farmId) {
-                        window.location.href = `/farm_info/${farmId}`;
-                    } else {
-                        window.location.href = '/farms';
-                    }
-                }
+    <!-- ✅ FIXED: Simple Grid Size Modal (Works for ALL contexts) -->
+    <div id="gridModal" class="modal">
+        <div class="modal-content">
+            <h3>📏 Edit Grid Size</h3>
+            
+            <div style="background: #e8f5e9; padding: 15px; border-radius: 8px; margin-bottom: 15px; border-left: 4px solid #4CAF50; color: #2e7d32;">
+                <p style="margin: 0 0 10px 0; font-weight: bold;">
+                    📏 <strong>Grid Size Editor</strong>
+                </p>
+                <p style="margin: 0; font-size: 14px;">
+                    {% if farm_id %}
+                        Editing Farm {{ farm_id }} dome grid. This only affects this farm's domes.
+                    {% else %}
+                        Editing global dome grid. This only affects global domes.
+                    {% endif %}
+                </p>
+            </div>
+            
+            <div class="input-group">
+                <label for="gridRows">Rows:</label>
+                <input type="number" id="gridRows" value="{{ grid_rows }}" min="1" max="100" 
+                       placeholder="Enter number of rows (1-100)">
+            </div>
+            
+            <div class="input-group">
+                <label for="gridCols">Columns:</label>
+                <input type="number" id="gridCols" value="{{ grid_cols }}" min="1" max="100" 
+                       placeholder="Enter number of columns (1-100)">
+            </div>
+            
+            <div style="background: #fff3cd; padding: 10px; border-radius: 6px; margin: 15px 0; font-size: 12px; color: #856404;">
+                💡 <strong>Grid Info:</strong>
+                <br>• Current size: {{ grid_rows }}×{{ grid_cols }} ({{ grid_rows * grid_cols }} cells)
+                <br>• Maximum size: 100×100
+                <br>• Each context (global/farm) has independent grid sizes
+                <br>• Large grids may affect performance
+            </div>
+            
+            <div class="modal-actions">
+                <button class="btn" onclick="updateGridSize()" id="applyGridSize">
+                    Apply Changes
+                </button>
+                <button class="btn" onclick="showFallbackGridResize()" style="background: #6c757d;">
+                    Simple Mode
+                </button>
+                <button class="btn cancel" onclick="closeGridModal()">Cancel</button>
+            </div>
+        </div>
+    </div>
 
-                // ✅ FIXED: Proper drag start function
-                function dragDome(event) {
-                    console.log('🚀 Dome drag started');
-                    
-                    // Set drag state
-                    isDragging = true;
-                    dragStartTime = Date.now();
-                    draggedDome = event.target.closest('.dome, .dome-placeholder, .dome-with-image');
-                    
-                    if (!draggedDome) {
-                        console.error('❌ Could not find dome element');
-                        return;
-                    }
-                    
-                    // Visual feedback
-                    draggedDome.classList.add('dragging');
-                    
-                    // Set drag data
-                    event.dataTransfer.effectAllowed = 'move';
-                    event.dataTransfer.setData('text/plain', draggedDome.dataset.domeId);
-                    
-                    console.log('✅ Dragging dome ID:', draggedDome.dataset.domeId);
-                    
-                    // Add visual indicators to valid drop zones
-                    setTimeout(() => {
-                        document.querySelectorAll('.grid-cell').forEach(cell => {
-                            if (!cell.classList.contains('occupied') || cell.contains(draggedDome)) {
-                                cell.classList.add('valid-drop-zone');
-                            }
-                        });
-                    }, 50);
-                }
+    <!-- ✅ FIXED: JavaScript (Simplified and Working) -->
+    <script>
+        // ✅ Global variables
+        let currentDomeId = null;
+        let draggedDome = null;
+        let isDragging = false;
+        let dragStartTime = 0;
+        let gridRows = {{ grid_rows }};
+        let gridCols = {{ grid_cols }};
+        let farmId = {% if farm_id %}{{ farm_id }}{% else %}null{% endif %};
+        let isGlobalContext = farmId === null;
+        let contextType = isGlobalContext ? 'global' : `farm_${farmId}`;
 
-                // ✅ FIXED: Proper drag end function
-                function dragEnd(event) {
-                    console.log('🏁 Dome drag ended');
-                    
-                    // Reset visual state
-                    if (draggedDome) {
-                        draggedDome.classList.remove('dragging');
-                    }
-                    
-                    // Clean up drag indicators
-                    document.querySelectorAll('.grid-cell').forEach(cell => {
-                        cell.classList.remove('drag-over', 'swap-target', 'valid-drop-zone');
-                    });
-                    
-                    // Reset drag state after a short delay to prevent click events
-                    setTimeout(() => {
-                        isDragging = false;
-                        draggedDome = null;
-                    }, 100);
-                }
+        console.log('🏠 Dome system initialized');
+        console.log('Context Type:', contextType);
+        console.log('Grid size:', `${gridRows}x${gridCols}`);
 
-                // ✅ FIXED: Enhanced allow drop function
-                function allowDrop(event) {
-                    event.preventDefault();
-                    
-                    if (!draggedDome) return;
-                    
-                    const targetCell = event.currentTarget;
-                    const isOccupied = targetCell.classList.contains('occupied');
-                    const isDraggedCell = targetCell.contains(draggedDome);
-                    
-                    // Remove previous indicators
-                    targetCell.classList.remove('drag-over', 'swap-target');
-                    
-                    if (isDraggedCell) {
-                        // Can't drop on itself
-                        return;
-                    }
-                    
-                    if (isOccupied) {
-                        // Show swap indicator
-                        targetCell.classList.add('swap-target');
-                        console.log('🔄 Swap target highlighted');
-                    } else {
-                        // Show move indicator
-                        targetCell.classList.add('drag-over');
-                        console.log('📍 Move target highlighted');
-                    }
-                }
-
-                // ✅ NEW: Drag leave function
-                function dragLeave(event) {
-                    // Only remove classes if we're actually leaving the cell
-                    if (!event.currentTarget.contains(event.relatedTarget)) {
-                        event.currentTarget.classList.remove('drag-over', 'swap-target');
-                    }
-                }
-
-                // ✅ FIXED: Enhanced drop function with swap capability
-                function dropDome(event) {
-                    event.preventDefault();
-                    console.log('📍 Dome drop attempted');
-                    
-                    if (!draggedDome) {
-                        console.error('❌ No dragged dome found');
-                        return;
-                    }
-                    
-                    const targetCell = event.currentTarget;
-                    const targetRow = parseInt(targetCell.dataset.row);
-                    const targetCol = parseInt(targetCell.dataset.col);
-                    const draggedDomeId = draggedDome.dataset.domeId;
-                    
-                    // Clean up visual indicators
-                    targetCell.classList.remove('drag-over', 'swap-target');
-                    
-                    // Get source position
-                    const sourceCell = draggedDome.closest('.grid-cell');
-                    const sourceRow = parseInt(sourceCell.dataset.row);
-                    const sourceCol = parseInt(sourceCell.dataset.col);
-                    
-                    // Check if dropping on the same position
-                    if (sourceRow === targetRow && sourceCol === targetCol) {
-                        console.log('⚠️ Dropped on same position, ignoring');
-                        return;
-                    }
-                    
-                    // Check if target cell is occupied
-                    const targetDome = targetCell.querySelector('.dome, .dome-placeholder, .dome-with-image');
-                    
-                    if (targetDome && targetDome !== draggedDome) {
-                        // Swap domes
-                        const targetDomeId = targetDome.dataset.domeId;
-                        console.log(`🔄 Swapping domes: ${draggedDomeId} ↔ ${targetDomeId}`);
-                        swapDomes(draggedDomeId, targetDomeId, sourceRow, sourceCol, targetRow, targetCol);
-                    } else {
-                        // Move to empty position
-                        console.log(`📍 Moving dome ${draggedDomeId} to (${targetRow}, ${targetCol})`);
-                        moveDome(draggedDomeId, targetRow, targetCol);
-                    }
-                }
-
-                // ✅ ENHANCED: Move dome function with context validation
-                async function moveDome(domeId, newRow, newCol) {
-                    try {
-                        console.log(`📍 Moving dome ${domeId} to (${newRow}, ${newCol})`);
-                        console.log('Context:', isGlobalContext ? 'Global' : `Farm ${farmId}`);
-                        
-                        showLoadingState(true);
-                        
-                        const response = await fetch(`/move_dome/${domeId}`, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                            },
-                            body: JSON.stringify({
-                                grid_row: newRow,
-                                grid_col: newCol
-                            })
-                        });
-                        
-                        const result = await response.json();
-                        
-                        if (result.success) {
-                            console.log('✅ Dome moved successfully');
-                            showSuccessMessage('Dome moved successfully!');
-                            
-                            // Reload page to reflect changes
-                            setTimeout(() => {
-                                window.location.reload();
-                            }, 1000);
-                        } else {
-                            console.error('❌ Failed to move dome:', result.error);
-                            showErrorMessage('Failed to move dome: ' + (result.error || 'Unknown error'));
-                        }
-                    } catch (error) {
-                        console.error('❌ Error moving dome:', error);
-                        showErrorMessage('Error moving dome. Please try again.');
-                    } finally {
-                        showLoadingState(false);
-                    }
-                }
-
-                // ✅ ENHANCED: Swap domes function with context validation
-                async function swapDomes(domeId1, domeId2, row1, col1, row2, col2) {
-                    try {
-                        console.log(`🔄 Swapping domes ${domeId1} and ${domeId2}`);
-                        console.log('Context:', isGlobalContext ? 'Global' : `Farm ${farmId}`);
-                        
-                        showLoadingState(true);
-                        
-                        const response = await fetch('/swap_domes', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                            },
-                            body: JSON.stringify({
-                                dome1_id: domeId1,
-                                dome2_id: domeId2,
-                                dome1_new_row: row2,
-                                dome1_new_col: col2,
-                                dome2_new_row: row1,
-                                dome2_new_col: col1
-                            })
-                        });
-                        
-                        const result = await response.json();
-                        
-                        if (result.success) {
-                            console.log('✅ Domes swapped successfully');
-                            showSuccessMessage('Domes swapped successfully!');
-                            
-                            // Reload page to reflect changes
-                            setTimeout(() => {
-                                window.location.reload();
-                            }, 1000);
-                        } else {
-                            console.error('❌ Failed to swap domes:', result.error);
-                            showErrorMessage('Failed to swap domes: ' + (result.error || 'Unknown error'));
-                        }
-                    } catch (error) {
-                        console.error('❌ Error swapping domes:', error);
-                        showErrorMessage('Error swapping domes. Please try again.');
-                    } finally {
-                        showLoadingState(false);
-                    }
-                }
-
-                // ✅ ENHANCED: Create dome function with farm context
-                async function createDome(name, row, col) {
-                    try {
-                        console.log(`🏠 Creating dome "${name}" at (${row}, ${col})`);
-                        console.log('Context:', isGlobalContext ? 'Global' : `Farm ${farmId}`);
-                        
-                        showLoadingState(true);
-                        
-                        const requestBody = {
-                            name: name,
-                            grid_row: row,
-                            grid_col: col
-                        };
-                        
-                        // ✅ FIXED: Always include farm_id for farm context, null for global
-                        if (!isGlobalContext) {
-                            requestBody.farm_id = farmId;
-                        }
-                        
-                        const response = await fetch('/create_dome', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                            },
-                            body: JSON.stringify(requestBody)
-                        });
-                        
-                        const result = await response.json();
-                        
-                        if (result.success) {
-                            console.log('✅ Dome created successfully');
-                            showSuccessMessage('Dome created successfully!');
-                            
-                            // Reload page to show new dome
-                            setTimeout(() => {
-                                window.location.reload();
-                            }, 1000);
-                        } else {
-                            console.error('❌ Failed to create dome:', result.error);
-                            showErrorMessage('Failed to create dome: ' + (result.error || 'Unknown error'));
-                        }
-                    } catch (error) {
-                        console.error('❌ Error creating dome:', error);
-                        showErrorMessage('Error creating dome. Please try again.');
-                    } finally {
-                        showLoadingState(false);
-                    }
-                }
-
-                // ✅ FIXED: Enhanced dome click handler with drag detection
-                async function handleDomeClick(event, domeId) {
-                    event.stopPropagation();
-                    
-                    // Check if this was a drag operation
-                    const timeSinceDragStart = Date.now() - dragStartTime;
-                    if (isDragging || timeSinceDragStart < 300) {
-                        console.log('⚠️ Click ignored - was drag operation');
-                        return;
-                    }
-                    
-                    console.log('🖱️ Dome clicked:', domeId);
-                    
-                    try {
-                        window.location.href = `/dome_info/${domeId}`;
-                    } catch (error) {
-                        console.error('❌ Error accessing dome:', error);
-                        showErrorMessage('Unable to access dome information. Please try again.');
-                    }
-                }
-
-                // ✅ ENHANCED: Cell click handler with context awareness
-                function handleCellClick(row, col) {
-                    if (isDragging) {
-                        console.log('⚠️ Cell click ignored - drag in progress');
-                        return;
-                    }
-                    
-                    const context = isGlobalContext ? 'global grid' : `farm ${farmId} (5x5 grid)`;
-                    console.log(`🖱️ Empty cell clicked: (${row}, ${col}) in ${context}`);
-                    
-                    const domeName = prompt(`Create new dome at position (${row}, ${col}) in ${context}?\n\nEnter dome name:`);
-                    if (domeName && domeName.trim()) {
-                        createDome(domeName.trim(), row, col);
-                    }
-                }
-
-                // ✅ NEW: Debug function to check dome context
-                async function debugDomeContext() {
-                    if (!farmId) {
-                        console.log('🔍 Global dome context - no farm-specific debugging available');
-                        showSuccessMessage('Global dome context - check console for details');
-                        return;
-                    }
-                    
-                    try {
-                        const response = await fetch(`/api/dome_context/${farmId}`);
-                        const result = await response.json();
-                        
-                        if (result.success) {
-                            console.log('🔍 DOME CONTEXT DEBUG:');
-                            console.log('Farm:', result.farm);
-                            console.log('Grid size:', result.grid_size);
-                            console.log('Dome count:', result.dome_count);
-                            console.log('Domes:', result.domes);
-                            
-                            showSuccessMessage(`Debug info logged to console. Found ${result.dome_count} domes in ${result.farm.name}`);
-                        } else {
-                            console.error('❌ Debug failed:', result.error);
-                            showErrorMessage('Debug failed: ' + result.error);
-                        }
-                    } catch (error) {
-                        console.error('❌ Debug error:', error);
-                        showErrorMessage('Debug error - check console');
-                    }
-                }
-
-                // ✅ NEW: UI feedback functions
-                function showLoadingState(isLoading) {
-                    const overlay = document.getElementById('loadingOverlay');
-                    if (isLoading) {
-                        overlay.style.display = 'flex';
-                        document.body.style.pointerEvents = 'none';
-                        overlay.style.pointerEvents = 'auto';
-                    } else {
-                        overlay.style.display = 'none';
-                        document.body.style.pointerEvents = '';
-                    }
-                }
-
-                function showSuccessMessage(message) {
-                    showMessage(message, 'success');
-                }
-
-                function showErrorMessage(message) {
-                    showMessage(message, 'error');
-                }
-
-                function showMessage(message, type) {
-                    // Remove existing messages
-                    const existingMessages = document.querySelectorAll('.status-message');
-                    existingMessages.forEach(msg => msg.remove());
-                    
-                    // Create new message
-                    const messageDiv = document.createElement('div');
-                    messageDiv.className = `status-message status-${type}`;
-                    messageDiv.textContent = message;
-                    
-                    document.body.appendChild(messageDiv);
-                    
-                    // Auto-remove after 3 seconds
-                    setTimeout(() => {
-                        if (messageDiv.parentNode) {
-                            messageDiv.remove();
-                        }
-                    }, 3000);
-                }
-
-                // ✅ FIXED: Logout function
-                async function logout() {
-                    if (confirm('Are you sure you want to logout?')) {
-                        try {
-                            const response = await fetch('/logout', {
-                                method: 'GET',
-                                headers: {
-                                    'Content-Type': 'application/json',
-                                }
-                            });
-                            
-                            const result = await response.json();
-                            
-                            if (result.success) {
-                                window.location.href = '/login';
-                            } else {
-                                alert('Logout failed. Please try again.');
-                            }
-                        } catch (error) {
-                            console.error('Logout error:', error);
-                            // Force redirect to login even if logout request fails
-                            window.location.href = '/login';
-                        }
-                    }
-                }
-
-                // Grid size modal functions
-function showGridSizeModal() {
-    console.log('🔧 showGridSizeModal called for context:', contextType);
-    
-    try {
-        const modal = document.getElementById('gridModal');
-        if (!modal) {
-            console.error('❌ Grid modal element not found');
-            showFallbackGridResize();
-            return;
+        // ✅ FIXED: Simple grid size modal (NO RESTRICTIONS)
+        function showGridSizeModal() {
+            console.log('🔧 Opening grid size modal for:', contextType);
+            
+            const modal = document.getElementById('gridModal');
+            if (!modal) {
+                console.error('❌ Modal not found, using fallback');
+                showFallbackGridResize();
+                return;
+            }
+            
+            // Show modal
+            modal.style.display = 'flex';
+            
+            // Focus on first input
+            const firstInput = modal.querySelector('input');
+            if (firstInput) {
+                setTimeout(() => firstInput.focus(), 100);
+            }
+            
+            console.log('✅ Modal opened successfully');
         }
-        
-        console.log('✅ Showing grid modal for', contextType);
-        modal.style.display = 'flex';
-        
-        // Focus on the first input
-        const firstInput = modal.querySelector('input');
-        if (firstInput) {
-            setTimeout(() => firstInput.focus(), 100);
+
+        function closeGridModal() {
+            const modal = document.getElementById('gridModal');
+            if (modal) {
+                modal.style.display = 'none';
+            }
         }
-        
-    } catch (error) {
-        console.error('❌ Error in showGridSizeModal:', error);
-        showFallbackGridResize();
-    }
-}
 
-                function closeGridModal() {
-                    document.getElementById('gridModal').style.display = 'none';
-                }
+        // ✅ FIXED: Simple fallback method
+        function showFallbackGridResize() {
+            const contextName = isGlobalContext ? 'Global' : `Farm ${farmId}`;
+            const currentSize = `${gridRows}×${gridCols}`;
+            
+            const newRows = prompt(`${contextName} Grid Resize\n\nCurrent: ${currentSize}\n\nEnter rows (1-100):`, gridRows);
+            if (newRows === null) return;
+            
+            const newCols = prompt(`Enter columns (1-100):`, gridCols);
+            if (newCols === null) return;
+            
+            const rows = parseInt(newRows);
+            const cols = parseInt(newCols);
+            
+            if (isNaN(rows) || isNaN(cols) || rows < 1 || rows > 100 || cols < 1 || cols > 100) {
+                alert('Invalid input. Please enter numbers between 1 and 100.');
+                return;
+            }
+            
+            if (confirm(`Change ${contextName} grid from ${currentSize} to ${rows}×${cols}?`)) {
+                updateGridSizeDirectly(rows, cols);
+            }
+        }
 
-                // ✅ ENHANCED: Grid size update with context awareness
-                async function updateGridSize() {
-                    if (!isGlobalContext) {
-                        alert('Farm-specific domes use a fixed 5x5 grid. Grid resizing is only available for global domes.');
-                        closeGridModal();
-                        return;
-                    }
-                    
-                    const rows = parseInt(document.getElementById('gridRows').value);
-                    const cols = parseInt(document.getElementById('gridCols').value);
-                    
-                    if (rows < 1 || rows > 100 || cols < 1 || cols > 100) {
-                        alert('Grid size must be between 1 and 100 for both rows and columns');
-                        return;
-                    }
-                    
-                    try {
-                        const response = await fetch('/update_grid_settings', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                            },
-                            body: JSON.stringify({
-                                grid_type: 'dome',
-                                rows: rows,
-                                cols: cols
-                            })
-                        });
-                        
-                        const result = await response.json();
-                        
-                        if (result.success) {
-                            closeGridModal();
-                            window.location.reload();
-                        } else {
-                            alert('Failed to update grid size: ' + (result.error || 'Unknown error'));
-                        }
-                    } catch (error) {
-                        console.error('Error updating grid size:', error);
-                        alert('Error updating grid size. Please try again.');
-                    }
-                }
+        // ✅ FIXED: Update grid size
+        async function updateGridSize() {
+            const rowsInput = document.getElementById('gridRows');
+            const colsInput = document.getElementById('gridCols');
+            
+            if (!rowsInput || !colsInput) {
+                showFallbackGridResize();
+                return;
+            }
+            
+            const rows = parseInt(rowsInput.value);
+            const cols = parseInt(colsInput.value);
+            
+            if (isNaN(rows) || isNaN(cols) || rows < 1 || rows > 100 || cols < 1 || cols > 100) {
+                alert('Grid size must be between 1 and 100 for both rows and columns');
+                return;
+            }
+            
+            await updateGridSizeDirectly(rows, cols);
+            closeGridModal();
+        }
 
-                // Grid display and navigation functions
-                function updateGridDisplay() {
-                    const totalCells = gridRows * gridCols;
-                    const isLargeGrid = totalCells > 400; // 20x20
-                    
-                    // Center the grid initially for large grids
-                    if (isLargeGrid) {
-                        setTimeout(centerGrid, 100);
-                    }
-                }
-
-                // Navigation functions
-                function centerGrid() {
-                    const container = document.getElementById('gridContainer');
-                    const grid = document.getElementById('farmGrid');
-                    
-                    if (container && grid) {
-                        const containerRect = container.getBoundingClientRect();
-                        const gridRect = grid.getBoundingClientRect();
-                        
-                        const scrollLeft = (gridRect.width - containerRect.width) / 2;
-                        const scrollTop = (gridRect.height - containerRect.height) / 2;
-                        
-                        container.scrollTo({
-                            left: Math.max(0, scrollLeft),
-                            top: Math.max(0, scrollTop),
-                            behavior: 'smooth'
-                        });
-                    }
-                }
-
-                function fitToScreen() {
-                    const container = document.getElementById('gridContainer');
-                    const grid = document.getElementById('farmGrid');
-                    
-                    if (container && grid) {
-                        const containerRect = container.getBoundingClientRect();
-                        const gridRect = grid.getBoundingClientRect();
-                        
-                        // Calculate scale to fit
-                        const scaleX = containerRect.width / gridRect.width;
-                        const scaleY = containerRect.height / gridRect.height;
-                        const scale = Math.min(scaleX, scaleY, 1); // Don't scale up
-                        
-                        if (scale < 1) {
-                            const newCellSize = Math.floor(100 * scale);
-                            document.documentElement.style.setProperty('--cell-size', `${newCellSize}px`);
-                            
-                            setTimeout(() => {
-                                centerGrid();
-                            }, 100);
-                        }
-                    }
-                }
-
-                // Keyboard navigation
-                function addKeyboardNavigation() {
-                    document.addEventListener('keydown', function(e) {
-                        const container = document.getElementById('gridContainer');
-                        if (!container) return;
-                        
-                        const scrollAmount = 100;
-                        
-                        switch(e.key) {
-                            case 'ArrowLeft':
-                                e.preventDefault();
-                                container.scrollLeft -= scrollAmount;
-                                break;
-                            case 'ArrowRight':
-                                e.preventDefault();
-                                container.scrollLeft += scrollAmount;
-                                break;
-                            case 'ArrowUp':
-                                e.preventDefault();
-                                container.scrollTop -= scrollAmount;
-                                break;
-                            case 'ArrowDown':
-                                e.preventDefault();
-                                container.scrollTop += scrollAmount;
-                                break;
-                            case ' ':
-                                e.preventDefault();
-                                centerGrid();
-                                break;
-                            case 'Home':
-                                e.preventDefault();
-                                container.scrollTo({ left: 0, top: 0, behavior: 'smooth' });
-                                break;
-                            case 'End':
-                                e.preventDefault();
-                                container.scrollTo({ 
-                                    left: container.scrollWidth, 
-                                    top: container.scrollHeight, 
-                                    behavior: 'smooth' 
-                                });
-                                break;
-                        }
-                    });
-                }
-
-                // Touch navigation for mobile
-                function addTouchNavigation() {
-                    const container = document.getElementById('gridContainer');
-                    if (!container) return;
-                    
-                    let startX, startY;
-                    
-                    container.addEventListener('touchstart', function(e) {
-                        startX = e.touches[0].clientX;
-                        startY = e.touches[0].clientY;
-                    });
-                    
-                    container.addEventListener('touchmove', function(e) {
-                        if (!startX || !startY) return;
-                        
-                        const deltaX = startX - e.touches[0].clientX;
-                        const deltaY = startY - e.touches[0].clientY;
-                        
-                        container.scrollLeft += deltaX;
-                        container.scrollTop += deltaY;
-                        
-                        startX = e.touches[0].clientX;
-                        startY = e.touches[0].clientY;
-                    });
-                }
-
-                // ✅ ENHANCED: Initialize with context awareness
-                document.addEventListener('DOMContentLoaded', function() {
-                    updateGridDisplay();
-                    addKeyboardNavigation();
-                    addTouchNavigation();
-                    
-                    console.log('🚀 Dome drag and drop system initialized');
-                    console.log('Context:', isGlobalContext ? 'Global domes' : `Farm ${farmId} domes (5x5 grid)`);
-                    
-                    // Add debug function to global scope for testing
-                    window.debugDomeContext = debugDomeContext;
+        // ✅ FIXED: Direct grid update
+        async function updateGridSizeDirectly(rows, cols) {
+            try {
+                showLoadingState(true);
+                
+                const requestBody = {
+                    rows: rows,
+                    cols: cols,
+                    context: contextType,
+                    farm_id: farmId
+                };
+                
+                // Use correct endpoint
+                const endpoint = isGlobalContext ? '/update_grid_settings' : `/update_farm_grid_settings/${farmId}`;
+                
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(requestBody)
                 });
-
-                // Close modal when clicking outside
-                window.onclick = function(event) {
-                    const modal = document.getElementById('gridModal');
-                    if (event.target === modal) {
-                        closeGridModal();
-                    }
+                
+                if (!response.ok) {
+                    throw new Error(`Server error: ${response.status}`);
                 }
-            </script>
-        </body>
-        </html>
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    const contextName = isGlobalContext ? 'Global' : `Farm ${farmId}`;
+                    showSuccessMessage(`${contextName} grid updated to ${rows}×${cols}!`);
+                    
+                    // Reload page
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1500);
+                } else {
+                    throw new Error(result.error || 'Update failed');
+                }
+                
+            } catch (error) {
+                console.error('❌ Error updating grid:', error);
+                showErrorMessage('Failed to update grid: ' + error.message);
+            } finally {
+                showLoadingState(false);
+            }
+        }
+
+        // ✅ Utility functions
+        function showLoadingState(show) {
+            const overlay = document.getElementById('loadingOverlay');
+            if (overlay) {
+                overlay.style.display = show ? 'flex' : 'none';
+            }
+        }
+
+        function showSuccessMessage(message) {
+            showStatusMessage(message, 'success');
+        }
+
+        function showErrorMessage(message) {
+            showStatusMessage(message, 'error');
+        }
+
+        function showStatusMessage(message, type) {
+            const existing = document.querySelectorAll('.status-message');
+            existing.forEach(msg => msg.remove());
+            
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `status-message status-${type}`;
+            messageDiv.textContent = message;
+            
+            document.body.appendChild(messageDiv);
+            
+            setTimeout(() => {
+                if (messageDiv.parentNode) {
+                    messageDiv.remove();
+                }
+            }, 5000);
+        }
+
+        // ✅ Navigation functions
+        function goToFarms() {
+            window.location.href = '/farms';
+        }
+
+        function goBackToFarm() {
+            if (farmId) {
+                window.location.href = `/farm_info/${farmId}`;
+            } else {
+                window.location.href = '/farms';
+            }
+        }
+
+        function centerGrid() {
+            const gridContainer = document.getElementById('gridContainer');
+            if (gridContainer) {
+                gridContainer.scrollLeft = (gridContainer.scrollWidth - gridContainer.clientWidth) / 2;
+                showSuccessMessage('Grid centered!');
+            }
+        }
+
+        function fitToScreen() {
+            const gridContainer = document.getElementById('gridContainer');
+            if (gridContainer) {
+                gridContainer.scrollLeft = 0;
+                showSuccessMessage('Grid fitted to screen!');
+            }
+        }
+
+        function logout() {
+            if (confirm('Are you sure you want to logout?')) {
+                window.location.href = '/logout';
+            }
+        }
+
+        function debugDomeContext() {
+            console.log('🔍 DOME CONTEXT DEBUG:');
+            console.log('Context Type:', contextType);
+            console.log('Farm ID:', farmId);
+            console.log('Grid Size:', `${gridRows}×${gridCols}`);
+            showSuccessMessage(`Debug info logged. Context: ${contextType}`);
+        }
+
+        // ✅ Cell and dome interaction
+        function handleCellClick(row, col) {
+            if (isDragging) return;
+            
+            const contextName = isGlobalContext ? 'global grid' : `farm ${farmId} grid`;
+            const domeName = prompt(`Create dome at (${row}, ${col}) in ${contextName}?\n\nEnter name:`);
+            
+            if (domeName && domeName.trim()) {
+                createDome(domeName.trim(), row, col);
+            }
+        }
+
+        function handleDomeClick(event, domeId) {
+            event.stopPropagation();
+            
+            if (isDragging && (Date.now() - dragStartTime) < 200) {
+                return;
+            }
+            
+            // Navigate to dome
+            if (farmId) {
+                window.location.href = `/farm/${farmId}/dome/${domeId}`;
+            } else {
+                window.location.href = `/dome/${domeId}`;
+            }
+        }
+
+        // ✅ Dome creation
+        async function createDome(name, row, col) {
+            try {
+                showLoadingState(true);
+                
+                const requestBody = {
+                    name: name,
+                    grid_row: row,
+                    grid_col: col,
+                    context: contextType
+                };
+                
+                if (!isGlobalContext) {
+                    requestBody.farm_id = farmId;
+                }
+                
+                const response = await fetch('/create_dome', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(requestBody)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showSuccessMessage('Dome created successfully!');
+                    setTimeout(() => window.location.reload(), 1000);
+                } else {
+                    showErrorMessage('Failed to create dome: ' + (result.error || 'Unknown error'));
+                }
+            } catch (error) {
+                showErrorMessage('Error creating dome. Please try again.');
+            } finally {
+                showLoadingState(false);
+            }
+        }
+
+        // ✅ Drag and drop functions
+        function dragDome(event) {
+            draggedDome = event.target;
+            isDragging = true;
+            dragStartTime = Date.now();
+            event.target.classList.add('dragging');
+        }
+
+        function dragEnd(event) {
+            event.target.classList.remove('dragging');
+            document.querySelectorAll('.grid-cell').forEach(cell => {
+                cell.classList.remove('drag-over', 'swap-target');
+            });
+            setTimeout(() => {
+                isDragging = false;
+                draggedDome = null;
+            }, 100);
+        }
+
+        function allowDrop(event) {
+            event.preventDefault();
+            if (!draggedDome) return;
+            
+            const cell = event.currentTarget;
+            const isOccupied = cell.classList.contains('occupied');
+            
+            if (isOccupied) {
+                cell.classList.add('swap-target');
+            } else {
+                cell.classList.add('drag-over');
+            }
+        }
+
+        function dragLeave(event) {
+            event.currentTarget.classList.remove('drag-over', 'swap-target');
+        }
+
+        function dropDome(event) {
+            event.preventDefault();
+            if (!draggedDome) return;
+            
+            const targetCell = event.currentTarget;
+            const targetRow = parseInt(targetCell.dataset.row);
+            const targetCol = parseInt(targetCell.dataset.col);
+            const draggedDomeId = draggedDome.dataset.domeId;
+            
+            moveDome(draggedDomeId, targetRow, targetCol);
+        }
+
+        async function moveDome(domeId, newRow, newCol) {
+            try {
+                showLoadingState(true);
+                
+                const response = await fetch('/move_dome', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        dome_id: domeId,
+                        new_row: newRow,
+                        new_col: newCol,
+                        context: contextType,
+                        farm_id: farmId
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showSuccessMessage('Dome moved successfully!');
+                    setTimeout(() => window.location.reload(), 1000);
+                } else {
+                    showErrorMessage('Failed to move dome: ' + (result.error || 'Unknown error'));
+                }
+            } catch (error) {
+                showErrorMessage('Error moving dome. Please try again.');
+            } finally {
+                showLoadingState(false);
+            }
+        }
+
+        // ✅ Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🚀 Dome system ready');
+            
+            if (isGlobalContext) {
+                document.title = 'Global Domes - Raisara Farm';
+            } else {
+                document.title = `Farm ${farmId} Domes - Raisara Farm`;
+            }
+        });
+
+        // ✅ Modal event handlers
+        window.addEventListener('click', function(event) {
+            const modal = document.getElementById('gridModal');
+            if (modal && event.target === modal) {
+                closeGridModal();
+            }
+        });
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                const modal = document.getElementById('gridModal');
+                if (modal && modal.style.display === 'flex') {
+                    closeGridModal();
+                }
+            }
+        });
+    </script>
+</body>
+</html>
