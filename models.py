@@ -70,10 +70,15 @@ class Farm(db.Model):
     
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
-    grid_row = db.Column(db.Integer, nullable=False)
-    grid_col = db.Column(db.Integer, nullable=False)
+    grid_row = db.Column(db.Integer, nullable=False)  # Farm's position on main farm grid
+    grid_col = db.Column(db.Integer, nullable=False)  # Farm's position on main farm grid
     image_url = db.Column(db.String(255), nullable=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    
+    # ✅ NEW: Dome grid size columns (for the grid inside this farm that contains domes)
+    dome_grid_rows = db.Column(db.Integer, default=5)  # How many rows in this farm's dome grid
+    dome_grid_cols = db.Column(db.Integer, default=5)  # How many cols in this farm's dome grid
+    
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
@@ -86,7 +91,13 @@ class Farm(db.Model):
     def get_dome_count(self):
         """Get the number of domes in this farm"""
         return len(self.domes)
-
+    
+    def get_dome_grid_size(self):
+        """Get the dome grid size for this farm"""
+        return {
+            'rows': self.dome_grid_rows or 5,
+            'cols': self.dome_grid_cols or 5
+        }
 class Dome(db.Model):
     __tablename__ = 'dome'
     

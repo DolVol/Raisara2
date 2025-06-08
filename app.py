@@ -1909,37 +1909,31 @@ def debug_dome_grid(dome_id):
 @login_required
 def farm_domes(farm_id):
     try:
-        print(f"🚜 Loading domes for farm {farm_id}")
+        farm = Farm.query.filter_by(id=farm_id, user_id=current_user.id).first_or_404()
         
-        # Get the farm
-        farm = Farm.query.filter_by(id=farm_id, user_id=current_user.id).first()
-        if not farm:
-            print(f"❌ Farm {farm_id} not found")
-            flash('Farm not found', 'error')
-            return redirect(url_for('farms'))
+        # ✅ Use farm's dome grid settings
+        grid_rows = farm.dome_grid_rows or 5
+        grid_cols = farm.dome_grid_cols or 5
         
-        # ✅ FIXED: Use smaller grid for farm-specific domes (5x5)
-        grid_rows = 5
-        grid_cols = 5
+        print(f"🏠 Loading farm {farm_id} ({farm.name}) domes with {grid_rows}x{grid_cols} grid")
         
-        # ✅ FIXED: Get domes for this specific farm ONLY
         domes = Dome.query.filter_by(farm_id=farm_id, user_id=current_user.id).all()
         
-        print(f"✅ Found {len(domes)} domes for farm {farm.name} (5x5 grid)")
-        
         return render_template('dome.html', 
-                             domes=domes,
+                             domes=domes, 
+                             farm_id=farm_id,
                              grid_rows=grid_rows,
                              grid_cols=grid_cols,
-                             farm_id=farm_id,
-                             page_title=f"{farm.name} - Domes",
-                             timestamp=int(time.time()),
-                             user=current_user)
+                             page_title=f"{farm.name} Domes",
+                             user=current_user,
+                             timestamp=int(time.time()))
                              
     except Exception as e:
         print(f"❌ Error loading farm domes: {str(e)}")
-        flash('Error loading farm domes', 'error')
+        flash(f'Error loading farm domes: {str(e)}', 'error')
         return redirect(url_for('farms'))
+                             
+
 @app.route('/domes')
 @login_required
 def domes():
@@ -2125,42 +2119,71 @@ def create_farm():
 def update_grid_settings():
     try:
         data = request.get_json()
-        grid_type = data.get('grid_type', 'farm')  # Default to farm for backward compatibility
-        rows = data.get('rows')
-        cols = data.get('cols')
+        grid_type = data.get('grid_type', 'dome')
+        rows = int(data.get('rows', 5))
+        cols = int(data.get('cols', 5))
+        farm_id = data.get('farm_id')
         
-        if not rows or not cols:
-            return jsonify({'success': False, 'error': 'Missing rows or cols'})
+        print(f"🔧 Grid update request: {rows}x{cols}, farm_id: {farm_id}, type: {grid_type}")
         
+        # Validate input
         if rows < 1 or rows > 100 or cols < 1 or cols > 100:
-            return jsonify({'success': False, 'error': 'Grid size must be between 1 and 100'})
+            return jsonify({'success': False, 'error': 'Grid size must be between 1x1 and 100x100'}), 400
         
-        # Get or create grid settings for the specific type
-        grid_settings = GridSettings.query.filter_by(
-            user_id=current_user.id, 
-            grid_type=grid_type
-        ).first()
-        
-        if not grid_settings:
-            grid_settings = GridSettings(
-                user_id=current_user.id,
-                grid_type=grid_type,
-                rows=rows,
-                cols=cols
-            )
-            db.session.add(grid_settings)
+        if farm_id:
+            # ✅ Update farm-specific dome grid
+            farm = Farm.query.filter_by(id=farm_id, user_id=current_user.id).first()
+            if not farm:
+                return jsonify({'success': False, 'error': 'Farm not found'}), 404
+            
+            # Update farm's dome grid settings
+            farm.dome_grid_rows = rows
+            farm.dome_grid_cols = cols
+            farm.updated_at = datetime.utcnow()
+            
+            print(f"✅ Updated farm {farm_id} ({farm.name}) dome grid to {rows}x{cols}")
+            
+            db.session.commit()
+            
+            return jsonify({
+                'success': True,
+                'message': f'Farm "{farm.name}" dome grid updated to {rows}×{cols}',
+                'grid_rows': rows,
+                'grid_cols': cols,
+                'farm_id': farm_id,
+                'context': f'farm_{farm_id}'
+            })
+            
         else:
-            grid_settings.rows = rows
-            grid_settings.cols = cols
-        
-        db.session.commit()
-        
-        return jsonify({'success': True, 'message': f'{grid_type.title()} grid updated successfully'})
+            # ✅ Update global grid settings
+            user_settings = UserSettings.query.filter_by(user_id=current_user.id).first()
+            if not user_settings:
+                user_settings = UserSettings(user_id=current_user.id)
+                db.session.add(user_settings)
+            
+            if grid_type == 'dome':
+                user_settings.dome_grid_rows = rows
+                user_settings.dome_grid_cols = cols
+            elif grid_type == 'tree':
+                user_settings.tree_grid_rows = rows
+                user_settings.tree_grid_cols = cols
+            
+            print(f"✅ Updated global {grid_type} grid to {rows}x{cols}")
+            
+            db.session.commit()
+            
+            return jsonify({
+                'success': True,
+                'message': f'Global {grid_type} grid updated to {rows}×{cols}',
+                'grid_rows': rows,
+                'grid_cols': cols,
+                'context': 'global'
+            })
         
     except Exception as e:
+        print(f"❌ Error updating grid settings: {str(e)}")
         db.session.rollback()
-        print(f"Error updating grid settings: {str(e)}")
-        return jsonify({'success': False, 'error': str(e)})
+        return jsonify({'success': False, 'error': str(e)}), 500
 @app.route('/update_dome_name/<int:dome_id>', methods=['POST'])
 @login_required
 def update_dome_name(dome_id):
