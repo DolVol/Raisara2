@@ -7,12 +7,12 @@
             font-family: Arial, sans-serif;
             padding: 20px;
             background: #f0f0f0;
-            overflow-x: auto; /* Allow horizontal scrolling */
+            overflow-x: auto;
         }
         .container {
-            max-width: none; /* Remove max-width constraint for large grids */
+            max-width: none;
             margin: 0 auto;
-            min-width: 320px; /* Minimum width for mobile */
+            min-width: 320px;
         }
         .header {
             background: white;
@@ -33,13 +33,19 @@
         .dome-image {
             width: 80px;
             height: 80px;
-            background-image: url('/static/images/dome.jpg');
             background-size: cover;
             background-position: center;
             border-radius: 50%;
             border: 3px solid #4CAF50;
             box-shadow: 0 2px 8px rgba(0,0,0,0.2);
             position: relative;
+            cursor: pointer;
+            transition: transform 0.3s ease;
+            background-color: #2e8b57;
+            background-repeat: no-repeat;
+        }
+        .dome-image:hover {
+            transform: scale(1.05);
         }
         .dome-image::before {
             content: '';
@@ -55,20 +61,23 @@
             width: 80px;
             height: 80px;
             border-radius: 50%;
-            background-image: url('/static/images/gunja.jpg');
-            background-size: cover;
-            background-position: center;
+            background: linear-gradient(135deg, #4CAF50, #45a049);
             display: flex;
             align-items: center;
             justify-content: center;
             color: white;
             font-weight: bold;
-            font-size: 16px;
+            font-size: 32px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.2);
             text-align: center;
             line-height: 1.2;
             position: relative;
             text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+            cursor: pointer;
+            transition: transform 0.3s ease;
+        }
+        .dome-placeholder:hover {
+            transform: scale(1.05);
         }
         .dome-placeholder::before {
             content: '';
@@ -125,6 +134,10 @@
             background: #28a745;
             color: white;
         }
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
         .grid-controls {
             background: white;
             padding: 15px;
@@ -151,7 +164,6 @@
             width: 60px;
         }
         
-        /* Grid container with horizontal scroll */
         .grid-container {
             width: 100%;
             overflow-x: auto;
@@ -172,7 +184,6 @@
             min-width: fit-content;
         }
         
-        /* Dynamic cell sizing based on grid size */
         .grid-cell {
             aspect-ratio: 1;
             border: 2px dashed #ddd;
@@ -218,6 +229,7 @@
             position: relative;
             border-radius: 6px;
             cursor: grab;
+            pointer-events: auto;
         }
         .tree-item:active {
             cursor: grabbing;
@@ -229,7 +241,6 @@
         .tree-image {
             width: calc(var(--cell-size, 100px) * 0.6);
             height: calc(var(--cell-size, 100px) * 0.6);
-            background-image: url('/static/images/gunja.jpg');
             background-size: cover;
             background-position: center;
             border-radius: 50%;
@@ -238,6 +249,8 @@
             box-shadow: 0 2px 6px rgba(0,0,0,0.2);
             pointer-events: none;
             position: relative;
+            background-color: #2e8b57;
+            background-repeat: no-repeat;
         }
         .tree-image::before {
             content: '';
@@ -253,9 +266,7 @@
             width: calc(var(--cell-size, 100px) * 0.6);
             height: calc(var(--cell-size, 100px) * 0.6);
             border-radius: 50%;
-            background-image: url('/static/images/gunja.jpg');
-            background-size: cover;
-            background-position: center;
+            background: linear-gradient(135deg, #4CAF50, #45a049);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -297,6 +308,7 @@
             display: none;
             flex-direction: column;
             gap: 1px;
+            pointer-events: auto;
         }
         .tree-item:hover .tree-actions {
             display: flex;
@@ -336,6 +348,12 @@
         .add-tree-btn:hover {
             background: #4CAF50;
             color: white;
+        }
+        .add-tree-btn:disabled {
+            background: #ccc;
+            color: #666;
+            cursor: not-allowed;
+            border-color: #ccc;
         }
         .stats {
             background: white;
@@ -389,7 +407,6 @@
             box-shadow: 0 4px 12px rgba(0,0,0,0.3);
         }
         
-        /* Grid size indicator */
         .grid-info {
             background: rgba(255, 255, 255, 0.9);
             padding: 10px 15px;
@@ -401,7 +418,6 @@
             text-align: center;
         }
 
-        /* Scroll hint for large grids */
         .scroll-hint {
             background: #e3f2fd;
             color: #1976d2;
@@ -417,7 +433,6 @@
             display: block;
         }
 
-        /* Navigation controls */
         .navigation-controls {
             background: white;
             padding: 10px;
@@ -446,7 +461,73 @@
             transform: translateY(-1px);
         }
 
-        /* Dynamic responsive breakpoints */
+        /* Status indicator */
+        .status-indicator {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 10px 15px;
+            border-radius: 6px;
+            color: white;
+            font-weight: bold;
+            display: none;
+            z-index: 1001;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+
+        .status-success {
+            background: #28a745;
+        }
+
+        .status-error {
+            background: #dc3545;
+        }
+
+        .status-info {
+            background: #17a2b8;
+        }
+
+        /* Debug panel */
+        .debug-panel {
+            background: #f8f9fa;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+
+        .debug-panel h4 {
+            margin: 0 0 10px 0;
+            color: #495057;
+        }
+
+        .debug-panel pre {
+            background: #e9ecef;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            margin: 5px 0;
+            max-height: 200px;
+        }
+
+        .debug-toggle {
+            background: #6c757d;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 11px;
+            margin: 2px;
+        }
+
+        .debug-toggle:hover {
+            background: #5a6268;
+        }
+
+        /* Responsive design */
         @media (max-width: 1400px) {
             :root {
                 --cell-size: 90px;
@@ -520,7 +601,6 @@
             }
         }
 
-        /* Large grid optimizations */
         @media (min-width: 1600px) {
             :root {
                 --cell-size: 110px;
@@ -528,39 +608,49 @@
             }
         }
 
-        /* Ultra-wide screen support */
         @media (min-width: 2000px) {
             :root {
                 --cell-size: 130px;
                 --grid-gap: 12px;
             }
         }
-
-        /* Prevent text selection during drag */
-        .tree-item * {
-            pointer-events: none;
-        }
-        
-        .tree-item .tree-actions {
-            pointer-events: auto;
-        }
-        
-        .tree-item .tree-actions button {
-            pointer-events: auto;
-        }
     </style>
 </head>
 <body>
     <div class="container">
+        <!-- Status Indicator -->
+        <div id="statusIndicator" class="status-indicator"></div>
+
         <!-- Swap Indicator -->
         <div id="swapIndicator" class="swap-indicator">
             🔄 Swapping trees...
         </div>
 
+        <!-- Debug Panel -->
+        <div class="debug-panel" id="debugPanel" style="display: none;">
+            <h4>🐛 Debug Information <button class="debug-toggle" onclick="toggleDebug()">Hide</button></h4>
+            <div><strong>Dome ID:</strong> {{ dome.id }}</div>
+            <div><strong>Grid Size:</strong> {{ rows }}×{{ cols }}</div>
+            <div><strong>Trees from Backend:</strong> {{ trees|length }}</div>
+            <div><strong>Frontend Trees Count:</strong> <span id="frontendTreesCount">Loading...</span></div>
+            <div><strong>Empty Positions:</strong> <span id="emptyPositionsCount">Loading...</span></div>
+            <div><strong>Trees Data:</strong></div>
+            <pre id="treesData">{{ trees_data|tojson|safe }}</pre>
+            <button class="debug-toggle" onclick="refreshDebugInfo()">🔄 Refresh Debug</button>
+            <button class="debug-toggle" onclick="forceRefreshTrees()">🔄 Force Refresh Trees</button>
+            <button class="debug-toggle" onclick="testNavigation()">🧪 Test Navigation</button>
+        </div>
+
         <!-- Header -->
         <div class="header">
             <div class="dome-info">
-                <div class="dome-image"></div>
+                {% if dome.image_url %}
+                    <div class="dome-image" style="background-image: url('{{ dome.image_url }}?t={{ timestamp }}');" onclick="openDomeInfo()" title="Click to edit dome - {{ dome.name }}"></div>
+                {% else %}
+                    <div class="dome-placeholder" onclick="openDomeInfo()" title="Click to edit dome - {{ dome.name }}">
+                        🏠
+                    </div>
+                {% endif %}
                 <h1 class="dome-title">{{ dome.name }}</h1>
             </div>
             <p>Internal Grid: {{ rows }}×{{ cols }} | Total Trees: <span id="treeCount">{{ trees|length }}</span></p>
@@ -569,7 +659,10 @@
         <!-- Grid Info -->
         <div class="grid-info">
             <strong>Current Grid:</strong> {{ rows }}×{{ cols }} 
-            ({{ rows * cols }} total cells)
+            ({{ rows * cols }} total cells) | 
+            <strong>Backend Trees:</strong> {{ trees|length }} | 
+            <strong>Frontend Trees:</strong> <span id="frontendTreesDisplay">Loading...</span>
+            <button class="debug-toggle" onclick="showDebug()" style="margin-left: 10px;">🐛 Debug</button>
         </div>
         
         <!-- Scroll Hint -->
@@ -594,10 +687,12 @@
         
         <!-- Controls -->
         <div class="controls">
-            <button class="btn-secondary" onclick="goBack()">← Back to Main</button>
-            <button class="btn-info" onclick="openDomeInfo()">ℹ️ Dome Info</button>
+    <button class="btn-secondary" onclick="goBack()">← Back to Dome Info</button>
+    <button class="btn-info" onclick="openDomeInfo()">ℹ️ Dome Info</button>
+    <button class="btn-warning" onclick="goToMainIndex()">🚜 Back to Farm Domes</button>
             <button class="btn-primary" onclick="addRandomTree()">🌱 Add Random Tree</button>
             <button class="btn-secondary" onclick="refreshGrid()">🔄 Refresh Grid</button>
+            <button class="btn-danger" onclick="forceRefreshTrees()">🔄 Force Refresh Trees</button>
             <button class="btn-warning" onclick="clearAllTrees()">🗑️ Clear All Trees</button>
         </div>
         
@@ -628,18 +723,212 @@
     </div>
 
     <script>
+        // ✅ FIXED: Global variables with proper initialization
         const domeId = {{ dome.id }};
         let currentRows = {{ rows }};
         let currentCols = {{ cols }};
-        let trees = {{ trees|tojson }};
+        let trees = {{ trees_data|tojson|safe }}
         let draggedTree = null;
+        let isAddingTree = false;
+        let autoRefreshInterval = null;
+
+        // ✅ FIXED: Navigation functions - removed goToFarmView
+function goBack() {
+    console.log('Going back to dome_info');
+    window.location.href = `/dome_info/${domeId}`;
+}
+
+        function openDomeInfo() {
+            window.location.href = `/dome_info/${domeId}`;
+        }
+
+        function openTreeInfo(treeId) {
+            window.location.href = `/tree_info/${treeId}`;
+        }
+
+function goToMainIndex() {
+    console.log('Going back to farm dome view');
+    window.location.href = `/farm/{{ dome.farm_id }}/domes`;
+}
+
+        function goToFarms() {
+            console.log('Going to farms management');
+            window.location.href = '/farms';
+        }
+
+        // ✅ FIXED: Status indicator functions
+        function showStatus(message, type = 'info', duration = 3000) {
+            const indicator = document.getElementById('statusIndicator');
+            indicator.textContent = message;
+            indicator.className = `status-indicator status-${type}`;
+            indicator.style.display = 'block';
+            
+            setTimeout(() => {
+                indicator.style.display = 'none';
+            }, duration);
+        }
+
+        // ✅ FIXED: Debug functions
+        function showDebug() {
+            document.getElementById('debugPanel').style.display = 'block';
+            refreshDebugInfo();
+        }
+
+        function toggleDebug() {
+            const panel = document.getElementById('debugPanel');
+            panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+        }
+
+        function refreshDebugInfo() {
+            document.getElementById('frontendTreesCount').textContent = trees.length;
+            document.getElementById('emptyPositionsCount').textContent = getEmptyPositions().length;
+            document.getElementById('frontendTreesDisplay').textContent = trees.length;
+            
+            // Update trees data display
+            document.getElementById('treesData').textContent = JSON.stringify(trees, null, 2);
+            
+            console.log('=== DEBUG INFO ===');
+            console.log('Dome ID:', domeId);
+            console.log('Grid Size:', currentRows, 'x', currentCols);
+            console.log('Trees Array:', trees);
+            console.log('Trees Count:', trees.length);
+            console.log('Empty Positions:', getEmptyPositions().length);
+            console.log('==================');
+        }
+
+        function testNavigation() {
+            console.log('Testing navigation functions...');
+            console.log('Dome ID:', domeId);
+            console.log('Available navigation:');
+            console.log('- goBack() -> /dome_info/' + domeId);
+            console.log('- goToMainIndex() -> /');
+            showStatus('Navigation test completed - check console', 'info');
+        }
+
+        // ✅ ENHANCED: Force refresh trees from server
+        function forceRefreshTrees() {
+            showStatus('Force refreshing trees from server...', 'info');
+            
+            fetch(`/api/dome/${domeId}/trees`)
+            .then(response => {
+                console.log('API Response status:', response.status);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('API Response data:', data);
+                if (data.success) {
+                    trees = data.trees || [];
+                    showStatus(`Trees refreshed! Found ${trees.length} trees`, 'success');
+                    renderGrid();
+                    refreshDebugInfo();
+                } else {
+                    showStatus('Failed to refresh trees: ' + (data.error || 'Unknown error'), 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error refreshing trees:', error);
+                showStatus('Network error refreshing trees', 'error');
+                
+                // ✅ FALLBACK: Try alternative API endpoint
+                fetch(`/grid/${domeId}/data`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.success) {
+                        trees = data.trees || [];
+                        showStatus(`Trees refreshed via fallback! Found ${trees.length} trees`, 'success');
+                        renderGrid();
+                        refreshDebugInfo();
+                    } else {
+                        throw new Error(data.error || 'Fallback API failed');
+                    }
+                })
+                .catch(fallbackError => {
+                    console.error('Fallback API also failed:', fallbackError);
+                    showStatus('All refresh attempts failed', 'error');
+                });
+            });
+        }
+
+        // ✅ IMPROVED: Check if position is truly empty
+function isPositionEmpty(row, col) {
+            const found = trees.find(t => t.internal_row === row && t.internal_col === col);
+            console.log(`Checking position ${row},${col}: ${found ? 'OCCUPIED' : 'EMPTY'}`);
+            return !found;
+        }
+
+        // ✅ ENHANCED: Get empty positions with validation
+        function getEmptyPositions() {
+            const empty = [];
+            for (let row = 0; row < currentRows; row++) {
+                for (let col = 0; col < currentCols; col++) {
+                    if (isPositionEmpty(row, col)) {
+                        empty.push({ row, col });
+                    }
+                }
+            }
+            console.log(`Found ${empty.length} empty positions out of ${currentRows * currentCols} total`);
+            return empty;
+        }
 
         // Initialize grid on page load
         document.addEventListener('DOMContentLoaded', function() {
-            console.log('Grid page loaded for dome:', domeId);
+            console.log('=== GRID PAGE LOADED ===');
+            console.log('Dome ID:', domeId);
+            console.log('Grid Size:', currentRows, 'x', currentCols);
+            console.log('Initial trees from backend:', trees);
+            console.log('Trees count:', trees.length);
+            console.log('========================');
+            
+            // ✅ ENHANCED: Validate trees data
+            if (!Array.isArray(trees)) {
+                console.error('Trees is not an array:', trees);
+                trees = [];
+                showStatus('Warning: Trees data is invalid, using empty array', 'error');
+            }
+            
+            // ✅ ENHANCED: Check for data mismatch
+            const expectedTrees = {{ trees|length }};
+            if (trees.length !== expectedTrees) {
+                console.warn(`Data mismatch! Backend: ${expectedTrees}, Frontend: ${trees.length}`);
+                showStatus(`Data sync issue detected. Backend: ${expectedTrees}, Frontend: ${trees.length}`, 'error');
+                
+                // Force refresh trees data
+                setTimeout(forceRefreshTrees, 1000);
+            }
+            
+            // ✅ ENHANCED: Validate tree data structure
+            trees.forEach((tree, index) => {
+                if (!tree.hasOwnProperty('internal_row') || !tree.hasOwnProperty('internal_col')) {
+                    console.error(`Tree ${index} missing position data:`, tree);
+                    showStatus(`Tree data structure error detected`, 'error');
+                }
+                if (tree.internal_row < 0 || tree.internal_row >= currentRows || 
+                    tree.internal_col < 0 || tree.internal_col >= currentCols) {
+                    console.error(`Tree ${index} has invalid position:`, tree);
+                    showStatus(`Tree position out of bounds detected`, 'error');
+                }
+            });
+            
             updateGridDisplay();
             addKeyboardNavigation();
             renderGrid();
+            refreshDebugInfo();
+            
+            // ✅ ENHANCED: Auto-refresh every 30 seconds to keep data in sync
+            autoRefreshInterval = setInterval(() => {
+                if (!isAddingTree) {
+                    console.log('Auto-refreshing trees data...');
+                    forceRefreshTrees();
+                }
+            }, 30000);
         });
 
         // Update grid display and show navigation for large grids
@@ -723,8 +1012,8 @@
         // Fit grid to screen by adjusting cell size
         function fitToScreen() {
             const container = document.getElementById('gridContainer');
-            const availableWidth = window.innerWidth - 100; // Account for padding
-            const availableHeight = window.innerHeight - 300; // Account for header and controls
+            const availableWidth = window.innerWidth - 100;
+            const availableHeight = window.innerHeight - 300;
             
             const cellSizeByWidth = Math.max(25, Math.floor(availableWidth / currentCols) - 10);
             const cellSizeByHeight = Math.max(25, Math.floor(availableHeight / currentRows) - 10);
@@ -766,6 +1055,7 @@
                 if (!container) return;
                 
                 const scrollAmount = 100;
+                const largeScrollAmount = 300;
                 
                 switch(e.key) {
                     case 'ArrowLeft':
@@ -792,51 +1082,53 @@
                         e.preventDefault();
                         scrollToPosition('end');
                         break;
-                    case ' ': // Spacebar
+                    case ' ':
                         e.preventDefault();
                         centerGrid();
+                        break;
+                    case 'PageUp':
+                        e.preventDefault();
+                        container.scrollBy({ top: -largeScrollAmount, behavior: 'smooth' });
+                        break;
+                    case 'PageDown':
+                        e.preventDefault();
+                        container.scrollBy({ top: largeScrollAmount, behavior: 'smooth' });
+                        break;
+                    case 'Escape':
+                        e.preventDefault();
+                        goBack();
+                        break;
+                    case 'F5':
+                        e.preventDefault();
+                        forceRefreshTrees();
                         break;
                 }
             });
         }
 
-        // Load trees from server
-        async function loadTreesFromServer() {
-            try {
-                console.log('Loading trees from server...');
-                
-                const response = await fetch(`/api/trees/${domeId}`);
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    console.log('Trees loaded successfully:', data.trees?.length || 0, 'trees');
-                    
-                    trees = data.trees || [];
-                    renderGrid();
-                } else {
-                    console.error('Failed to load trees from server, status:', response.status);
-                    renderGrid();
-                }
-            } catch (error) {
-                console.error('Error loading trees:', error);
-                renderGrid();
+        // ✅ ENHANCED: Render the tree grid with better error handling
+function renderGrid() {
+            const grid = document.getElementById('treeGrid');
+            if (!grid) {
+                console.error('Grid element not found!');
+                return;
             }
-        }
-
-        function renderGrid() {
+            
             console.log('Rendering grid with', trees.length, 'trees');
             
-            const grid = document.getElementById('treeGrid');
-            grid.style.gridTemplateColumns = `repeat(${currentCols}, 1fr)`;
             grid.innerHTML = '';
-
-            // Create grid cells
+            grid.style.gridTemplateColumns = `repeat(${currentCols}, 1fr)`;
+            
+            let renderedTrees = 0;
+            let renderedCells = 0;
+            
             for (let row = 0; row < currentRows; row++) {
                 for (let col = 0; col < currentCols; col++) {
                     const cell = document.createElement('div');
                     cell.className = 'grid-cell';
                     cell.dataset.row = row;
                     cell.dataset.col = col;
+                    renderedCells++;
                     
                     // Add coordinate label
                     const coordLabel = document.createElement('div');
@@ -844,427 +1136,633 @@
                     coordLabel.textContent = `${row},${col}`;
                     cell.appendChild(coordLabel);
                     
-                    // Check if there's a tree at this position
-                    const tree = trees.find(t => t.row === row && t.col === col);
+                    // ✅ IMPROVED: Check if there's a tree at this position with better logging
+                    const tree = trees.find(t => t.internal_row === row && t.internal_col === col);
                     
                     if (tree) {
+                        console.log(`Found tree at ${row},${col}:`, tree);
                         cell.classList.add('occupied');
-                        cell.innerHTML += createTreeElement(tree);
+                        const treeElement = createTreeElement(tree);
+                        cell.appendChild(treeElement);
+                        renderedTrees++;
                     } else {
+                        // ✅ IMPROVED: Add empty cell click handler with validation
                         const addBtn = document.createElement('button');
                         addBtn.className = 'add-tree-btn';
-                        addBtn.textContent = '+';
+                        addBtn.innerHTML = '+';
+                        addBtn.title = `Add tree at position ${row},${col}`;
                         addBtn.onclick = () => addTreeAtPosition(row, col);
                         cell.appendChild(addBtn);
                     }
+                    
+                    // Add drag and drop handlers
+                    cell.addEventListener('dragover', allowDrop);
+                    cell.addEventListener('drop', (e) => dropTree(e, row, col));
                     
                     grid.appendChild(cell);
                 }
             }
             
-            // Add drag and drop event listeners to all cells after rendering
-            addDragDropListeners();
+            console.log(`Grid rendered: ${renderedCells} cells, ${renderedTrees} trees`);
+            
+            // ✅ ENHANCED: Validate rendering
+            if (renderedTrees !== trees.length) {
+                console.error(`Rendering mismatch! Expected ${trees.length} trees, rendered ${renderedTrees}`);
+                showStatus(`Rendering error: Expected ${trees.length} trees, rendered ${renderedTrees}`, 'error');
+            }
+            
             updateStats();
+            refreshDebugInfo();
         }
 
-        // Add drag and drop event listeners to grid cells
-        function addDragDropListeners() {
-            const cells = document.querySelectorAll('.grid-cell');
-            cells.forEach(cell => {
-                // Add drop event listeners
-                cell.addEventListener('dragover', handleDragOver);
-                cell.addEventListener('dragleave', handleDragLeave);
-                cell.addEventListener('drop', handleDrop);
-            });
-            
-            // Add drag event listeners to tree items
-            const treeItems = document.querySelectorAll('.tree-item');
-            treeItems.forEach(item => {
-                item.addEventListener('dragstart', handleDragStart);
-                item.addEventListener('dragend', handleDragEnd);
-            });
+        // Create tree element
+function createTreeElement(tree) {
+    const treeItem = document.createElement('div');
+    treeItem.className = 'tree-item';
+    treeItem.draggable = true;
+    treeItem.dataset.treeId = tree.id;
+    treeItem.addEventListener('dragstart', dragStart);
+    treeItem.addEventListener('dragend', dragEnd);
+    
+    // ✅ CHANGED: Replace onclick with addEventListener and add drag detection
+    let isDragging = false;
+    let dragStartTime = 0;
+    
+    treeItem.addEventListener('mousedown', () => {
+        isDragging = false;
+        dragStartTime = Date.now();
+    });
+    
+    treeItem.addEventListener('dragstart', () => {
+        isDragging = true;
+    });
+    
+    treeItem.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        // ✅ Only navigate if not dragging and sufficient time has passed
+        const timeSinceDragStart = Date.now() - dragStartTime;
+        if (!isDragging && timeSinceDragStart < 200) {
+            console.log('Opening tree info for tree:', tree.id);
+            openTreeInfo(tree.id);
         }
+    });
+    
+    // Tree image or placeholder
+    if (tree.image_url) {
+        const treeImage = document.createElement('div');
+        treeImage.className = 'tree-image';
+        treeImage.style.backgroundImage = `url('${tree.image_url}?t=${Date.now()}')`;
+        treeImage.style.pointerEvents = 'none'; // ✅ ADDED: Prevent image from interfering with drag
+        treeItem.appendChild(treeImage);
+    } else {
+        const treePlaceholder = document.createElement('div');
+        treePlaceholder.className = 'tree-placeholder';
+        treePlaceholder.textContent = '🌱';
+        treePlaceholder.style.pointerEvents = 'none'; // ✅ ADDED: Prevent placeholder from interfering with drag
+        treeItem.appendChild(treePlaceholder);
+    }
+    
+    // Tree name
+    const treeName = document.createElement('div');
+    treeName.className = 'tree-name';
+    treeName.textContent = tree.name || `Tree ${tree.id}`;
+    treeName.style.pointerEvents = 'none'; // ✅ ADDED: Prevent name from interfering with drag
+    treeItem.appendChild(treeName);
+    
+    // Tree actions
+    const actions = document.createElement('div');
+    actions.className = 'tree-actions';
+    actions.style.pointerEvents = 'auto'; // ✅ ADDED: Ensure actions are clickable
+    
+    const editBtn = document.createElement('button');
+    editBtn.className = 'action-btn edit-btn';
+    editBtn.innerHTML = '✏️';
+    editBtn.title = 'Edit tree';
+    editBtn.onclick = (e) => {
+        e.preventDefault(); // ✅ ADDED: Prevent default behavior
+        e.stopPropagation();
+        console.log('Editing tree:', tree.id);
+        editTree(tree.id);
+    };
+    
+    const deleteBtn = document.createElement('button');
+    deleteBtn.className = 'action-btn delete-btn';
+    deleteBtn.innerHTML = '🗑️';
+    deleteBtn.title = 'Delete tree';
+    deleteBtn.onclick = (e) => {
+        e.preventDefault(); // ✅ ADDED: Prevent default behavior
+        e.stopPropagation();
+        console.log('Deleting tree:', tree.id);
+        deleteTree(tree.id);
+    };
+    
+    actions.appendChild(editBtn);
+    actions.appendChild(deleteBtn);
+    treeItem.appendChild(actions);
+    
+    return treeItem;
+}
 
-        // Drag and drop event handlers
-        function handleDragStart(event) {
-            draggedTree = {
-                id: parseInt(event.target.dataset.treeId),
-                row: parseInt(event.target.dataset.treeRow),
-                col: parseInt(event.target.dataset.treeCol)
-            };
-            
-            console.log('Drag started:', draggedTree);
-            
-            // Add visual feedback
-            event.target.classList.add('dragging');
-            
-            // Set drag effect
-            event.dataTransfer.effectAllowed = 'move';
-            event.dataTransfer.setData('text/html', event.target.outerHTML);
+        // Drag and drop functions
+function dragStart(e) {
+    console.log('Drag started for tree:', e.target.dataset.treeId);
+    draggedTree = e.target;
+    e.target.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', e.target.dataset.treeId);
+    
+    // ✅ ADDED: Prevent text selection during drag
+    e.dataTransfer.setDragImage(e.target, 50, 50);
+}
+function dragEnd(e) {
+    console.log('Drag ended');
+    e.target.classList.remove('dragging');
+    
+    // ✅ FIXED: Clear all drag effects from all cells
+    document.querySelectorAll('.grid-cell').forEach(cell => {
+        cell.classList.remove('drag-over', 'swap-target');
+    });
+    
+    // ✅ FIXED: Reset dragged tree after a small delay to allow drop event
+    setTimeout(() => {
+        draggedTree = null;
+    }, 100);
+}
+
+function allowDrop(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    // ✅ FIXED: Only add drag-over effect if we're actually dragging a tree
+    if (draggedTree) {
+        e.currentTarget.classList.add('drag-over');
+        
+        // ✅ ADDED: Show swap indicator if dropping on occupied cell
+        const row = parseInt(e.currentTarget.dataset.row);
+        const col = parseInt(e.currentTarget.dataset.col);
+        const targetTree = trees.find(t => t.internal_row === row && t.internal_col === col);
+        
+        if (targetTree && targetTree.id != draggedTree.dataset.treeId) {
+            e.currentTarget.classList.add('swap-target');
         }
+    }
+}
 
-        function handleDragEnd(event) {
-            console.log('Drag ended');
-            
-            // Reset visual feedback
-            event.target.classList.remove('dragging');
-            
-            // Clear drag data
-            draggedTree = null;
-            
-            // Remove all drag-over classes
-            document.querySelectorAll('.grid-cell').forEach(cell => {
-                cell.classList.remove('drag-over', 'swap-target');
-            });
+function dropTree(e, row, col) {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    // ✅ FIXED: Remove all drag effects
+    e.currentTarget.classList.remove('drag-over', 'swap-target');
+    
+    if (!draggedTree) {
+        console.log('No dragged tree found');
+        return;
+    }
+    
+    const treeId = parseInt(draggedTree.dataset.treeId);
+    const draggedTreeData = trees.find(t => t.id === treeId);
+    
+    if (!draggedTreeData) {
+        console.error('Dragged tree data not found');
+        showStatus('Error: Tree data not found', 'error');
+        return;
+    }
+    
+    // ✅ FIXED: Check if dropping on same position
+    if (draggedTreeData.internal_row === row && draggedTreeData.internal_col === col) {
+        console.log('Dropping on same position, ignoring');
+        return;
+    }
+    
+    console.log(`Dropping tree ${treeId} at position ${row},${col}`);
+    moveTree(treeId, row, col);
+}
+
+        // ✅ FIXED: Tree management functions with better validation
+function addTreeAtPosition(row, col) {
+    // ✅ IMPROVED: Double-check position is empty
+    if (!isPositionEmpty(row, col)) {
+        showStatus(`Position ${row},${col} is already occupied!`, 'error');
+        console.error(`Attempted to add tree at occupied position ${row},${col}`);
+        return;
+    }
+
+    // ✅ IMPROVED: Prevent multiple simultaneous requests
+    if (isAddingTree) {
+        showStatus('Please wait, adding tree...', 'info');
+        return;
+    }
+
+    const name = prompt(`Enter name for tree at position ${row},${col}:`);
+    if (!name || name.trim() === '') {
+        showStatus('Tree name is required', 'error');
+        return;
+    }
+
+    isAddingTree = true;
+    showStatus('Adding tree...', 'info');
+    
+    console.log(`Adding tree "${name.trim()}" at position ${row},${col}`);
+    
+    fetch('/add_tree', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            dome_id: domeId,
+            name: name.trim(),
+            internal_row: row,
+            internal_col: col
+        })
+    })
+    .then(response => {
+        console.log('Add tree response status:', response.status);
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
         }
-
-        function handleDragOver(event) {
-            event.preventDefault();
-            event.dataTransfer.dropEffect = 'move';
+        return response.json();
+    })
+    .then(data => {
+        console.log('Add tree response data:', data);
+        if (data.success) {
+            // ✅ IMPROVED: Update local trees array immediately
+            trees.push(data.tree);
+            showStatus('Tree added successfully!', 'success');
             
-            if (!draggedTree) return;
+            // ✅ FORCE REFRESH: Get fresh data from backend
+            setTimeout(() => {
+                forceRefreshTrees();
+            }, 500);
             
-            const cell = event.target.closest('.grid-cell');
-            if (!cell) return;
-            
-            // Remove previous drag-over classes
-            document.querySelectorAll('.grid-cell').forEach(c => {
-                c.classList.remove('drag-over', 'swap-target');
-            });
-            
-            // Check if cell has a tree (for swapping)
-            const hasTree = cell.querySelector('.tree-item');
-            if (hasTree) {
-                cell.classList.add('swap-target');
-            } else {
-                cell.classList.add('drag-over');
-            }
+        } else {
+            showStatus('Error: ' + (data.error || 'Failed to add tree'), 'error');
+            console.error('Server error:', data);
         }
+    })
+    .catch(error => {
+        console.error('Network error:', error);
+        showStatus('Network error: Failed to add tree', 'error');
+    })
+    .finally(() => {
+        isAddingTree = false;
+    });
+}
 
-        function handleDragLeave(event) {
-            const cell = event.target.closest('.grid-cell');
-            if (cell) {
-                cell.classList.remove('drag-over', 'swap-target');
-            }
-        }
-
-        function handleDrop(event) {
-            event.preventDefault();
+        function addRandomTree() {
+            // ✅ IMPROVED: Find empty positions with better validation
+            const emptyPositions = getEmptyPositions();
             
-            const cell = event.target.closest('.grid-cell');
-            if (!cell || !draggedTree) return;
-            
-            // Remove visual feedback
-            cell.classList.remove('drag-over', 'swap-target');
-            
-            // Get target position
-            const targetRow = parseInt(cell.dataset.row);
-            const targetCol = parseInt(cell.dataset.col);
-            
-            console.log(`Dropping tree ${draggedTree.id} at position (${targetRow}, ${targetCol})`);
-            
-            // Don't move if dropping on same position
-            if (draggedTree.row === targetRow && draggedTree.col === targetCol) {
-                console.log('Dropped on same position, no action needed');
+            if (emptyPositions.length === 0) {
+                showStatus('Grid is full! No empty positions available.', 'error');
                 return;
             }
             
-            // Move the tree
-            moveTreeToPosition(draggedTree.id, targetRow, targetCol);
-        }
-
-        // Move tree to new position
-        async function moveTreeToPosition(treeId, newRow, newCol) {
-            try {
-                console.log(`Moving tree ${treeId} to position (${newRow}, ${newCol})`);
-                
-                // Show swap indicator if there's a tree at target position
-                const targetTree = trees.find(t => t.row === newRow && t.col === newCol);
-                if (targetTree) {
-                    showSwapIndicator();
-                }
-                
-                const response = await fetch(`/move_tree/${treeId}`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        row: newRow,
-                        col: newCol
-                    })
-                });
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    console.log('Tree moved successfully');
-                    // Reload trees from server to get updated positions
-                    await loadTreesFromServer();
-                } else {
-                    console.error('Failed to move tree:', result.error);
-                    alert(`Failed to move tree: ${result.error}`);
-                }
-                
-            } catch (error) {
-                console.error('Error moving tree:', error);
-                alert('Error moving tree. Please try again.');
-            } finally {
-                hideSwapIndicator();
-            }
-        }
-
-        // Show/hide swap indicator
-        function showSwapIndicator() {
-            const indicator = document.getElementById('swapIndicator');
-            if (indicator) {
-                indicator.style.display = 'block';
-            }
-        }
-
-        function hideSwapIndicator() {
-            const indicator = document.getElementById('swapIndicator');
-            if (indicator) {
-                indicator.style.display = 'none';
-            }
-        }
-
-        // Create tree element HTML
-        function createTreeElement(tree) {
-            console.log('Creating tree element for:', tree.name, 'with image:', tree.image_url);
+            const randomPos = emptyPositions[Math.floor(Math.random() * emptyPositions.length)];
+            const randomNames = ['Cannabis A', 'Cannabis B', 'Cannabis C', 'Hybrid X', 'Sativa Y', 'Indica Z'];
+            const randomName = randomNames[Math.floor(Math.random() * randomNames.length)];
             
-            // Use custom image if available, otherwise use default
-            let imageHtml;
-            if (tree.image_url) {
-                imageHtml = `<div class="tree-image" style="background-image: url('${tree.image_url}?t=${Date.now()}');"></div>`;
+            // Use the same validation as addTreeAtPosition
+            if (!isPositionEmpty(randomPos.row, randomPos.col)) {
+                showStatus('Selected random position is occupied, trying again...', 'info');
+                setTimeout(addRandomTree, 500); // Retry after 500ms
+                return;
+            }
+            
+            isAddingTree = true;
+            showStatus(`Adding ${randomName} at ${randomPos.row},${randomPos.col}...`, 'info');
+            
+            console.log(`Adding random tree "${randomName}" at position ${randomPos.row},${randomPos.col}`);
+            
+            fetch('/add_tree', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    dome_id: domeId,
+                    name: randomName,
+                    internal_row: randomPos.row,
+                    internal_col: randomPos.col
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    trees.push(data.tree);
+                    showStatus(`${randomName} added successfully!`, 'success');
+                    renderGrid();
+                    refreshDebugInfo();
+                } else {
+                    showStatus('Error: ' + (data.error || 'Failed to add tree'), 'error');
+                    console.error('Server error:', data);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showStatus('Failed to add random tree', 'error');
+            })
+            .finally(() => {
+                isAddingTree = false;
+            });
+        }
+
+function moveTree(treeId, newRow, newCol) {
+    showStatus('Moving tree...', 'info');
+    
+    console.log(`Moving tree ${treeId} to position ${newRow},${newCol}`);
+    
+    // ✅ ADDED: Check if target position is occupied for swapping
+    const targetTree = trees.find(t => t.internal_row === newRow && t.internal_col === newCol);
+    const movingTree = trees.find(t => t.id == treeId);
+    
+    if (targetTree && movingTree) {
+        console.log(`Swapping tree ${treeId} with tree ${targetTree.id}`);
+        showStatus(`Swapping ${movingTree.name} with ${targetTree.name}...`, 'info');
+    }
+    
+    fetch(`/move_tree/${treeId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            internal_row: newRow,
+            internal_col: newCol
+        })
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        console.log('Move tree response:', data);
+        if (data.success) {
+            if (data.swapped) {
+                showSwapIndicator();
+                showStatus('Trees swapped successfully!', 'success');
+                console.log('Trees swapped:', data);
             } else {
-                imageHtml = `<div class="tree-placeholder">🌱</div>`;
+                showStatus('Tree moved successfully!', 'success');
             }
             
-            return `
-                <div class="tree-item" 
-                     draggable="true" 
-                     data-tree-id="${tree.id}"
-                     data-tree-row="${tree.row}"
-                     data-tree-col="${tree.col}"
-                     onclick="openTree(${tree.id})">
-                    ${imageHtml}
-                    <div class="tree-name">${tree.name}</div>
-                    <div class="tree-actions">
-                        <button class="action-btn edit-btn" onclick="event.stopPropagation(); editTree(${tree.id})" title="Edit">✏️</button>
-                        <button class="action-btn delete-btn" onclick="event.stopPropagation(); deleteTree(${tree.id})" title="Delete">🗑️</button>
-                    </div>
-                </div>
-            `;
-        }
-
-        // Tree management functions
-        function openTree(treeId) {
-            window.location.href = `/tree_info/${treeId}`;
-        }
-
-        async function editTree(treeId) {
-            const tree = trees.find(t => t.id === treeId);
-            if (!tree) return;
+            // ✅ IMPROVED: Update local trees array immediately
+            const tree = trees.find(t => t.id == treeId);
+            if (tree) {
+                tree.internal_row = newRow;
+                tree.internal_col = newCol;
+            }
             
-            const newName = prompt('Enter new tree name:', tree.name);
-            if (!newName || newName === tree.name) return;
-            
-            try {
-                const response = await fetch(`/update_tree/${treeId}`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        name: newName
-                    })
-                });
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    console.log('Tree updated successfully');
-                    await loadTreesFromServer();
-                } else {
-                    alert('Failed to update tree');
+            // ✅ IMPROVED: Handle swapped tree data
+            if (data.swapped && data.swapped_tree) {
+                const swappedTree = trees.find(t => t.id == data.swapped_tree.id);
+                if (swappedTree) {
+                    swappedTree.internal_row = data.swapped_tree.internal_row;
+                    swappedTree.internal_col = data.swapped_tree.internal_col;
                 }
-            } catch (error) {
-                console.error('Error updating tree:', error);
-                alert('Error updating tree');
             }
+            
+            // ✅ FORCE REFRESH: Re-render grid immediately
+            renderGrid();
+            refreshDebugInfo();
+            
+        } else {
+            showStatus('Error: ' + (data.error || 'Failed to move tree'), 'error');
+            console.error('Move tree error:', data);
         }
+    })
+    .catch(error => {
+        console.error('Network error moving tree:', error);
+        showStatus('Network error: Failed to move tree', 'error');
+    });
+}
+function debugTreeData() {
+    console.log('=== TREE DEBUG ===');
+    console.log('Frontend trees:', trees);
+    console.log('Frontend count:', trees.length);
+    
+    // ✅ ALTERNATIVE: Get backend count from DOM instead of template
+    const backendCount = document.getElementById('frontendTreesDisplay')?.textContent || 'Unknown';
+    console.log('Backend count from DOM:', backendCount);
+    
+    // Force refresh from API
+    fetch(`/api/dome/${domeId}/trees`)
+    .then(response => response.json())
+    .then(data => {
+        console.log('API response:', data);
+        if (data.success) {
+            console.log('API trees count:', data.trees.length);
+            console.log('API trees data:', data.trees);
+        } else {
+            console.error('API error:', data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Network error:', error);
+    });
+}
 
-        async function deleteTree(treeId) {
+// Make it available globally
+window.debugTreeData = debugTreeData;
+        function deleteTree(treeId) {
             if (!confirm('Are you sure you want to delete this tree?')) return;
             
-            try {
-                const response = await fetch(`/delete_tree/${treeId}`, {
-                    method: 'DELETE'
-                });
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    console.log('Tree deleted successfully');
-                    await loadTreesFromServer();
+            showStatus('Deleting tree...', 'info');
+            
+            console.log(`Deleting tree ${treeId}`);
+            
+            fetch(`/delete_tree/${treeId}`, {
+                method: 'DELETE'
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('Delete tree response:', data);
+                if (data.success) {
+                    // ✅ IMPROVED: Update local trees array
+                    trees = trees.filter(t => t.id != treeId);
+                    showStatus('Tree deleted successfully!', 'success');
+                    renderGrid();
+                    refreshDebugInfo();
                 } else {
-                    alert('Failed to delete tree');
+                    showStatus('Error: ' + (data.error || 'Failed to delete tree'), 'error');
                 }
-            } catch (error) {
-                console.error('Error deleting tree:', error);
-                alert('Error deleting tree');
-            }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showStatus('Failed to delete tree', 'error');
+            });
         }
 
-        async function addTreeAtPosition(row, col) {
-            // Check if position is occupied
-            const existingTree = trees.find(tree => tree.row === row && tree.col === col);
-            if (existingTree) {
-                return; // Position occupied
+        function editTree(treeId) {
+            const tree = trees.find(t => t.id == treeId);
+            if (!tree) {
+                showStatus('Tree not found', 'error');
+                return;
             }
             
-            const treeName = prompt('Enter tree name:', 'New Tree');
-            if (!treeName) return;
+            const newName = prompt('Enter new name for tree:', tree.name);
+            if (!newName || newName === tree.name || newName.trim() === '') return;
             
-            try {
-                const response = await fetch('/add_tree', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        name: treeName,
-                        row: row,
-                        col: col,
-                        dome_id: domeId
-                    })
-                });
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    console.log('Tree added successfully');
-                    await loadTreesFromServer();
+            showStatus('Updating tree name...', 'info');
+            
+            console.log(`Updating tree ${treeId} name to "${newName.trim()}"`);
+            
+            fetch(`/update_tree/${treeId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: newName.trim() })
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('Update tree response:', data);
+                if (data.success) {
+                    // ✅ IMPROVED: Update local trees array
+                    tree.name = newName.trim();
+                    showStatus('Tree name updated successfully!', 'success');
+                    renderGrid();
+                    refreshDebugInfo();
                 } else {
-                    alert(`Failed to add tree: ${result.error}`);
+                    showStatus('Error: ' + (data.error || 'Failed to update tree'), 'error');
                 }
-            } catch (error) {
-                console.error('Error adding tree:', error);
-                alert('Error adding tree');
-            }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showStatus('Failed to update tree', 'error');
+            });
         }
 
-        // Utility functions
+        function clearAllTrees() {
+            if (!confirm('Are you sure you want to delete ALL trees? This cannot be undone!')) return;
+            
+            showStatus('Clearing all trees...', 'info');
+            
+            console.log(`Clearing all trees for dome ${domeId}`);
+            
+            fetch(`/clear_trees/${domeId}`, {
+                method: 'DELETE'
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('Clear trees response:', data);
+                if (data.success) {
+                    // ✅ IMPROVED: Clear local trees array
+                    trees = [];
+                    showStatus('All trees cleared successfully!', 'success');
+                    renderGrid();
+                    refreshDebugInfo();
+                } else {
+                    showStatus('Error: ' + (data.error || 'Failed to clear trees'), 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showStatus('Failed to clear trees', 'error');
+            });
+        }
+
+        function refreshGrid() {
+            showStatus('Refreshing grid...', 'info');
+            location.reload();
+        }
+
+function updateGridSize() {
+    const newRows = parseInt(document.getElementById('gridRows').value);
+    const newCols = parseInt(document.getElementById('gridCols').value);
+    
+    if (newRows < 1 || newRows > 100 || newCols < 1 || newCols > 100) {
+        showStatus('Grid size must be between 1 and 100', 'error');
+        return;
+    }
+    
+    showStatus('Updating dome grid size...', 'info');
+    
+    console.log(`Updating dome ${domeId} grid size to ${newRows}x${newCols}`);
+    
+    // ✅ FIXED: Use the correct parameter names and route
+    fetch(`/update_dome_grid/${domeId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            rows: newRows,        // ✅ Changed from internal_rows
+            cols: newCols         // ✅ Changed from internal_cols
+        })
+    })
+    .then(response => {
+        console.log('Update dome grid response status:', response.status);
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        console.log('Update dome grid response:', data);
+        if (data.success) {
+            currentRows = newRows;
+            currentCols = newCols;
+            showStatus(`Dome grid updated to ${newRows}x${newCols}!`, 'success');
+            updateGridDisplay();
+            renderGrid();
+            refreshDebugInfo();
+        } else {
+            showStatus('Error: ' + (data.error || 'Failed to update dome grid size'), 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error updating dome grid:', error);
+        showStatus('Network error: Failed to update dome grid size', 'error');
+    });
+}
+
+        function showSwapIndicator() {
+            const indicator = document.getElementById('swapIndicator');
+            indicator.style.display = 'block';
+            setTimeout(() => {
+                indicator.style.display = 'none';
+            }, 2000);
+        }
+
         function updateStats() {
             const totalTrees = trees.length;
             const totalCells = currentRows * currentCols;
             const availablePositions = totalCells - totalTrees;
             const occupancyRate = totalCells > 0 ? (totalTrees / totalCells * 100).toFixed(1) : 0;
             
-            document.getElementById('totalTrees').textContent = totalTrees;
             document.getElementById('treeCount').textContent = totalTrees;
+            document.getElementById('totalTrees').textContent = totalTrees;
             document.getElementById('currentGridSize').textContent = `${currentRows}×${currentCols}`;
             document.getElementById('availablePositions').textContent = availablePositions;
             document.getElementById('occupancyRate').textContent = occupancyRate + '%';
-        }
-
-        function refreshGrid() {
-            console.log('Refreshing grid...');
-            loadTreesFromServer();
-        }
-
-        function goBack() {
-            window.location.href = '/';
-        }
-
-        function openDomeInfo() {
-            window.location.href = `/dome_info/${domeId}`;
-        }
-
-        async function addRandomTree() {
-            // Find available positions
-            const availablePositions = [];
-            for (let row = 0; row < currentRows; row++) {
-                for (let col = 0; col < currentCols; col++) {
-                    const existingTree = trees.find(t => t.row === row && t.col === col);
-                    if (!existingTree) {
-                        availablePositions.push({ row, col });
-                    }
-                }
-            }
             
-            if (availablePositions.length === 0) {
-                alert('No available positions for new trees!');
-                return;
-            }
-            
-            // Pick random position
-            const randomPos = availablePositions[Math.floor(Math.random() * availablePositions.length)];
-            
-            // Generate random tree name
-            const treeNames = ['Cannabis', 'Green Leaf', 'Bud Master', 'Herb King', 'Plant Pro', 'Grow Star'];
-            const randomName = treeNames[Math.floor(Math.random() * treeNames.length)] + ' ' + Math.floor(Math.random() * 1000);
-            
-            await addTreeAtPosition(randomPos.row, randomPos.col);
-        }
-
-        async function clearAllTrees() {
-            if (!confirm('Are you sure you want to delete ALL trees? This cannot be undone!')) return;
-            
-            try {
-                for (const tree of trees) {
-                    await fetch(`/delete_tree/${tree.id}`, { method: 'DELETE' });
-                }
-                
-                console.log('All trees cleared');
-                await loadTreesFromServer();
-            } catch (error) {
-                console.error('Error clearing trees:', error);
-                alert('Error clearing trees');
+            // Update debug display
+            if (document.getElementById('frontendTreesDisplay')) {
+                document.getElementById('frontendTreesDisplay').textContent = totalTrees;
             }
         }
 
-        async function updateGridSize() {
-            const newRows = parseInt(document.getElementById('gridRows').value);
-            const newCols = parseInt(document.getElementById('gridCols').value);
-            
-            if (newRows < 1 || newCols < 1 || newRows > 100 || newCols > 100) {
-                alert('Grid size must be between 1x1 and 100x100');
-                return;
-            }
-            
-            try {
-                const response = await fetch(`/update_dome_grid/${domeId}`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        rows: newRows,
-                        cols: newCols
-                    })
-                });
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    currentRows = newRows;
-                    currentCols = newCols;
-                    updateGridDisplay();
-                    renderGrid();
-                    console.log('Grid size updated successfully');
-                } else {
-                    alert(`Failed to update grid size: ${result.error}`);
-                }
-            } catch (error) {
-                console.error('Error updating grid size:', error);
-                alert('Error updating grid size');
+        // ✅ ENHANCED: Cleanup function
+        function cleanup() {
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+                autoRefreshInterval = null;
             }
         }
 
-        // Initialize the page
-        console.log('Grid JavaScript loaded successfully');
+        // ✅ ENHANCED: Handle page unload
+        window.addEventListener('beforeunload', function(event) {
+            cleanup();
+            if (isAddingTree) {
+                event.preventDefault();
+                event.returnValue = 'A tree is being added. Are you sure you want to leave?';
+                return event.returnValue;
+            }
+        });
+
+        // ✅ Make debug functions available globally for console access
+        window.debugGrid = refreshDebugInfo;
+        window.forceRefreshTrees = forceRefreshTrees;
+        window.getEmptyPositions = getEmptyPositions;
+        window.trees = trees;
+        window.domeId = domeId;
+        window.cleanup = cleanup;
     </script>
 </body>
 </html>

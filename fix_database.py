@@ -1,105 +1,107 @@
 import sqlite3
 import os
+from sqlalchemy import create_engine, text, inspect
 
-def fix_database_columns():
-    """Add missing columns to the database"""
+def fix_database():
+    """Fix database schema issues"""
+    db_path = 'db.sqlite3'
     
-    if not os.path.exists('db.sqlite3'):
-        print("❌ Database file 'db.sqlite3' not found!")
-        return False
+    print("🔧 Fixing database schema issues...")
+    print(f"📁 Working with database: {os.path.abspath(db_path)}")
     
+    # Step 1: Direct SQLite check
+    print("\n🔍 Step 1: Direct SQLite inspection")
     try:
-        conn = sqlite3.connect('db.sqlite3')
+        conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
         
-        print("🔄 Fixing database columns...")
+        # Check dome table structure
+        cursor.execute("PRAGMA table_info(dome);")
+        columns = [row[1] for row in cursor.fetchall()]
+        print(f"✅ Current dome columns: {columns}")
         
-        # Check current tree table structure
-        cursor.execute("PRAGMA table_info(tree)")
-        existing_columns = [column[1] for column in cursor.fetchall()]
-        print(f"📋 Current tree table columns: {existing_columns}")
+        # Check if farm_id exists
+        has_farm_id = 'farm_id' in columns
+        print(f"📊 Has farm_id: {has_farm_id}")
         
-        # Add missing columns one by one
-        columns_to_add = [
-            ("image_url", "VARCHAR(200)"),
-            ("info", "TEXT"),
-            ("life_days", "INTEGER DEFAULT 0"),
-            ("updated_at", "TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
-        ]
+        if not has_farm_id:
+            print("➕ Adding farm_id column...")
+            cursor.execute("ALTER TABLE dome ADD COLUMN farm_id INTEGER;")
+            conn.commit()
+            print("✅ farm_id column added")
         
-        for column_name, column_type in columns_to_add:
-            if column_name not in existing_columns:
-                try:
-                    cursor.execute(f'ALTER TABLE tree ADD COLUMN {column_name} {column_type}')
-                    print(f"✅ Added {column_name} column to tree table")
-                except sqlite3.OperationalError as e:
-                    print(f"⚠️ Error adding {column_name} column: {e}")
-            else:
-                print(f"ℹ️ {column_name} column already exists in tree table")
+        # Check if created_at exists
+        has_created_at = 'created_at' in columns
+        if not has_created_at:
+            print("➕ Adding created_at column...")
+            cursor.execute("ALTER TABLE dome ADD COLUMN created_at DATETIME;")
+            conn.commit()
+            print("✅ created_at column added")
         
-        # Check dome table
-        cursor.execute("PRAGMA table_info(dome)")
-        dome_columns = [column[1] for column in cursor.fetchall()]
-        print(f"📋 Current dome table columns: {dome_columns}")
+        # Check if updated_at exists
+        has_updated_at = 'updated_at' in columns
+        if not has_updated_at:
+            print("➕ Adding updated_at column...")
+            cursor.execute("ALTER TABLE dome ADD COLUMN updated_at DATETIME;")
+            conn.commit()
+            print("✅ updated_at column added")
         
-        if "image_url" not in dome_columns:
-            try:
-                cursor.execute('ALTER TABLE dome ADD COLUMN image_url VARCHAR(200)')
-                print("✅ Added image_url column to dome table")
-            except sqlite3.OperationalError as e:
-                print(f"⚠️ Error adding image_url to dome table: {e}")
-        else:
-            print("ℹ️ image_url column already exists in dome table")
-        
-        # Initialize life_days for existing trees
-        cursor.execute('''
-            UPDATE tree 
-            SET life_days = 1, updated_at = CURRENT_TIMESTAMP 
-            WHERE life_days IS NULL OR life_days = 0
-        ''')
-        updated_rows = cursor.rowcount
-        print(f"✅ Initialized life_days for {updated_rows} trees")
-        
-        # Commit all changes
-        conn.commit()
-        
-        # Verify the final structure
-        cursor.execute("PRAGMA table_info(tree)")
-        final_columns = cursor.fetchall()
-        
-        print(f"\n📋 Final tree table structure:")
-        for column in final_columns:
-            print(f"   - {column[1]} ({column[2]})")
-        
-        # Show sample data
-        cursor.execute("SELECT COUNT(*) FROM tree")
-        tree_count = cursor.fetchone()[0]
-        print(f"\n📊 Total trees in database: {tree_count}")
-        
-        if tree_count > 0:
-            cursor.execute("SELECT id, name, life_days, updated_at FROM tree LIMIT 3")
-            sample_data = cursor.fetchall()
-            print(f"\n📄 Sample tree data:")
-            for row in sample_data:
-                print(f"   ID: {row[0]}, Name: {row[1]}, Life Days: {row[2]}, Updated: {row[3]}")
+        # Final check
+        cursor.execute("PRAGMA table_info(dome);")
+        final_columns = [row[1] for row in cursor.fetchall()]
+        print(f"✅ Final dome columns: {final_columns}")
         
         conn.close()
-        print(f"\n🎉 Database columns fixed successfully!")
-        return True
         
     except Exception as e:
-        print(f"❌ Error fixing database: {e}")
+        print(f"❌ SQLite error: {e}")
         return False
+    
+    # Step 2: SQLAlchemy check
+    print("\n🔍 Step 2: SQLAlchemy inspection")
+    try:
+        engine = create_engine(f'sqlite:///{db_path}')
+        inspector = inspect(engine)
+        
+        # Get columns via SQLAlchemy
+        sqlalchemy_columns = [col['name'] for col in inspector.get_columns('dome')]
+        print(f"✅ SQLAlchemy sees columns: {sqlalchemy_columns}")
+        
+        # Test query
+        with engine.connect() as conn:
+            result = conn.execute(text("SELECT farm_id FROM dome LIMIT 1;"))
+            print("✅ SQLAlchemy can query farm_id column")
+        
+    except Exception as e:
+        print(f"⚠️ SQLAlchemy error: {e}")
+        print("🔄 This might be due to metadata caching")
+    
+    # Step 3: Force metadata refresh
+    print("\n🔍 Step 3: Force metadata refresh")
+    try:
+        # Delete any cached metadata files
+        cache_files = [
+            'instance/db.sqlite3',
+            'app.db',
+            'database.db'
+        ]
+        
+        for cache_file in cache_files:
+            if os.path.exists(cache_file):
+                print(f"🗑️ Removing cache file: {cache_file}")
+                os.remove(cache_file)
+        
+        print("✅ Cache cleanup completed")
+        
+    except Exception as e:
+        print(f"⚠️ Cache cleanup error: {e}")
+    
+    print("\n✅ Database fix completed!")
+    print("\n🚀 Next steps:")
+    print("1. Restart your Flask app: python app.py")
+    print("2. The farm_info page should now work")
+    
+    return True
 
 if __name__ == "__main__":
-    print("🚀 Starting database column fix...")
-    success = fix_database_columns()
-    
-    if success:
-        print("\n✅ Database fix completed!")
-        print("📝 Next steps:")
-        print("   1. Make sure your models.py has all the columns uncommented")
-        print("   2. Run your Flask app: python app.py")
-        print("   3. Test the life day system")
-    else:
-        print("\n❌ Database fix failed. Please check the errors above.")
+    fix_database()

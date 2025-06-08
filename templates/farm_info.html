@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Farm Information - {{ farm.name }}</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #f0f0f0;
+        }
+        .farm-info-container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            background: white;
+        }
+        .farm-image-section {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .farm-image {
+            width: 200px;
+            height: 200px;
+            background-size: cover;
+            background-position: center;
+            border-radius: 15%;
+            border: 3px solid #8B4513;
+            margin: 0 auto 15px;
+            position: relative;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            cursor: pointer;
+            transition: transform 0.3s ease;
+        }
+        .farm-image:hover {
+            transform: scale(1.05);
+        }
+        .farm-image::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 15%;
+        }
+        .farm-placeholder {
+            width: 200px;
+            height: 200px;
+            border-radius: 15%;
+            background: linear-gradient(135deg, #8B4513, #A0522D);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 48px;
+            margin: 0 auto 15px;
+            border: 3px solid #8B4513;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            cursor: pointer;
+            transition: transform 0.3s ease;
+            position: relative;
+        }
+        .farm-placeholder:hover {
+            transform: scale(1.05);
+        }
+        .farm-placeholder::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 15%;
+        }
+        .image-controls {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .image-upload-section {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border: 2px dashed #ddd;
+        }
+        .upload-area {
+            text-align: center;
+            padding: 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .upload-area:hover {
+            background: #e9ecef;
+            border-color: #8B4513;
+        }
+        .upload-area.dragover {
+            background: #f4e4bc;
+            border-color: #8B4513;
+        }
+        .file-input {
+            display: none;
+        }
+        .upload-text {
+            color: #666;
+            margin-top: 10px;
+        }
+        .farm-name {
+            font-size: 24px;
+            text-align: center;
+            margin-bottom: 20px;
+            color: #8B4513;
+        }
+        .edit-form {
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #333;
+        }
+        .form-group input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        .btn-primary {
+            background: #8B4513;
+            color: white;
+        }
+        .btn-primary:hover {
+            background: #A0522D;
+        }
+        .btn-danger {
+            background: #f44336;
+            color: white;
+        }
+        .btn-danger:hover {
+            background: #da190b;
+        }
+        .btn-secondary {
+            background: #007bff;
+            color: white;
+        }
+        .btn-secondary:hover {
+            background: #0056b3;
+        }
+        .btn-warning {
+            background: #ffc107;
+            color: #212529;
+        }
+        .btn-warning:hover {
+            background: #e0a800;
+        }
+        .btn-info {
+            background: #17a2b8;
+            color: white;
+        }
+        .btn-info:hover {
+            background: #138496;
+        }
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+        .btn-success:hover {
+            background: #218838;
+        }
+        .farm-stats {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f9f9f9;
+            border-radius: 8px;
+        }
+        .farm-stats p {
+            margin: 5px 0;
+        }
+        .button-group {
+            text-align: center;
+            margin-top: 20px;
+        }
+        .farm-info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .info-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #8B4513;
+        }
+        .info-card h4 {
+            margin: 0 0 10px 0;
+            color: #8B4513;
+            font-size: 16px;
+        }
+        .info-card p {
+            margin: 5px 0;
+            color: #555;
+        }
+        .dome-count {
+            font-size: 24px;
+            font-weight: bold;
+            color: #8B4513;
+        }
+        .status-message {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            display: none;
+        }
+        .status-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .status-info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        .loading {
+            display: none;
+            text-align: center;
+            color: #666;
+            font-style: italic;
+        }
+        
+        /* Responsive design */
+        @media (max-width: 768px) {
+            .farm-info-container {
+                margin: 10px;
+                padding: 15px;
+            }
+            
+            .farm-info-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .image-controls {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .btn {
+                margin: 3px;
+                padding: 8px 16px;
+                font-size: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="farm-info-container">
+        <button class="btn btn-secondary" onclick="goBack()">← กลับ</button>
+        
+        <!-- Status Message -->
+        <div id="statusMessage" class="status-message"></div>
+        <div id="loading" class="loading">Processing...</div>
+        
+        <!-- Farm Image Section -->
+        <div class="farm-image-section">
+            {% if farm.image_url %}
+                <div class="farm-image" id="farmImage" style="background-image: url('{{ farm.image_url }}?t={{ timestamp }}');" onclick="openImageUpload()"></div>
+            {% else %}
+                <div class="farm-placeholder" id="farmPlaceholder" onclick="openImageUpload()">
+                    🚜
+                </div>
+            {% endif %}
+            
+            <!-- Image Controls -->
+            <div class="image-controls">
+                <button class="btn btn-info" onclick="openImageUpload()">📷 Change Image</button>
+                {% if farm.image_url %}
+                    <button class="btn btn-warning" onclick="removeFarmImage()">🗑️ Remove Image</button>
+                {% endif %}
+            </div>
+            
+            <!-- Image Upload Section (Hidden by default) -->
+            <div class="image-upload-section" id="imageUploadSection" style="display: none;">
+                <div class="upload-area" onclick="document.getElementById('imageInput').click()">
+                    <div style="font-size: 48px; color: #8B4513;">📷</div>
+                    <div class="upload-text">
+                        <strong>Click to upload farm image</strong><br>
+                        or drag and drop an image here<br>
+                        <small>Supports: PNG, JPG, JPEG, GIF (Max: 16MB)</small>
+                    </div>
+                </div>
+                <input type="file" id="imageInput" class="file-input" accept="image/*" onchange="uploadFarmImage()">
+                <div style="text-align: center; margin-top: 10px;">
+                    <button class="btn btn-secondary" onclick="closeImageUpload()">Cancel</button>
+                </div>
+            </div>
+        </div>
+        
+        <h1 class="farm-name">{{ farm.name }}</h1>
+        
+        <div class="edit-form">
+            <div class="form-group">
+                <label for="farmNameInput">Farm Name:</label>
+                <input type="text" id="farmNameInput" value="{{ farm.name }}" placeholder="Enter farm name">
+            </div>
+            
+            <div class="button-group">
+                <button class="btn btn-primary" onclick="updateFarmName()">✏️ Update Name</button>
+                <button class="btn btn-success" onclick="goToFarmDomes()">🏠 View Domes</button>
+                <button class="btn btn-danger" onclick="deleteFarm()">🗑️ Delete Farm</button>
+            </div>
+        </div>
+        
+        <!-- Enhanced Farm Information Grid -->
+        <div class="farm-info-grid">
+            <div class="info-card">
+                <h4>📍 Position</h4>
+                <p><strong>Grid Row:</strong> {{ farm.grid_row }}</p>
+                <p><strong>Grid Column:</strong> {{ farm.grid_col }}</p>
+            </div>
+            
+            <div class="info-card">
+                <h4>🏠 Domes</h4>
+                <p class="dome-count">{{ farm.domes|length }}</p>
+                <p>domes created</p>
+            </div>
+            
+            <div class="info-card">
+                <h4>🌳 Total Trees</h4>
+                <p class="dome-count">{{ total_trees }}</p>
+                <p>trees planted</p>
+            </div>
+            
+            <div class="info-card">
+                <h4>📊 Farm Status</h4>
+                <p><strong>Active Domes:</strong> {{ farm.domes|length }}</p>
+                <p><strong>Farm Type:</strong> Cannabis Farm</p>
+            </div>
+        </div>
+        
+        <!-- Traditional Stats Section -->
+        <div class="farm-stats">
+            <h3 style="color: #8B4513; margin-bottom: 15px;">📋 Farm Summary</h3>
+            <p><strong>Farm Name:</strong> {{ farm.name }}</p>
+            <p><strong>Grid Position:</strong> Row {{ farm.grid_row }}, Column {{ farm.grid_col }}</p>
+            <p><strong>Total Domes:</strong> {{ farm.domes|length }} domes</p>
+            <p><strong>Total Trees:</strong> {{ total_trees }} trees planted</p>
+            {% if farm.domes|length > 0 %}
+                <p><strong>Dome Names:</strong> 
+                    {% for dome in farm.domes %}
+                        {{ dome.name }}{% if not loop.last %}, {% endif %}
+                    {% endfor %}
+                </p>
+            {% endif %}
+        </div>
+    </div>
+
+    <script>
+        const farmId = {{ farm.id }};
+        let nameChanged = false;
+        
+        function goBack() {
+            if (nameChanged) {
+                const currentName = document.querySelector('.farm-name').textContent;
+                localStorage.setItem('farmNameUpdated', 'true');
+                localStorage.setItem(`farm_${farmId}_name`, currentName);
+            }
+            window.location.href = '/farms';
+        }
+        
+        // ✅ FIXED: Changed from viewDomes() to goToMainIndex() - always go to main index
+function goToFarmDomes() {
+    console.log('Going to farm dome view');
+    window.location.href = `/farm/${farmId}/domes`;
+}
+        
+        // ✅ REMOVED: viewDomes() function that went to /?farm_id=X
+        // Now using goToMainIndex() instead
+        
+        async function deleteFarm() {
+            if (confirm('Are you sure you want to delete this farm? This will also delete all domes and trees in this farm.')) {
+                try {
+                    showStatus('Deleting farm...', 'info');
+                    
+                    const response = await fetch(`/delete_farm/${farmId}`, {
+                        method: 'DELETE'
+                    });
+                    
+                    if (response.ok) {
+                        showStatus('Farm deleted successfully!', 'success');
+                        setTimeout(() => {
+                            window.location.href = '/farms';
+                        }, 1500);
+                    } else {
+                        const error = await response.json();
+                        showStatus(error.error || 'Failed to delete farm', 'error');
+                    }
+                } catch (error) {
+                    console.error('Error deleting farm:', error);
+                    showStatus('Error deleting farm. Please try again.', 'error');
+                }
+            }
+        }
+        
+        async function updateFarmName() {
+            const newName = document.getElementById('farmNameInput').value.trim();
+            if (!newName) {
+                showStatus('Please enter a name', 'error');
+                return;
+            }
+            
+            try {
+                showStatus('Updating farm name...', 'info');
+                
+                const response = await fetch(`/update_farm_name/${farmId}`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({name: newName})
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    document.querySelector('.farm-name').textContent = newName;
+                    nameChanged = true;
+                    localStorage.setItem('farmNameUpdated', 'true');
+                    localStorage.setItem(`farm_${farmId}_name`, newName);
+                    showStatus('Name updated successfully!', 'success');
+                } else {
+                    showStatus(result.error || 'Failed to update name', 'error');
+                }
+            } catch (error) {
+                console.error('Error updating farm name:', error);
+                showStatus('Error updating farm name. Please try again.', 'error');
+            }
+        }
+        
+        function openImageUpload() {
+            document.getElementById('imageUploadSection').style.display = 'block';
+        }
+        
+        function closeImageUpload() {
+            document.getElementById('imageUploadSection').style.display = 'none';
+        }
+        
+        async function uploadFarmImage() {
+            const fileInput = document.getElementById('imageInput');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                showStatus('Please select an image file', 'error');
+                return;
+            }
+            
+            const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif'];
+            if (!allowedTypes.includes(file.type)) {
+                showStatus('Please select a valid image file (PNG, JPG, JPEG, GIF)', 'error');
+                return;
+            }
+            
+            if (file.size > 16 * 1024 * 1024) {
+                showStatus('File size must be less than 16MB', 'error');
+                return;
+            }
+            
+            try {
+                showLoading(true);
+                showStatus('Uploading image...', 'info');
+                
+                const formData = new FormData();
+                formData.append('image', file);
+                
+                const response = await fetch(`/upload_farm_image/${farmId}`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showStatus('Image uploaded successfully!', 'success');
+                    updateFarmImageDisplay(result.image_url);
+                    closeImageUpload();
+                    fileInput.value = '';
+                    
+                    // Set flag for farm page to refresh
+                    localStorage.setItem('farmImageUpdated', 'true');
+                    console.log('Set farmImageUpdated flag to true');
+                    
+                } else {
+                    showStatus(result.error || 'Failed to upload image', 'error');
+                }
+                
+            } catch (error) {
+                console.error('Error uploading image:', error);
+                showStatus('Error uploading image. Please try again.', 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+        
+        async function removeFarmImage() {
+            if (!confirm('Are you sure you want to remove the farm image?')) {
+                return;
+            }
+            
+            try {
+                showLoading(true);
+                showStatus('Removing image...', 'info');
+                
+                const response = await fetch(`/remove_farm_image/${farmId}`, {
+                    method: 'POST'
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showStatus('Image removed successfully!', 'success');
+                    updateFarmImageDisplay(null);
+                    
+                    // Set flag for farm page to refresh
+                    localStorage.setItem('farmImageUpdated', 'true');
+                    console.log('Set farmImageUpdated flag to true');
+                    
+                } else {
+                    showStatus(result.error || 'Failed to remove image', 'error');
+                }
+                
+            } catch (error) {
+                console.error('Error removing image:', error);
+                showStatus('Error removing image. Please try again.', 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+        
+        function updateFarmImageDisplay(imageUrl) {
+            const imageSection = document.querySelector('.farm-image-section');
+            const imageControls = document.querySelector('.image-controls');
+            
+            if (imageUrl) {
+                imageSection.innerHTML = `
+                    <div class="farm-image" id="farmImage" style="background-image: url('${imageUrl}?t=${Date.now()}');" onclick="openImageUpload()"></div>
+                `;
+                
+                imageControls.innerHTML = `
+                    <button class="btn btn-info" onclick="openImageUpload()">📷 Change Image</button>
+                    <button class="btn btn-warning" onclick="removeFarmImage()">🗑️ Remove Image</button>
+                `;
+            } else {
+                imageSection.innerHTML = `
+                    <div class="farm-placeholder" id="farmPlaceholder" onclick="openImageUpload()">
+                        🚜
+                    </div>
+                `;
+                
+                imageControls.innerHTML = `
+                    <button class="btn btn-info" onclick="openImageUpload()">📷 Change Image</button>
+                `;
+            }
+            
+            imageSection.appendChild(imageControls);
+            imageSection.appendChild(document.getElementById('imageUploadSection'));
+        }
+        
+        function setupDragAndDrop() {
+            const uploadArea = document.querySelector('.upload-area');
+            
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                uploadArea.addEventListener(eventName, preventDefaults, false);
+            });
+            
+            function preventDefaults(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            
+            ['dragenter', 'dragover'].forEach(eventName => {
+                uploadArea.addEventListener(eventName, highlight, false);
+            });
+            
+            ['dragleave', 'drop'].forEach(eventName => {
+                uploadArea.addEventListener(eventName, unhighlight, false);
+            });
+            
+            function highlight(e) {
+                uploadArea.classList.add('dragover');
+            }
+            
+            function unhighlight(e) {
+                uploadArea.classList.remove('dragover');
+            }
+            
+            uploadArea.addEventListener('drop', handleDrop, false);
+            
+            function handleDrop(e) {
+                const dt = e.dataTransfer;
+                const files = dt.files;
+                
+                if (files.length > 0) {
+                    document.getElementById('imageInput').files = files;
+                    uploadFarmImage();
+                }
+            }
+        }
+        
+        function showStatus(message, type) {
+            const statusDiv = document.getElementById('statusMessage');
+            statusDiv.textContent = message;
+            statusDiv.className = `status-message status-${type}`;
+            statusDiv.style.display = 'block';
+            
+            if (type === 'success') {
+                setTimeout(() => {
+                    statusDiv.style.display = 'none';
+                }, 3000);
+            }
+        }
+        
+        function showLoading(show) {
+            document.getElementById('loading').style.display = show ? 'block' : 'none';
+        }
+        
+        window.addEventListener('beforeunload', function() {
+            if (nameChanged) {
+                const currentName = document.querySelector('.farm-name').textContent;
+                localStorage.setItem('farmNameUpdated', 'true');
+                localStorage.setItem(`farm_${farmId}_name`, currentName);
+            }
+        });
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            setupDragAndDrop();
+        });
+    </script>
+</body>
+</html>

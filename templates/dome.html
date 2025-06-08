@@ -1,0 +1,1104 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <title>{% if farm_id %}{{ page_title }} - {% endif %}Raisara Farm</title>
+    <style>
+        /* Base styles */
+        body {
+            font-family: Arial, sans-serif;
+            padding: 0;
+            margin: 0;
+            background: #f0f0f0;
+            overflow-x: auto;
+        }
+        
+        .container {
+            width: 100%;
+            max-width: none;
+            margin: 0 auto;
+            text-align: center;
+            min-width: 320px;
+        }
+        
+        /* Fixed navigation bar */
+        .fixed-nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 10px 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        .nav-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #2e8b57;
+            margin: 0;
+        }
+        
+        .nav-controls {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        
+        .nav-btn {
+            padding: 6px 12px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.3s ease;
+        }
+        
+        .nav-btn:hover {
+            background: #45a049;
+            transform: translateY(-1px);
+        }
+        
+        .nav-btn.secondary { background: #17a2b8; }
+        .nav-btn.secondary:hover { background: #138496; }
+        .nav-btn.danger { background: #dc3545; }
+        .nav-btn.danger:hover { background: #c82333; }
+        .nav-btn.profile { background: #6c757d; }
+        .nav-btn.profile:hover { background: #5a6268; }
+        .nav-btn.farm { background: #8B4513; }
+        .nav-btn.farm:hover { background: #A0522D; }
+        
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            color: #666;
+            margin-right: 10px;
+        }
+        
+        .user-welcome {
+            font-weight: bold;
+            color: #2e8b57;
+        }
+        
+        /* Main content area */
+        .main-content {
+            padding: 80px 20px 20px 20px;
+            width: 100%;
+        }
+
+        /* Farm context header */
+        .farm-context {
+            background: linear-gradient(135deg, #8B4513 0%, #A0522D 100%);
+            color: white;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            text-align: center;
+        }
+
+        .farm-context h3 {
+            margin: 0 0 15px 0;
+            font-size: 1.5rem;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .farm-context-nav {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .farm-context-btn {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            padding: 10px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .farm-context-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            border-color: rgba(255, 255, 255, 0.5);
+            transform: translateY(-2px);
+        }
+
+        /* Site header */
+        @import url('https://fonts.googleapis.com/css2?family=Pacifico&display=swap');
+        
+        .site-header {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 30px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid rgba(139, 69, 19, 0.3);
+            flex-wrap: wrap;
+        }
+
+        .site-title {
+            font-family: 'Pacifico', cursive;
+            font-size: 3rem;
+            color: #2e8b57;
+            margin: 0;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+            background: linear-gradient(45deg, #2e8b57, #3cb371);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            transition: all 0.3s ease;
+        }
+
+        .site-title:hover {
+            transform: scale(1.05);
+        }
+
+        .leaf-icon {
+            color: #4CAF50;
+            font-size: 2.5rem;
+            margin-right: 15px;
+            animation: sway 3s ease-in-out infinite;
+        }
+
+        @keyframes sway {
+            0%, 100% { transform: rotate(-5deg); }
+            50% { transform: rotate(5deg); }
+        }
+
+        /* Grid info and controls */
+        .grid-info {
+            background: rgba(255, 255, 255, 0.9);
+            padding: 10px 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            font-size: 14px;
+            color: #333;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .grid-controls {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            justify-content: center;
+            flex-wrap: wrap;
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            position: sticky;
+            top: 70px;
+            z-index: 100;
+        }
+
+        /* Grid container */
+        .grid-container {
+            width: 100%;
+            overflow-x: auto;
+            overflow-y: visible;
+            padding: 10px 0;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            scroll-behavior: smooth;
+        }
+        
+        .grid-container::-webkit-scrollbar {
+            height: 12px;
+        }
+        
+        .grid-container::-webkit-scrollbar-track {
+            background: #f0f0f0;
+            border-radius: 6px;
+        }
+        
+        .grid-container::-webkit-scrollbar-thumb {
+            background: #4CAF50;
+            border-radius: 6px;
+        }
+
+        /* Main grid */
+        .farm-grid {
+            display: grid;
+            gap: var(--grid-gap, 8px);
+            padding: 20px;
+            margin: 0 auto;
+            min-width: fit-content;
+        }
+
+        /* Grid cells */
+        .grid-cell {
+            aspect-ratio: 1;
+            border: 2px dashed #ddd;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: var(--cell-size, 100px);
+            height: var(--cell-size, 100px);
+            position: relative;
+            transition: all 0.3s ease;
+            background: #fafafa;
+            cursor: pointer;
+        }
+        
+        .grid-cell:hover {
+            border-color: #4CAF50;
+            background: #f0f8f0;
+            transform: scale(1.05);
+        }
+        
+        .grid-cell.occupied {
+            border: 2px solid #4CAF50;
+            background: #e8f5e8;
+        }
+        
+        .grid-cell.drag-over {
+            border: 2px solid #ff9800 !important;
+            background: #fff3e0 !important;
+            transform: scale(1.05);
+        }
+
+        /* Dome styling */
+        .dome {
+            width: calc(var(--cell-size, 100px) * 0.8);
+            height: calc(var(--cell-size, 100px) * 0.8);
+            background-color: #2e8b57;
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            border: 3px solid #4CAF50;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            flex-direction: column;
+            padding: 8px;
+            box-sizing: border-box;
+        }
+
+        .dome:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+        }
+
+        .dome-placeholder {
+            width: calc(var(--cell-size, 100px) * 0.8);
+            height: calc(var(--cell-size, 100px) * 0.8);
+            background: linear-gradient(135deg, #4CAF50, #45a049);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            border: 3px solid #4CAF50;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            color: white;
+            font-size: calc(var(--cell-size, 100px) * 0.3);
+            flex-direction: column;
+            padding: 8px;
+            box-sizing: border-box;
+        }
+
+        .dome-placeholder:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+        }
+
+        .dome::before,
+        .dome-placeholder::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 50%;
+            z-index: 1;
+        }
+
+        .dome-name {
+            position: relative;
+            z-index: 2;
+            color: #ffffff;
+            font-weight: bold;
+            text-shadow: 
+                2px 2px 4px rgba(0, 0, 0, 0.8),
+                -1px -1px 2px rgba(0, 0, 0, 0.6);
+            font-size: calc(var(--cell-size, 100px) * 0.1);
+            text-align: center;
+            padding: 2px 4px;
+            line-height: 1.2;
+            max-width: calc(var(--cell-size, 100px) - 30px);
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            pointer-events: none;
+        }
+
+        .coordinate-label {
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            font-size: calc(var(--cell-size, 100px) * 0.08);
+            color: #666;
+            background: rgba(255,255,255,0.8);
+            padding: 1px 3px;
+            border-radius: 2px;
+            pointer-events: none;
+        }
+        
+        /* Button styles */
+        .btn {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .btn:hover {
+            background: #45a049;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn.cancel {
+            background: #f44336;
+        }
+
+        .btn.cancel:hover {
+            background: #d32f2f;
+        }
+
+        /* Modal styles */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.6);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            max-width: 90%;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        .input-group {
+            margin-bottom: 15px;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #333;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.3s ease;
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border-color: #4CAF50;
+        }
+
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        /* Responsive design */
+        @media (max-width: 1400px) {
+            :root { --cell-size: 90px; --grid-gap: 6px; }
+        }
+
+        @media (max-width: 1200px) {
+            :root { --cell-size: 80px; --grid-gap: 5px; }
+        }
+
+        @media (max-width: 1000px) {
+            :root { --cell-size: 70px; --grid-gap: 4px; }
+        }
+
+        @media (max-width: 768px) {
+            :root { --cell-size: 60px; --grid-gap: 4px; }
+            .site-title { font-size: 2.5rem; }
+            .fixed-nav { padding: 8px 15px; }
+            .nav-controls { gap: 5px; }
+            .nav-btn { padding: 4px 8px; font-size: 11px; }
+            .user-info { font-size: 10px; }
+            .farm-context-nav { flex-direction: column; align-items: center; }
+        }
+
+        @media (max-width: 600px) {
+            :root { --cell-size: 50px; --grid-gap: 3px; }
+            .site-title { font-size: 2rem; }
+            .leaf-icon { font-size: 2rem; }
+            .btn { padding: 8px 16px; font-size: 12px; }
+            .user-info { display: none; }
+        }
+
+        @media (max-width: 480px) {
+            :root { --cell-size: 45px; --grid-gap: 2px; }
+            .site-title { font-size: 1.8rem; }
+            .grid-controls { flex-direction: column; gap: 8px; }
+            .main-content { padding: 100px 10px 20px 10px; }
+        }
+
+        @media (min-width: 1600px) {
+            :root { --cell-size: 110px; --grid-gap: 10px; }
+        }
+
+        @media (min-width: 2000px) {
+            :root { --cell-size: 130px; --grid-gap: 12px; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Fixed Navigation Bar -->
+    <div class="fixed-nav">
+        <div class="nav-title">🍃 Raisara Farm</div>
+        <div style="display: flex; align-items: center; gap: 15px;">
+            <!-- User Info -->
+            {% if user %}
+            <div class="user-info">
+                <span class="user-welcome">Welcome, {{ user.username }}!</span>
+            </div>
+            {% endif %}
+            
+            <!-- Navigation Controls -->
+            <div class="nav-controls">
+                {% if farm_id %}
+                    <button class="nav-btn farm" onclick="goBackToFarm()">🚜 Back to Farm</button>
+                {% else %}
+                    <button class="nav-btn farm" onclick="goToFarms()">🚜 Farms</button>
+                {% endif %}
+                
+                <button class="nav-btn" onclick="showGridSizeModal()">📏 Resize</button>
+                <button class="nav-btn secondary" onclick="centerGrid()">🎯 Center</button>
+                <button class="nav-btn secondary" onclick="fitToScreen()">📱 Fit</button>
+                {% if user %}
+                <button class="nav-btn profile" onclick="window.location.href='/profile'">👤 Profile</button>
+                <button class="nav-btn danger" onclick="logout()">🚪 Logout</button>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="main-content">
+            <!-- Farm context header (only shown when viewing a specific farm) -->
+            {% if farm_id %}
+                <div class="farm-context">
+                    <h3>🚜 {{ page_title }}</h3>
+                    <p style="margin: 0 0 15px 0; opacity: 0.9;">
+                        Viewing domes from a specific farm. You can manage these domes just like in the main view.
+                    </p>
+                    <div class="farm-context-nav">
+                        <a href="/farms" class="farm-context-btn">
+                            🚜 Back to Farms
+                        </a>
+                        <a href="/farm_info/{{ farm_id }}" class="farm-context-btn">
+                            ℹ️ Farm Info
+                        </a>
+                    </div>
+                </div>
+            {% endif %}
+
+            <!-- Site Header -->
+            <div class="site-header">
+                <span class="leaf-icon">🍃</span>
+                <h1 class="site-title">
+                    {% if farm_id %}
+                        Farm Domes
+                    {% else %}
+                        Raisara
+                    {% endif %}
+                </h1>
+            </div>
+            
+            <!-- Grid Information -->
+            <div class="grid-info">
+                <strong>Current Grid:</strong> {{ grid_rows }}×{{ grid_cols }} 
+                ({{ grid_rows * grid_cols }} total cells)
+                {% if farm_id %}
+                    | <strong>Showing:</strong> {{ domes|length }} domes from this farm
+                {% else %}
+                    | <strong>Total Domes:</strong> {{ domes|length }}
+                {% endif %}
+            </div>
+            
+            <!-- Grid Controls -->
+            <div class="grid-controls">
+                <button class="btn" onclick="showGridSizeModal()">
+                    ปรับขนาด (Current: {{ grid_rows }}×{{ grid_cols }})
+                </button>
+                {% if not farm_id %}
+                    <button class="btn" onclick="goToFarms()" style="background: #8B4513;">
+                        🚜 Manage Farms
+                    </button>
+                {% endif %}
+            </div>
+
+            <!-- Main Grid Container -->
+            <div class="grid-container" id="gridContainer">
+                <div class="farm-grid" id="farmGrid" style="grid-template-columns: repeat({{ grid_cols }}, 1fr)">
+                    {% for row in range(grid_rows) %}
+                        {% for col in range(grid_cols) %}
+                            {% set dome = domes|selectattr('grid_row', 'equalto', row)|selectattr('grid_col', 'equalto', col)|first %}
+                            <div class="grid-cell{% if dome %} occupied{% endif %}" 
+                                 data-row="{{ row }}" 
+                                 data-col="{{ col }}"
+                                 onclick="handleCellClick({{ row }}, {{ col }})"
+                                 ondragover="allowDrop(event)"
+                                 ondrop="dropDome(event)">
+                                
+                                <div class="coordinate-label">{{ row }},{{ col }}</div>
+                                
+                                {% if dome %}
+                                    {% if dome.image_url %}
+                                        <div class="dome" 
+                                             data-dome-id="{{ dome.id }}"
+                                             draggable="true"
+                                             ondragstart="dragDome(event)"
+                                             ondragend="dragEnd(event)"
+                                             onclick="handleDomeClick(event, {{ dome.id }})"
+                                             style="background-image: url('{{ dome.image_url }}?t={{ timestamp }}');">
+                                            <span class="dome-name">{{ dome.name }}</span>
+                                        </div>
+                                    {% else %}
+                                        <div class="dome-placeholder" 
+                                             data-dome-id="{{ dome.id }}"
+                                             draggable="true"
+                                             ondragstart="dragDome(event)"
+                                             ondragend="dragEnd(event)"
+                                             onclick="handleDomeClick(event, {{ dome.id }})">
+                                            🏠
+                                            <span class="dome-name">{{ dome.name }}</span>
+                                        </div>
+                                    {% endif %}
+                                {% endif %}
+                            </div>
+                        {% endfor %}
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Grid Size Modal -->
+        <div id="gridModal" class="modal">
+            <div class="modal-content">
+                <h3>Adjust Grid Size</h3>
+                <div class="input-group">
+                    <label>Rows: <input type="number" id="gridRows" value="{{ grid_rows }}" min="1" max="100"></label>
+                    <label>Cols: <input type="number" id="gridCols" value="{{ grid_cols }}" min="1" max="100"></label>
+                </div>
+                <p style="color: #666; font-size: 12px;">
+                    💡 Large grids (20×20+) will show navigation controls. Maximum: 100×100
+                </p>
+                <div class="modal-actions">
+                    <button class="btn" onclick="updateGridSize()">Apply</button>
+                    <button class="btn cancel" onclick="closeGridModal()">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let currentDomeId = null;
+        let draggedDome = null;
+        let gridRows = {{ grid_rows }};
+        let gridCols = {{ grid_cols }};
+        let farmId = {% if farm_id %}{{ farm_id }}{% else %}null{% endif %};
+        
+        // Navigation functions
+function goToFarms() {
+    console.log('Going to all farms');
+    window.location.href = '/farms';
+}
+        
+function goBackToFarm() {
+    console.log('Going back to farm info');
+    window.location.href = `/farm_info/{{ farm_id }}`;
+}
+function handleDomeClick(domeId) {
+    console.log('Going to dome info');
+    window.location.href = `/dome_info/${domeId}`;
+}
+        
+        // Dome interaction
+ function handleDomeClick(event, domeId) {
+    event.stopPropagation();
+    console.log('Going to dome info for dome:', domeId);
+    window.location.href = `/dome_info/${domeId}`;
+}
+        
+        function handleCellClick(row, col) {
+            const cell = document.querySelector(`[data-row="${row}"][data-col="${col}"]`);
+            if (cell.classList.contains('occupied')) {
+                return;
+            }
+            showAddDomeModal(row, col);
+        }
+        
+        // Modal functions
+        function showAddDomeModal(row, col) {
+            let modal = document.getElementById('addDomeModal');
+            if (!modal) {
+                createAddDomeModal();
+                modal = document.getElementById('addDomeModal');
+            }
+            
+            document.getElementById('domeRow').value = row;
+            document.getElementById('domeCol').value = col;
+            document.getElementById('domeName').value = '';
+            modal.style.display = 'flex';
+        }
+        
+        function createAddDomeModal() {
+            const modalHTML = `
+                <div id="addDomeModal" class="modal">
+                    <div class="modal-content">
+                        <h3>Add New Dome</h3>
+                        <div class="input-group">
+                            <label>Dome Name:</label>
+                            <input type="text" id="domeName" placeholder="Enter dome name" required>
+                        </div>
+                        <div class="input-group">
+                            <label>Position:</label>
+                            <input type="number" id="domeRow" readonly> x 
+                            <input type="number" id="domeCol" readonly>
+                        </div>
+                        <div class="modal-actions">
+                            <button class="btn" onclick="addNewDome()">Add Dome</button>
+                            <button class="btn cancel" onclick="closeAddDomeModal()">Cancel</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.body.insertAdjacentHTML('beforeend', modalHTML);
+        }
+        
+        function addNewDome() {
+            const name = document.getElementById('domeName').value.trim();
+            const row = parseInt(document.getElementById('domeRow').value);
+            const col = parseInt(document.getElementById('domeCol').value);
+            
+            if (!name) {
+                alert('Please enter a dome name');
+                return;
+            }
+            
+            fetch('/add_dome', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name: name,
+                    grid_row: row,
+                    grid_col: col,
+                    farm_id: farmId
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Failed to add dome');
+            });
+            
+            closeAddDomeModal();
+        }
+        
+        function closeAddDomeModal() {
+            const modal = document.getElementById('addDomeModal');
+            if (modal) modal.style.display = 'none';
+        }
+
+        // Drag and drop
+        function dragDome(event) {
+            draggedDome = event.target;
+            event.dataTransfer.setData('text/plain', '');
+            event.target.style.opacity = '0.5';
+        }
+
+        function dragEnd(event) {
+            event.target.style.opacity = '1';
+            draggedDome = null;
+            document.querySelectorAll('.grid-cell').forEach(cell => {
+                cell.classList.remove('drag-over');
+            });
+        }
+
+        function allowDrop(event) {
+            event.preventDefault();
+            event.currentTarget.classList.add('drag-over');
+        }
+
+        function dropDome(event) {
+            event.preventDefault();
+            event.currentTarget.classList.remove('drag-over');
+            
+            if (!draggedDome) return;
+            
+            const targetCell = event.currentTarget;
+            const newRow = parseInt(targetCell.dataset.row);
+            const newCol = parseInt(targetCell.dataset.col);
+            const domeId = draggedDome.dataset.domeId;
+            
+            fetch(`/move_dome/${domeId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    grid_row: newRow,
+                    grid_col: newCol
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    alert('Error moving dome: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Failed to move dome');
+            });
+        }
+
+        // Grid size modal
+        function showGridSizeModal() {
+            document.getElementById('gridModal').style.display = 'flex';
+        }
+
+        function closeGridModal() {
+            document.getElementById('gridModal').style.display = 'none';
+        }
+
+function updateGridSize() {
+    const rows = parseInt(document.getElementById('gridRows').value);
+    const cols = parseInt(document.getElementById('gridCols').value);
+    
+    console.log('Updating grid size to:', rows, 'x', cols);
+    console.log('Farm ID:', farmId);
+    
+    if (rows < 1 || rows > 100 || cols < 1 || cols > 100) {
+        alert('Grid size must be between 1 and 100');
+        return;
+    }
+    
+    // Show loading indicator
+    const updateBtn = event.target;
+    const originalText = updateBtn.textContent;
+    updateBtn.textContent = 'Updating...';
+    updateBtn.disabled = true;
+    
+    // ✅ ENHANCED: Include farm_id in the request
+    const requestData = {
+        rows: rows,
+        cols: cols
+    };
+    
+    // Add farm_id if we're in a farm context
+    if (farmId) {
+        requestData.farm_id = farmId;
+    }
+    
+    fetch('/update_grid_size', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestData)
+    })
+    .then(response => {
+        console.log('Grid update response status:', response.status);
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        console.log('Grid update response:', data);
+        if (data.success) {
+            if (farmId) {
+                console.log(`Farm ${farmId} dome grid size updated successfully, rebuilding grid...`);
+            } else {
+                console.log('Global dome grid size updated successfully, rebuilding grid...');
+            }
+            
+            // ✅ NEW: Update global variables
+            gridRows = rows;
+            gridCols = cols;
+            
+            // ✅ NEW: Update grid info display
+            const gridInfo = document.querySelector('.grid-info');
+            gridInfo.innerHTML = `
+                <strong>Current Grid:</strong> ${rows}×${cols} 
+                (${rows * cols} total cells)
+                ${farmId ? `| <strong>Showing:</strong> ${document.querySelectorAll('.dome, .dome-placeholder').length} domes from this farm` : `| <strong>Total Domes:</strong> ${document.querySelectorAll('.dome, .dome-placeholder').length}`}
+            `;
+            
+            // ✅ NEW: Update grid controls button
+            const gridControlBtn = document.querySelector('.grid-controls .btn');
+            gridControlBtn.textContent = `ปรับขนาด (Current: ${rows}×${cols})`;
+            
+            // ✅ NEW: Rebuild the entire grid
+            rebuildGrid(rows, cols);
+            
+            // Reset button
+            updateBtn.textContent = originalText;
+            updateBtn.disabled = false;
+            closeGridModal();
+            
+            // Center the new grid
+            setTimeout(centerGrid, 100);
+            
+        } else {
+            updateBtn.textContent = originalText;
+            updateBtn.disabled = false;
+            alert('Error updating grid size: ' + (data.error || 'Unknown error'));
+        }
+    })
+    .catch(error => {
+        console.error('Error updating grid size:', error);
+        updateBtn.textContent = originalText;
+        updateBtn.disabled = false;
+        alert('Failed to update grid size: ' + error.message);
+    });
+}
+
+// ✅ NEW: Function to rebuild the grid dynamically
+function rebuildGrid(rows, cols) {
+    const farmGrid = document.getElementById('farmGrid');
+    
+    // Update grid template columns
+    farmGrid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+    
+    // Get existing domes data
+    const existingDomes = {};
+    document.querySelectorAll('.dome, .dome-placeholder').forEach(dome => {
+        const cell = dome.closest('.grid-cell');
+        const row = parseInt(cell.dataset.row);
+        const col = parseInt(cell.dataset.col);
+        const domeId = dome.dataset.domeId;
+        const domeName = dome.querySelector('.dome-name').textContent;
+        const hasImage = dome.classList.contains('dome');
+        const imageUrl = hasImage ? dome.style.backgroundImage : null;
+        
+        existingDomes[`${row}-${col}`] = {
+            id: domeId,
+            name: domeName,
+            hasImage: hasImage,
+            imageUrl: imageUrl
+        };
+    });
+    
+    // Clear and rebuild grid
+    farmGrid.innerHTML = '';
+    
+    for (let row = 0; row < rows; row++) {
+        for (let col = 0; col < cols; col++) {
+            const cell = document.createElement('div');
+            cell.className = 'grid-cell';
+            cell.dataset.row = row;
+            cell.dataset.col = col;
+            cell.onclick = () => handleCellClick(row, col);
+            cell.ondragover = allowDrop;
+            cell.ondrop = dropDome;
+            
+            // Add coordinate label
+            const coordLabel = document.createElement('div');
+            coordLabel.className = 'coordinate-label';
+            coordLabel.textContent = `${row},${col}`;
+            cell.appendChild(coordLabel);
+            
+            // Check if there's an existing dome at this position
+            const existingDome = existingDomes[`${row}-${col}`];
+            if (existingDome) {
+                cell.classList.add('occupied');
+                
+                const domeElement = document.createElement('div');
+                domeElement.className = existingDome.hasImage ? 'dome' : 'dome-placeholder';
+                domeElement.dataset.domeId = existingDome.id;
+                domeElement.draggable = true;
+                domeElement.ondragstart = dragDome;
+                domeElement.ondragend = dragEnd;
+                domeElement.onclick = (e) => handleDomeClick(e, existingDome.id);
+                
+                if (existingDome.hasImage && existingDome.imageUrl) {
+                    domeElement.style.backgroundImage = existingDome.imageUrl;
+                } else if (!existingDome.hasImage) {
+                    domeElement.textContent = '🏠';
+                }
+                
+                const nameSpan = document.createElement('span');
+                nameSpan.className = 'dome-name';
+                nameSpan.textContent = existingDome.name;
+                domeElement.appendChild(nameSpan);
+                
+                cell.appendChild(domeElement);
+            }
+            
+            farmGrid.appendChild(cell);
+        }
+    }
+    
+    console.log(`✅ Grid rebuilt with ${rows}×${cols} cells`);
+}
+
+        // Navigation functions
+        function centerGrid() {
+            const container = document.getElementById('gridContainer');
+            const grid = document.getElementById('farmGrid');
+            
+            if (container && grid) {
+                container.scrollLeft = (grid.scrollWidth - container.clientWidth) / 2;
+                container.scrollTop = (grid.scrollHeight - container.clientHeight) / 2;
+            }
+        }
+
+        function fitToScreen() {
+            const container = document.getElementById('gridContainer');
+            const availableWidth = window.innerWidth - 100;
+            const availableHeight = window.innerHeight - 300;
+            
+            const cellWidth = Math.floor(availableWidth / gridCols);
+            const cellHeight = Math.floor(availableHeight / gridRows);
+            const cellSize = Math.min(cellWidth, cellHeight, 150);
+            
+            document.documentElement.style.setProperty('--cell-size', cellSize + 'px');
+            
+            setTimeout(centerGrid, 100);
+        }
+
+        // User functions
+        function logout() {
+            if (confirm('Are you sure you want to logout?')) {
+                window.location.href = '/logout';
+            }
+        }
+
+        // Keyboard navigation
+        document.addEventListener('keydown', function(event) {
+            const container = document.getElementById('gridContainer');
+            const scrollAmount = 100;
+            
+            switch(event.key) {
+                case 'ArrowLeft':
+                    event.preventDefault();
+                    container.scrollLeft -= scrollAmount;
+                    break;
+                case 'ArrowRight':
+                    event.preventDefault();
+                    container.scrollLeft += scrollAmount;
+                    break;
+                case 'ArrowUp':
+                    event.preventDefault();
+                    container.scrollTop -= scrollAmount;
+                    break;
+                case 'ArrowDown':
+                    event.preventDefault();
+                    container.scrollTop += scrollAmount;
+                    break;
+                case ' ':
+                    event.preventDefault();
+                    centerGrid();
+                    break;
+                case 'Home':
+                    event.preventDefault();
+                    container.scrollLeft = 0;
+                    container.scrollTop = 0;
+                    break;
+                case 'End':
+                    event.preventDefault();
+                    container.scrollLeft = container.scrollWidth;
+                    container.scrollTop = container.scrollHeight;
+                    break;
+            }
+        });
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', function() {
+            // Center grid on load
+            setTimeout(centerGrid, 500);
+            
+            // Close modals when clicking outside
+            document.addEventListener('click', function(event) {
+                if (event.target.classList.contains('modal')) {
+                    event.target.style.display = 'none';
+                }
+            });
+            
+            // Remove drag over effect when dragging leaves cell
+            document.addEventListener('dragleave', function(event) {
+                if (event.target.classList.contains('grid-cell')) {
+                    event.target.classList.remove('drag-over');
+                }
+            });
+        });
+
+        // Remove drag over effect when dragging leaves cell
+        document.addEventListener('dragleave', function(event) {
+            if (event.target.classList.contains('grid-cell')) {
+                event.target.classList.remove('drag-over');
+            }
+        });
+    </script>
+</body>
+</html>

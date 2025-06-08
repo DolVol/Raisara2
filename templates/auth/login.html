@@ -161,7 +161,7 @@
                 
                 if (data.authenticated) {
                     // User is already logged in, redirect to main page
-                    window.location.href = '/';
+                    window.location.href = '/farms';  // ✅ NEW: Redirect to farms
                 }
             } catch (error) {
                 // If auth check fails, just continue with login page
@@ -201,9 +201,14 @@
                         localStorage.setItem('rememberLogin', 'true');
                     }
                     
-                    setTimeout(() => {
-                        window.location.href = '/';
-                    }, 1000);
+                setTimeout(() => {
+                    // ✅ NEW: Check for redirect URL from server, default to farms
+                    if (result.redirect) {
+                        window.location.href = result.redirect;
+                    } else {
+                        window.location.href = '/farms';  // Default to farms
+                    }
+                }, 1000);
                 } else {
                     messageDiv.innerHTML = '<div class="error">' + result.error + '</div>';
                 }

@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>👤 User Profile</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #f0f0f0;
+            margin: 0;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #eee;
+        }
+        .profile-icon {
+            font-size: 4rem;
+            color: #4CAF50;
+            margin-bottom: 15px;
+        }
+        .username {
+            font-size: 2rem;
+            color: #333;
+            margin: 0;
+        }
+        .email {
+            color: #666;
+            font-size: 1.1rem;
+            margin-top: 5px;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin: 30px 0;
+        }
+        .stat-card {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            border-left: 4px solid #4CAF50;
+        }
+        .stat-number {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #4CAF50;
+            margin-bottom: 5px;
+        }
+        .stat-label {
+            color: #666;
+            font-size: 0.9rem;
+        }
+        .settings-section {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 2px solid #eee;
+        }
+        .settings-title {
+            font-size: 1.5rem;
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .setting-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+        .btn {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            transition: all 0.3s ease;
+        }
+        .btn:hover {
+            background: #45a049;
+            transform: translateY(-1px);
+        }
+        .btn.secondary {
+            background: #6c757d;
+        }
+        .btn.secondary:hover {
+            background: #5a6268;
+        }
+        .btn.danger {
+            background: #dc3545;
+        }
+        .btn.danger:hover {
+            background: #c82333;
+        }
+        .actions {
+            text-align: center;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 2px solid #eee;
+        }
+        .actions .btn {
+            margin: 0 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="profile-icon">👤</div>
+            <h1 class="username">{{ user.username }}</h1>
+            <div class="email">{{ user.email }}</div>
+            <div style="color: #999; font-size: 0.9rem; margin-top: 10px;">
+                Member since {{ user.created_at.strftime('%B %d, %Y') if user.created_at else 'Unknown' }}
+            </div>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-number">{{ farms_count }}</div>
+                <div class="stat-label">🚜 Farms</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">{{ domes_count }}</div>
+                <div class="stat-label">🏠 Domes</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">{{ trees_count }}</div>
+                <div class="stat-label">🌳 Trees</div>
+            </div>
+        </div>
+
+        <div class="settings-section">
+            <h2 class="settings-title">⚙️ Grid Settings</h2>
+            
+            <div class="setting-item">
+                <div>
+                    <strong>Farm Grid Size</strong>
+                    <div style="color: #666; font-size: 0.9rem;">Layout for farm management</div>
+                </div>
+                <div>{{ farm_grid.rows }}×{{ farm_grid.cols }}</div>
+            </div>
+            
+            <div class="setting-item">
+                <div>
+                    <strong>Dome Grid Size</strong>
+                    <div style="color: #666; font-size: 0.9rem;">Layout for dome management</div>
+                </div>
+                <div>{{ dome_grid.rows }}×{{ dome_grid.cols }}</div>
+            </div>
+        </div>
+
+        <div class="actions">
+            <a href="/farms" class="btn">🚜 Go to Farms</a>
+            
+            <button class="btn danger" onclick="logout()">🚪 Logout</button>
+        </div>
+    </div>
+
+    <script>
+        async function logout() {
+            if (confirm('Are you sure you want to logout?')) {
+                try {
+                    const response = await fetch('/logout', {
+                        method: 'GET',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        }
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        window.location.href = '/login';
+                    } else {
+                        alert('Logout failed. Please try again.');
+                    }
+                } catch (error) {
+                    console.error('Logout error:', error);
+                    window.location.href = '/login';
+                }
+            }
+        }
+    </script>
+</body>
+</html>

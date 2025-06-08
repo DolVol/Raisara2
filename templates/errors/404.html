@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Page Not Found - Tree Management System</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .error-container {
+            background: white;
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            text-align: center;
+            max-width: 500px;
+        }
+        .error-code {
+            font-size: 72px;
+            font-weight: bold;
+            color: #f44336;
+            margin: 0;
+        }
+        .error-message {
+            font-size: 24px;
+            color: #333;
+            margin: 20px 0;
+        }
+        .error-description {
+            color: #666;
+            margin: 20px 0;
+            line-height: 1.6;
+        }
+        .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            background: #4CAF50;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: bold;
+            transition: background 0.3s;
+            margin: 10px;
+        }
+        .btn:hover {
+            background: #45a049;
+        }
+        .btn-secondary {
+            background: #2196F3;
+        }
+        .btn-secondary:hover {
+            background: #0b7dda;
+        }
+    </style>
+</head>
+<body>
+    <div class="error-container">
+        <h1 class="error-code">404</h1>
+        <h2 class="error-message">Page Not Found</h2>
+        <p class="error-description">
+            Sorry, the page you are looking for doesn't exist or has been moved.
+        </p>
+        <div>
+            <a href="/" class="btn">🏠 Go Home</a>
+            <a href="javascript:history.back()" class="btn btn-secondary">← Go Back</a>
+        </div>
+    </div>
+</body>
+</html>
+</qodoArtifact>
+
+## 🔧 **Fix 2: Update dome_info.html Template**
+
+The issue is that `dome.trees` is a SQLAlchemy relationship, not a list. You need to call `.all()` or use `.count()`. Update your `dome_info.html`:

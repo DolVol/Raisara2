@@ -222,22 +222,14 @@
                 
                 const result = await response.json();
                 
-                if (result.success) {
-                    messageDiv.innerHTML = '<div class="success">' + result.message + '</div>';
-                    setTimeout(() => {
-                        window.location.href = '/';
-                    }, 1500);
-                } else {
-                    messageDiv.innerHTML = '<div class="error">' + result.error + '</div>';
-                }
-            } catch (error) {
-                messageDiv.innerHTML = '<div class="error">Registration failed. Please try again.</div>';
-            } finally {
-                // Hide loading state
-                submitBtn.disabled = false;
-                loading.style.display = 'none';
-            }
-        });
+if (result.success) {
+    messageDiv.innerHTML = '<div class="success">' + result.message + '</div>';
+    setTimeout(() => {
+        window.location.href = '/farms';  // ✅ CHANGED: Go to farms page instead of main index
+    }, 1500);
+} else {
+    messageDiv.innerHTML = '<div class="error">' + result.error + '</div>';
+}
         
         // Real-time password confirmation validation
         document.getElementById('confirm_password').addEventListener('input', function() {

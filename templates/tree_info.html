@@ -260,6 +260,27 @@
         .btn-secondary:hover {
             background: #0056b3;
         }
+        .btn-info {
+            background: #17a2b8;
+            color: white;
+        }
+        .btn-info:hover {
+            background: #138496;
+        }
+        .btn-warning {
+            background: #ffc107;
+            color: #212529;
+        }
+        .btn-warning:hover {
+            background: #e0a800;
+        }
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+        .btn-success:hover {
+            background: #218838;
+        }
         .tree-stats {
             margin-top: 20px;
             padding: 15px;
@@ -296,7 +317,17 @@
 </head>
 <body>
     <div class="tree-info-container">
-        <button class="btn btn-secondary" onclick="goBack()">Back to Grid</button>
+        <!-- Navigation Buttons -->
+        <div style="margin-bottom: 20px;">
+            <button class="btn btn-secondary" onclick="goBack()">← Back to Grid</button>
+            <button class="btn btn-info" onclick="goToDomeInfo()">🏠 Dome Info</button>
+            {% if dome and dome.farm_id %}
+                <button class="btn btn-warning" onclick="goToFarmDomes()">🚜 Farm Domes</button>
+            {% endif %}
+            <button class="btn btn-success" onclick="goToFarms()">🚜 All Farms</button>
+            <!-- Add this button temporarily for testing -->
+<button class="btn btn-info" onclick="forceGoToGrid()" style="font-size: 12px;">🔧 Force Grid</button>
+        </div>
         
         <!-- Tree Image Section -->
         <div class="tree-image-section">
@@ -377,8 +408,14 @@
         </div>
         
         <div class="tree-stats">
-            <p><strong>Position:</strong> Row {{ tree.row }}, Column {{ tree.col }}</p>
-            <p><strong>Dome:</strong> {{ tree.dome.name }}</p>
+            <p><strong>Position:</strong> Row {{ tree.internal_row }}, Column {{ tree.internal_col }}</p>
+            <p><strong>Dome:</strong> 
+                {% if tree.dome %}
+                    {{ tree.dome.name }}
+                {% else %}
+                    Dome ID {{ tree.dome_id }}
+                {% endif %}
+            </p>
             <p><strong>Life Days:</strong> {{ tree.life_days or 0 }} days</p>
             <p><strong>Status:</strong> 
                 {% if (tree.life_days or 0) < 30 %}
@@ -393,12 +430,98 @@
     </div>
 
 <script>
+    // ✅ GLOBAL VARIABLES
     const treeId = {{ tree.id }};
     const domeId = {{ tree.dome_id }};
     let currentTreeUrl = '';
     let selectedFile = null;
     
-    // ✅ DEFINE FUNCTIONS FIRST (before they're called)
+    // ✅ GLOBAL FUNCTIONS (accessible to onclick handlers)
+    
+function goBack() {
+    console.log('🔙 Going back to grid view');
+    console.log('Tree ID:', treeId);
+    console.log('Dome ID:', domeId);
+    console.log('Target URL:', `/grid/${domeId}`);
+    
+    // ✅ ENHANCED: Test the route first
+    fetch(`/grid/${domeId}`, { method: 'HEAD' })
+    .then(response => {
+        console.log('Grid route test response:', response.status);
+        console.log('Response URL:', response.url);
+        
+        if (response.ok || response.status === 405) {
+            // Route exists, proceed with navigation
+            console.log('✅ Grid route accessible, navigating...');
+            window.location.href = `/grid/${domeId}`;
+        } else if (response.redirected) {
+            console.log('⚠️ Grid route redirected to:', response.url);
+            // Still try to navigate
+            window.location.href = `/grid/${domeId}`;
+        } else {
+            console.error('❌ Grid route returned status:', response.status);
+            // Try anyway
+            window.location.href = `/grid/${domeId}`;
+        }
+    })
+    .catch(error => {
+        console.error('❌ Grid route test failed:', error);
+        // Try direct navigation anyway
+        console.log('🔄 Trying direct navigation...');
+        window.location.href = `/grid/${domeId}`;
+    });
+}
+    
+    function goToDomeInfo() {
+        console.log('Going to dome info');
+        window.location.href = `/dome_info/{{ tree.dome_id }}`;
+    }
+    // ✅ ALTERNATIVE: Force grid navigation
+function forceGoToGrid() {
+    console.log('🔧 Force navigation to grid');
+    
+    // Multiple navigation attempts
+    const methods = [
+        () => window.location.href = `/grid/${domeId}`,
+        () => window.location.assign(`/grid/${domeId}`),
+        () => window.location.replace(`/grid/${domeId}`),
+        () => window.open(`/grid/${domeId}`, '_self')
+    ];
+    
+    let methodIndex = 0;
+    
+    function tryNextMethod() {
+        if (methodIndex < methods.length) {
+            try {
+                console.log(`Trying navigation method ${methodIndex + 1}`);
+                methods[methodIndex]();
+                methodIndex++;
+            } catch (error) {
+                console.error(`Method ${methodIndex + 1} failed:`, error);
+                methodIndex++;
+                setTimeout(tryNextMethod, 100);
+            }
+        } else {
+            alert(`All navigation methods failed. Please manually go to: /grid/${domeId}`);
+        }
+    }
+    
+    tryNextMethod();
+}
+    function goToFarmDomes() {
+        console.log('Going back to farm dome view');
+        {% if dome and dome.farm_id %}
+            window.location.href = `/farm/{{ dome.farm_id }}/domes`;
+        {% else %}
+            // Fallback to main dome view
+            window.location.href = '/';
+        {% endif %}
+    }
+    
+    function goToFarms() {
+        console.log('Going to farms');
+        window.location.href = '/farms';
+    }
     
     function updateTreeImage(imageUrl) {
         const treeImage = document.getElementById('treeImage');
@@ -422,7 +545,12 @@
         
         // Get the current tree image URL from the server
         fetch(`/api/tree/${treeId}`)
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                return response.json();
+            })
             .then(data => {
                 console.log('Tree data received:', data);
                 if (data.success && data.tree) {
@@ -436,34 +564,23 @@
                         removeBtn.style.display = 'none';
                     }
                 } else {
-                    // Fallback to default image
+                    console.warn('No tree data received, using default image');
                     updateTreeImage(null);
                     document.getElementById('removeBtn').style.display = 'none';
                 }
             })
             .catch(error => {
                 console.error('Error refreshing tree image:', error);
-                // Fallback to default image
-                updateTreeImage(null);
-                document.getElementById('removeBtn').style.display = 'none';
+                // Fallback to template data
+                const templateImageUrl = '{{ tree.image_url if tree.image_url else "" }}';
+                if (templateImageUrl) {
+                    updateTreeImage(templateImageUrl);
+                    document.getElementById('removeBtn').style.display = 'inline-block';
+                } else {
+                    updateTreeImage(null);
+                    document.getElementById('removeBtn').style.display = 'none';
+                }
             });
-    }
-    
-    // ✅ NOW CALL THE FUNCTIONS AFTER THEY'RE DEFINED
-    document.addEventListener('DOMContentLoaded', function() {
-        console.log('Page loaded, refreshing tree image...');
-        
-        // Refresh tree image first
-        refreshTreeImageOnLoad();
-        
-        // Then generate QR code
-        setTimeout(() => {
-            generateQRCode();
-        }, 500);
-    });
-    
-    function goBack() {
-        window.location.href = `/grid/${domeId}`;
     }
     
     // Image upload functions
@@ -530,7 +647,7 @@
                 document.getElementById('imageInput').value = '';
                 selectedFile = null;
                 
-                // ✅ FORCE REFRESH AFTER UPLOAD
+                // Force refresh after upload
                 setTimeout(() => {
                     console.log('Force refreshing image after upload...');
                     refreshTreeImageOnLoad();
@@ -569,7 +686,7 @@
                 // Hide remove button
                 document.getElementById('removeBtn').style.display = 'none';
                 
-                // ✅ FORCE REFRESH AFTER REMOVAL
+                // Force refresh after removal
                 setTimeout(() => {
                     console.log('Force refreshing image after removal...');
                     refreshTreeImageOnLoad();
@@ -602,41 +719,58 @@
     // QR Code functions
     async function generateQRCode() {
         try {
-            console.log('Generating QR code...');
+            console.log('🔗 Generating QR code...');
             
             currentTreeUrl = window.location.href;
             document.getElementById('qrcode').innerHTML = '<div class="loading">Generating QR Code...</div>';
             
-            const response = await fetch(`/generate_qr/${treeId}`, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({url: currentTreeUrl})
+            const response = await fetch(`/simple_qr/{{ tree.id }}`, {
+                method: 'GET',
+                credentials: 'same-origin'
             });
             
             if (response.ok) {
                 const result = await response.json();
                 
-                document.getElementById('qrcode').innerHTML = `
-                    <img src="data:image/png;base64,${result.qr_code}" 
-                         class="qr-image" 
-                         alt="QR Code for ${currentTreeUrl}">
-                `;
-                
-                document.getElementById('qrUrl').textContent = currentTreeUrl;
-                console.log('QR Code generated successfully');
+                if (result.success) {
+                    document.getElementById('qrcode').innerHTML = `
+                        <img src="${result.qr_code}" 
+                             class="qr-image" 
+                             alt="QR Code for Tree {{ tree.name }}">
+                    `;
+                    
+                    document.getElementById('qrUrl').textContent = result.tree_url;
+                    console.log('✅ QR Code generated successfully');
+                    return;
+                } else {
+                    throw new Error(result.error || 'QR generation failed');
+                }
             } else {
-                throw new Error('Failed to generate QR code');
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
             
         } catch (error) {
-            console.error('Error generating QR code:', error);
+            console.error('❌ QR generation failed:', error);
+            
+            // Fallback: Show manual QR option
+            const treeUrl = window.location.href;
             document.getElementById('qrcode').innerHTML = `
-                <div class="error">
-                    Error generating QR code<br>
-                    <small>${error.message}</small><br>
-                    <button onclick="generateQRCode()" style="margin-top: 10px; padding: 5px 10px;">Try Again</button>
+                <div style="padding: 20px; background: #f8f9fa; border-radius: 8px; text-align: center;">
+                    <h4>📱 Manual QR Code</h4>
+                    <p>QR generation failed. Use this URL with any QR generator:</p>
+                    <div style="background: white; padding: 10px; border-radius: 4px; word-break: break-all; font-family: monospace; font-size: 12px; margin: 10px 0;">
+                        ${treeUrl}
+                    </div>
+                    <button onclick="copyTreeLink()" style="padding: 8px 16px; background: #17a2b8; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                        📋 Copy URL
+                    </button>
+                    <button onclick="generateQRCode()" style="padding: 8px 16px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; margin-left: 10px;">
+                        🔄 Try Again
+                    </button>
                 </div>
             `;
+            
+            document.getElementById('qrUrl').textContent = treeUrl;
         }
     }
     
@@ -783,6 +917,19 @@
             indicator.textContent = 'Old';
         }
     }
+    
+    // ✅ INITIALIZATION (runs when page loads)
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('Page loaded, initializing...');
+        
+        // Refresh tree image
+        refreshTreeImageOnLoad();
+        
+        // Generate QR code after a short delay
+        setTimeout(() => {
+            generateQRCode();
+        }, 1000);
+    });
 </script>
 </body>
 </html>

@@ -1,0 +1,1245 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <title>🚜 Farm Management System</title>
+    <style>
+        /* Base styles */
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #f0f0f0;
+            overflow-x: auto;
+            margin: 0;
+        }
+        .container {
+            width: 100%;
+            max-width: none;
+            margin: 0 auto;
+            text-align: center;
+            min-width: 320px;
+        }
+        
+        /* Fixed navigation bar */
+        .fixed-nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 10px 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        .nav-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #2e8b57;
+            margin: 0;
+        }
+        
+        .nav-controls {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        
+        .nav-btn {
+            padding: 6px 12px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.3s ease;
+        }
+        
+        .nav-btn:hover {
+            background: #45a049;
+            transform: translateY(-1px);
+        }
+        
+        .nav-btn.secondary {
+            background: #17a2b8;
+        }
+        
+        .nav-btn.secondary:hover {
+            background: #138496;
+        }
+        
+        .nav-btn.danger {
+            background: #dc3545;
+        }
+        
+        .nav-btn.danger:hover {
+            background: #c82333;
+        }
+        
+        .nav-btn.profile {
+            background: #6c757d;
+        }
+        
+        .nav-btn.profile:hover {
+            background: #5a6268;
+        }
+        
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            color: #666;
+            margin-right: 10px;
+        }
+        
+        .user-welcome {
+            font-weight: bold;
+            color: #2e8b57;
+        }
+        
+        /* Add top margin to account for fixed nav */
+        .farm-system {
+            padding: 80px 20px 20px 20px;
+            font-family: Arial, sans-serif;
+            width: 100%;
+        }
+
+        /* Grid controls */
+        .grid-controls {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            justify-content: center;
+            flex-wrap: wrap;
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            position: sticky;
+            top: 70px;
+            z-index: 100;
+        }
+
+        /* Quick navigation panel */
+        .quick-nav {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            position: sticky;
+            top: 140px;
+            z-index: 99;
+        }
+        
+        .quick-nav h4 {
+            margin: 0 0 10px 0;
+            color: #2e8b57;
+            font-size: 14px;
+        }
+        
+        .nav-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        
+        .quick-nav-btn {
+            padding: 8px 16px;
+            background: #17a2b8;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.3s ease;
+        }
+        
+        .quick-nav-btn:hover {
+            background: #138496;
+            transform: translateY(-1px);
+        }
+
+        /* Grid container */
+        .grid-container {
+            width: 100%;
+            overflow-x: auto;
+            overflow-y: visible;
+            padding: 10px 0;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            scroll-behavior: smooth;
+        }
+        
+        .grid-container::-webkit-scrollbar {
+            height: 12px;
+        }
+        
+        .grid-container::-webkit-scrollbar-track {
+            background: #f0f0f0;
+            border-radius: 6px;
+        }
+        
+        .grid-container::-webkit-scrollbar-thumb {
+            background: #4CAF50;
+            border-radius: 6px;
+        }
+        
+        .grid-container::-webkit-scrollbar-thumb:hover {
+            background: #45a049;
+        }
+
+        /* Main farm grid */
+        .farm-grid {
+            display: grid;
+            gap: var(--grid-gap, 8px);
+            padding: 20px;
+            margin: 0 auto;
+            min-width: fit-content;
+        }
+
+        /* Grid cells for farms */
+        .grid-cell {
+            aspect-ratio: 1;
+            border: 2px dashed #ddd;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: var(--cell-size, 100px);
+            height: var(--cell-size, 100px);
+            position: relative;
+            transition: all 0.3s ease;
+            background: #fafafa;
+            cursor: pointer;
+        }
+        
+        .grid-cell:hover {
+            border-color: #4CAF50;
+            background: #f0f8f0;
+            transform: scale(1.05);
+        }
+        
+        .grid-cell.occupied {
+            border: 2px solid #4CAF50;
+            background: #e8f5e8;
+        }
+        
+        .grid-cell.drag-over {
+            border: 2px solid #ff9800 !important;
+            background: #fff3e0 !important;
+            transform: scale(1.05);
+        }
+
+        /* Farm styling */
+        .farm {
+            width: calc(var(--cell-size, 100px) * 0.8);
+            height: calc(var(--cell-size, 100px) * 0.8);
+            background-color: #8B4513;
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            border-radius: 15%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            border: 3px solid #654321;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            flex-direction: column;
+            padding: 8px;
+            box-sizing: border-box;
+        }
+
+        .farm:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+            border-color: #4CAF50;
+        }
+
+        /* Farm placeholder */
+        .farm-placeholder {
+            width: calc(var(--cell-size, 100px) * 0.8);
+            height: calc(var(--cell-size, 100px) * 0.8);
+            background: linear-gradient(135deg, #8B4513, #A0522D);
+            border-radius: 15%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            border: 3px solid #654321;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            color: white;
+            font-size: calc(var(--cell-size, 100px) * 0.3);
+            flex-direction: column;
+            padding: 8px;
+            box-sizing: border-box;
+        }
+
+        .farm-placeholder:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+            border-color: #4CAF50;
+        }
+
+        /* Enhanced overlay for better text contrast */
+        .farm::before,
+        .farm-placeholder::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 15%;
+            z-index: 1;
+        }
+
+        /* Farm name styling */
+        .farm-name {
+            position: relative;
+            z-index: 2;
+            color: #ffffff;
+            font-weight: bold;
+            text-shadow: 
+                2px 2px 4px rgba(0, 0, 0, 0.8),
+                -1px -1px 2px rgba(0, 0, 0, 0.6);
+            font-size: calc(var(--cell-size, 100px) * 0.1);
+            text-align: center;
+            padding: 2px 4px;
+            line-height: 1.2;
+            max-width: calc(var(--cell-size, 100px) - 30px);
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            pointer-events: none;
+        }
+
+        /* Coordinate labels */
+        .coordinate-label {
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            font-size: calc(var(--cell-size, 100px) * 0.08);
+            color: #666;
+            background: rgba(255,255,255,0.8);
+            padding: 1px 3px;
+            border-radius: 2px;
+            pointer-events: none;
+        }
+        
+        /* Button styles */
+        .btn {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .btn:hover {
+            background: #45a049;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn.cancel {
+            background: #f44336;
+        }
+
+        .btn.cancel:hover {
+            background: #d32f2f;
+        }
+
+        /* Modal styles */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.6);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            max-width: 90%;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        .input-group {
+            margin-bottom: 15px;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #333;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.3s ease;
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border-color: #4CAF50;
+        }
+
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        @import url('https://fonts.googleapis.com/css2?family=Pacifico&display=swap');
+
+        .site-header {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 30px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid rgba(139, 69, 19, 0.3);
+            flex-wrap: wrap;
+        }
+
+        .site-title {
+            font-family: 'Pacifico', cursive;
+            font-size: 3rem;
+            color: #8B4513;
+            margin: 0;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+            background: linear-gradient(45deg, #8B4513, #A0522D);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        .site-title:hover {
+            transform: scale(1.05);
+            text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        .farm-icon {
+            color: #8B4513;
+            font-size: 2.5rem;
+            margin-right: 15px;
+            animation: bounce 2s ease-in-out infinite;
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
+        /* Grid size indicator */
+        .grid-info {
+            background: rgba(255, 255, 255, 0.9);
+            padding: 10px 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            font-size: 14px;
+            color: #333;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Scroll hint for large grids */
+        .scroll-hint {
+            background: #e3f2fd;
+            color: #1976d2;
+            padding: 8px 15px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            font-size: 12px;
+            display: none;
+        }
+
+        .scroll-hint.show {
+            display: block;
+        }
+
+        /* Keyboard shortcuts info */
+        .keyboard-info {
+            background: #fff3e0;
+            color: #f57c00;
+            padding: 8px 15px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            font-size: 11px;
+            text-align: center;
+        }
+
+        /* Dynamic responsive breakpoints */
+        @media (max-width: 1400px) {
+            :root {
+                --cell-size: 90px;
+                --grid-gap: 6px;
+            }
+        }
+
+        @media (max-width: 1200px) {
+            :root {
+                --cell-size: 80px;
+                --grid-gap: 5px;
+            }
+        }
+
+        @media (max-width: 1000px) {
+            :root {
+                --cell-size: 70px;
+                --grid-gap: 4px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            :root {
+                --cell-size: 60px;
+                --grid-gap: 4px;
+            }
+            
+            .site-title {
+                font-size: 2.5rem;
+            }
+            
+            .fixed-nav {
+                padding: 8px 15px;
+            }
+            
+            .nav-controls {
+                gap: 5px;
+            }
+            
+            .nav-btn {
+                padding: 4px 8px;
+                font-size: 11px;
+            }
+            
+            .user-info {
+                font-size: 10px;
+            }
+        }
+
+        @media (max-width: 600px) {
+            :root {
+                --cell-size: 50px;
+                --grid-gap: 3px;
+            }
+            
+            .site-title {
+                font-size: 2rem;
+            }
+            
+            .farm-icon {
+                font-size: 2rem;
+            }
+            
+            .btn {
+                padding: 8px 16px;
+                font-size: 12px;
+            }
+            
+            .user-info {
+                display: none;
+            }
+        }
+
+        @media (max-width: 480px) {
+            :root {
+                --cell-size: 45px;
+                --grid-gap: 2px;
+            }
+            
+            .site-title {
+                font-size: 1.8rem;
+            }
+            
+            .grid-controls {
+                flex-direction: column;
+                gap: 8px;
+            }
+            
+            .farm-system {
+                padding: 100px 10px 20px 10px;
+            }
+        }
+
+        /* Large grid optimizations */
+        @media (min-width: 1600px) {
+            :root {
+                --cell-size: 110px;
+                --grid-gap: 10px;
+            }
+        }
+
+        /* Ultra-wide screen support */
+        @media (min-width: 2000px) {
+            :root {
+                --cell-size: 130px;
+                --grid-gap: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Fixed Navigation Bar -->
+    <div class="fixed-nav">
+        <div class="nav-title">🚜 Farm Management</div>
+        <div style="display: flex; align-items: center; gap: 15px;">
+            <!-- User Info -->
+            {% if user %}
+            <div class="user-info">
+                <span class="user-welcome">Welcome, {{ user.username }}!</span>
+            </div>
+            {% endif %}
+            
+            <!-- Navigation Controls -->
+            <div class="nav-controls">
+                <button class="nav-btn" onclick="showGridSizeModal()">📏 Resize</button>
+                <button class="nav-btn secondary" onclick="centerGrid()">🎯 Center</button>
+                <button class="nav-btn secondary" onclick="fitToScreen()">📱 Fit</button>
+                {% if user %}
+                <button class="nav-btn profile" onclick="window.location.href='/profile'">👤 Profile</button>
+                <button class="nav-btn danger" onclick="logout()">🚪 Logout</button>
+                {% endif %}
+                <span style="font-size: 11px; color: #666;">Use ← → ↑ ↓ keys to navigate</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="farm-system">
+            <div class="site-header">
+                <span class="farm-icon">🚜</span>
+                <h1 class="site-title">Farm Manager</h1>
+            </div>
+            
+            <div class="grid-info">
+                <strong>Current Grid:</strong> {{ grid_rows }}×{{ grid_cols }} 
+                ({{ grid_rows * grid_cols }} total cells)
+            </div>
+            
+            <div class="scroll-hint" id="scrollHint">
+                💡 <strong>Tip:</strong> Use navigation buttons above or keyboard arrows to move around large grids
+            </div>
+            
+            <div class="keyboard-info">
+                ⌨️ <strong>Keyboard:</strong> ← → for horizontal scroll | ↑ ↓ for vertical scroll | Space to center | Home/End for edges
+            </div>
+            
+            <div class="grid-controls">
+                <button class="btn" onclick="showGridSizeModal()">
+                    ปรับขนาด (Current: {{ grid_rows }}×{{ grid_cols }})
+                </button>
+            </div>
+
+            <!-- Quick Navigation Panel -->
+            <div class="quick-nav" id="quickNav" style="display: none;">
+                <h4>🧭 Quick Navigation</h4>
+                <div class="nav-buttons">
+                    <button class="quick-nav-btn" onclick="scrollToPosition('top-left')">↖️ Top Left</button>
+                    <button class="quick-nav-btn" onclick="scrollToPosition('top-center')">⬆️ Top Center</button>
+                    <button class="quick-nav-btn" onclick="scrollToPosition('top-right')">↗️ Top Right</button>
+                    <button class="quick-nav-btn" onclick="scrollToPosition('center-left')">⬅️ Center Left</button>
+                    <button class="quick-nav-btn" onclick="centerGrid()">🎯 Center</button>
+                    <button class="quick-nav-btn" onclick="scrollToPosition('center-right')">➡️ Center Right</button>
+                    <button class="quick-nav-btn" onclick="scrollToPosition('bottom-left')">↙️ Bottom Left</button>
+                    <button class="quick-nav-btn" onclick="scrollToPosition('bottom-center')">⬇️ Bottom Center</button>
+                    <button class="quick-nav-btn" onclick="scrollToPosition('bottom-right')">↘️ Bottom Right</button>
+                </div>
+            </div>
+
+            <!-- Grid Container with Scroll -->
+            <div class="grid-container" id="gridContainer">
+                <!-- Main Farm Grid -->
+                <div class="farm-grid" id="farmGrid" style="grid-template-columns: repeat({{ grid_cols }}, 1fr)">
+                    {% for row in range(grid_rows) %}
+                        {% for col in range(grid_cols) %}
+                            {% set farm = farms|selectattr('grid_row', 'equalto', row)|selectattr('grid_col', 'equalto', col)|first %}
+                            <div class="grid-cell{% if farm %} occupied{% endif %}" 
+                                 data-row="{{ row }}" 
+                                 data-col="{{ col }}"
+                                 onclick="handleCellClick({{ row }}, {{ col }})"
+                                 ondragover="allowDrop(event)"
+                                 ondrop="dropFarm(event)">
+                                
+                                <!-- Add coordinate label -->
+                                <div class="coordinate-label">{{ row }},{{ col }}</div>
+                                
+                                {% if farm %}
+                                    <!-- Dynamic farm image display -->
+                                    {% if farm.image_url %}
+                                        <div class="farm" 
+                                             data-farm-id="{{ farm.id }}"
+                                             draggable="true"
+                                             ondragstart="dragFarm(event)"
+                                             ondragend="dragEnd(event)"
+                                             onclick="handleFarmClick(event, {{ farm.id }})"
+                                             style="background-image: url('{{ farm.image_url }}?t={{ timestamp }}');">
+                                            <span class="farm-name" data-name="{{ farm.name }}">{{ farm.name }}</span>
+                                        </div>
+                                    {% else %}
+                                        <div class="farm-placeholder" 
+                                             data-farm-id="{{ farm.id }}"
+                                             draggable="true"
+                                             ondragstart="dragFarm(event)"
+                                             ondragend="dragEnd(event)"
+                                             onclick="handleFarmClick(event, {{ farm.id }})">
+                                            🚜
+                                            <span class="farm-name" data-name="{{ farm.name }}">{{ farm.name }}</span>
+                                        </div>
+                                    {% endif %}
+                                {% endif %}
+                            </div>
+                        {% endfor %}
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Grid Size Modal -->
+        <div id="gridModal" class="modal">
+            <div class="modal-content">
+                <h3>Adjust Grid Size</h3>
+                <div class="input-group">
+                    <label>Rows: <input type="number" id="gridRows" value="{{ grid_rows }}" min="1" max="100"></label>
+                    <label>Cols: <input type="number" id="gridCols" value="{{ grid_cols }}" min="1" max="100"></label>
+                </div>
+                <p style="color: #666; font-size: 12px;">
+                    💡 Large grids (20×20+) will show navigation controls. Maximum: 100×100
+                </p>
+                <div class="modal-actions">
+                    <button class="btn" onclick="updateGridSize()">Apply</button>
+                    <button class="btn cancel" onclick="closeGridModal()">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Variables
+        let currentFarmId = null;
+        let draggedFarm = null;
+        let isDragging = false;
+        let currentGridRows = {{ grid_rows }};
+        let currentGridCols = {{ grid_cols }};
+      
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            updateGridDisplay();
+            addKeyboardNavigation();
+            addTouchNavigation();
+            
+            // Check for farm image updates
+            checkForFarmImageUpdates();
+        });
+
+        // Check for farm image updates and refresh if needed
+        function checkForFarmImageUpdates() {
+            if (localStorage.getItem('farmImageUpdated') === 'true') {
+                console.log('Farm image was updated, refreshing page...');
+                localStorage.removeItem('farmImageUpdated');
+                setTimeout(() => window.location.reload(), 100);
+            }
+        }
+
+        // Listen for storage events (cross-tab communication)
+        window.addEventListener('storage', function(e) {
+            if (e.key === 'farmImageUpdated' && e.newValue === 'true') {
+                console.log('Cross-tab farm image update detected, refreshing...');
+                localStorage.removeItem('farmImageUpdated');
+                setTimeout(() => window.location.reload(), 100);
+            }
+        });
+
+        // Check for updates when page becomes visible
+        document.addEventListener('visibilitychange', function() {
+            if (!document.hidden) {
+                checkForFarmImageUpdates();
+            }
+        });
+
+        // Logout function
+        async function logout() {
+            if (confirm('Are you sure you want to logout?')) {
+                try {
+                    const response = await fetch('/logout', {
+                        method: 'GET',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        }
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        window.location.href = '/login';
+                    } else {
+                        alert('Logout failed. Please try again.');
+                    }
+                } catch (error) {
+                    console.error('Logout error:', error);
+                    window.location.href = '/login';
+                }
+            }
+        }
+
+        // Update grid display and show navigation for large grids
+        function updateGridDisplay() {
+            const totalCells = currentGridRows * currentGridCols;
+            const scrollHint = document.getElementById('scrollHint');
+            const quickNav = document.getElementById('quickNav');
+            
+            // Show navigation for grids larger than 10x10
+            if (totalCells > 100 || currentGridCols > 10 || currentGridRows > 10) {
+                scrollHint.classList.add('show');
+                quickNav.style.display = 'block';
+            } else {
+                scrollHint.classList.remove('show');
+                quickNav.style.display = 'none';
+            }
+            
+            // Auto-adjust cell size based on grid dimensions
+            adjustCellSize();
+            
+            // Update grid info display
+            updateGridInfo();
+            
+            // Center the grid after a short delay
+            setTimeout(centerGrid, 100);
+        }
+
+        // Adjust cell size based on grid dimensions for optimal viewing
+function adjustCellSize() {
+            let cellSize = 100; // Default size
+            
+            // Adjust based on number of columns for horizontal fit
+            if (currentGridCols > 50) {
+                cellSize = 40;
+            } else if (currentGridCols > 40) {
+                cellSize = 50;
+            } else if (currentGridCols > 30) {
+                cellSize = 60;
+            } else if (currentGridCols > 25) {
+                cellSize = 70;
+            } else if (currentGridCols > 20) {
+                cellSize = 80;
+            } else if (currentGridCols > 15) {
+                cellSize = 90;
+            } else if (currentGridCols > 12) {
+                cellSize = 100;
+            } else if (currentGridCols > 10) {
+                cellSize = 110;
+            }
+            
+            // Also consider rows for very tall grids
+            if (currentGridRows > 30) {
+                cellSize = Math.min(cellSize, 60);
+            } else if (currentGridRows > 20) {
+                cellSize = Math.min(cellSize, 80);
+            } else if (currentGridRows > 15) {
+                cellSize = Math.min(cellSize, 100);
+            }
+            
+            // Set the CSS custom property
+            document.documentElement.style.setProperty('--cell-size', cellSize + 'px');
+            
+            // Adjust grid gap proportionally
+            const gridGap = Math.max(2, Math.min(10, cellSize * 0.08));
+            document.documentElement.style.setProperty('--grid-gap', gridGap + 'px');
+        }
+
+        // Update grid information display
+        function updateGridInfo() {
+            const gridInfo = document.querySelector('.grid-info');
+            if (gridInfo) {
+                gridInfo.innerHTML = `
+                    <strong>Current Grid:</strong> ${currentGridRows}×${currentGridCols} 
+                    (${currentGridRows * currentGridCols} total cells)
+                `;
+            }
+            
+            // Update grid controls button text
+            const gridControlsBtn = document.querySelector('.grid-controls .btn');
+            if (gridControlsBtn) {
+                gridControlsBtn.textContent = `ปรับขนาด (Current: ${currentGridRows}×${currentGridCols})`;
+            }
+        }
+
+        // Center the grid in the viewport
+        function centerGrid() {
+            const container = document.getElementById('gridContainer');
+            const grid = document.getElementById('farmGrid');
+            
+            if (container && grid) {
+                const containerWidth = container.clientWidth;
+                const gridWidth = grid.scrollWidth;
+                const containerHeight = container.clientHeight;
+                const gridHeight = grid.scrollHeight;
+                
+                const scrollLeft = Math.max(0, (gridWidth - containerWidth) / 2);
+                const scrollTop = Math.max(0, (gridHeight - containerHeight) / 2);
+                
+                container.scrollTo({
+                    left: scrollLeft,
+                    top: scrollTop,
+                    behavior: 'smooth'
+                });
+            }
+        }
+
+        // Fit grid to screen by adjusting cell size
+        function fitToScreen() {
+            const container = document.getElementById('gridContainer');
+            const availableWidth = window.innerWidth - 100; // Account for padding
+            const availableHeight = window.innerHeight - 300; // Account for header and controls
+            
+            const cellSizeByWidth = Math.max(30, Math.floor(availableWidth / currentGridCols) - 10);
+            const cellSizeByHeight = Math.max(30, Math.floor(availableHeight / currentGridRows) - 10);
+            const cellSize = Math.min(cellSizeByWidth, cellSizeByHeight);
+            
+            document.documentElement.style.setProperty('--cell-size', cellSize + 'px');
+            
+            // Adjust grid gap proportionally
+            const gridGap = Math.max(2, Math.min(10, cellSize * 0.08));
+            document.documentElement.style.setProperty('--grid-gap', gridGap + 'px');
+            
+            setTimeout(centerGrid, 100);
+        }
+
+        // Navigate to specific positions in the grid
+        function scrollToPosition(position) {
+            const container = document.getElementById('gridContainer');
+            if (!container) return;
+            
+            const maxScrollLeft = container.scrollWidth - container.clientWidth;
+            const maxScrollTop = container.scrollHeight - container.clientHeight;
+            
+            let scrollLeft = 0;
+            let scrollTop = 0;
+            
+            switch(position) {
+                case 'top-left':
+                    scrollLeft = 0;
+                    scrollTop = 0;
+                    break;
+                case 'top-center':
+                    scrollLeft = maxScrollLeft / 2;
+                    scrollTop = 0;
+                    break;
+                case 'top-right':
+                    scrollLeft = maxScrollLeft;
+                    scrollTop = 0;
+                    break;
+                case 'center-left':
+                    scrollLeft = 0;
+                    scrollTop = maxScrollTop / 2;
+                    break;
+                case 'center-right':
+                    scrollLeft = maxScrollLeft;
+                    scrollTop = maxScrollTop / 2;
+                    break;
+                case 'bottom-left':
+                    scrollLeft = 0;
+                    scrollTop = maxScrollTop;
+                    break;
+                case 'bottom-center':
+                    scrollLeft = maxScrollLeft / 2;
+                    scrollTop = maxScrollTop;
+                    break;
+                case 'bottom-right':
+                    scrollLeft = maxScrollLeft;
+                    scrollTop = maxScrollTop;
+                    break;
+            }
+            
+            container.scrollTo({
+                left: scrollLeft,
+                top: scrollTop,
+                behavior: 'smooth'
+            });
+        }
+
+        // Add keyboard navigation for large grids
+        function addKeyboardNavigation() {
+            document.addEventListener('keydown', function(e) {
+                const container = document.getElementById('gridContainer');
+                if (!container) return;
+                
+                const scrollAmount = 100;
+                
+                switch(e.key) {
+                    case 'ArrowLeft':
+                        e.preventDefault();
+                        container.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
+                        break;
+                    case 'ArrowRight':
+                        e.preventDefault();
+                        container.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+                        break;
+                    case 'ArrowUp':
+                        e.preventDefault();
+                        container.scrollBy({ top: -scrollAmount, behavior: 'smooth' });
+                        break;
+                    case 'ArrowDown':
+                        e.preventDefault();
+                        container.scrollBy({ top: scrollAmount, behavior: 'smooth' });
+                        break;
+                    case 'Home':
+                        e.preventDefault();
+                        scrollToPosition('top-left');
+                        break;
+                    case 'End':
+                        e.preventDefault();
+                        scrollToPosition('bottom-right');
+                        break;
+                    case ' ': // Spacebar
+                        e.preventDefault();
+                        centerGrid();
+                        break;
+                }
+            });
+        }
+
+        // Add touch navigation for mobile devices
+        function addTouchNavigation() {
+            const container = document.getElementById('gridContainer');
+            if (!container) return;
+            
+            let startX, startY;
+            
+            container.addEventListener('touchstart', function(e) {
+                startX = e.touches[0].clientX;
+                startY = e.touches[0].clientY;
+            });
+            
+            container.addEventListener('touchmove', function(e) {
+                if (!startX || !startY) return;
+                
+                const currentX = e.touches[0].clientX;
+                const currentY = e.touches[0].clientY;
+                
+                const diffX = startX - currentX;
+                const diffY = startY - currentY;
+                
+                // Scroll the container
+                container.scrollBy(diffX, diffY);
+                
+                startX = currentX;
+                startY = currentY;
+            });
+            
+            container.addEventListener('touchend', function() {
+                startX = null;
+                startY = null;
+            });
+        }
+
+        // Grid size modal functions
+        function showGridSizeModal() {
+            document.getElementById('gridModal').style.display = 'flex';
+            document.getElementById('gridRows').value = currentGridRows;
+            document.getElementById('gridCols').value = currentGridCols;
+        }
+
+        function closeGridModal() {
+            document.getElementById('gridModal').style.display = 'none';
+        }
+
+        async function updateGridSize() {
+            const newRows = parseInt(document.getElementById('gridRows').value);
+            const newCols = parseInt(document.getElementById('gridCols').value);
+            
+            if (newRows < 1 || newCols < 1 || newRows > 100 || newCols > 100) {
+                alert('Grid size must be between 1x1 and 100x100');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/update_farm_grid_size', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        rows: newRows,
+                        cols: newCols
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    currentGridRows = newRows;
+                    currentGridCols = newCols;
+                    closeGridModal();
+                    window.location.reload(); // Reload to show new grid
+                } else {
+                    alert('Failed to update grid size: ' + result.error);
+                }
+            } catch (error) {
+                console.error('Error updating grid size:', error);
+                alert('Error updating grid size');
+            }
+        }
+
+        // Handle cell clicks for adding new farms
+        function handleCellClick(row, col) {
+            if (isDragging) return; // Don't add farm if we're dragging
+            
+            const farmName = prompt('Enter farm name:');
+            if (farmName) {
+                addFarm(farmName, row, col);
+            }
+        }
+
+        // Handle farm clicks for viewing farm info
+function handleFarmClick(event, farmId) {
+    event.stopPropagation();
+    if (!isDragging) {
+        console.log('Going to farm info page');
+        window.location.href = `/farm_info/${farmId}`;
+    }
+}
+        // Add new farm
+        async function addFarm(name, row, col) {
+            try {
+                const response = await fetch('/add_farm', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        name: name,
+                        grid_row: row,
+                        grid_col: col
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    window.location.reload(); // Reload to show new farm
+                } else {
+                    alert('Failed to add farm: ' + result.error);
+                }
+            } catch (error) {
+                console.error('Error adding farm:', error);
+                alert('Error adding farm');
+            }
+        }
+
+        // Drag and drop functions
+        function dragFarm(event) {
+            draggedFarm = {
+                id: event.target.dataset.farmId,
+                element: event.target
+            };
+            isDragging = true;
+            event.target.style.opacity = '0.5';
+        }
+
+        function dragEnd(event) {
+            if (draggedFarm) {
+                draggedFarm.element.style.opacity = '1';
+                draggedFarm = null;
+            }
+            isDragging = false;
+            
+            // Remove drag-over class from all cells
+            document.querySelectorAll('.grid-cell').forEach(cell => {
+                cell.classList.remove('drag-over');
+            });
+        }
+
+        function allowDrop(event) {
+            event.preventDefault();
+            if (draggedFarm) {
+                event.target.closest('.grid-cell').classList.add('drag-over');
+            }
+        }
+
+        function dropFarm(event) {
+            event.preventDefault();
+            const cell = event.target.closest('.grid-cell');
+            cell.classList.remove('drag-over');
+            
+            if (draggedFarm) {
+                const newRow = parseInt(cell.dataset.row);
+                const newCol = parseInt(cell.dataset.col);
+                moveFarm(draggedFarm.id, newRow, newCol);
+            }
+        }
+
+        // Move farm to new position
+        async function moveFarm(farmId, newRow, newCol) {
+            try {
+                const response = await fetch(`/move_farm/${farmId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        grid_row: newRow,
+                        grid_col: newCol
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    window.location.reload(); // Reload to show updated positions
+                } else {
+                    alert('Failed to move farm: ' + result.error);
+                }
+            } catch (error) {
+                console.error('Error moving farm:', error);
+                alert('Error moving farm');
+            }
+        }
+
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('gridModal');
+            if (event.target === modal) {
+                closeGridModal();
+            }
+        }
+    </script>
+</body>
+</html>
