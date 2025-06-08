@@ -838,105 +838,40 @@ def debug_routes():
 @app.route('/farms')
 @login_required
 def farms():
-    """Enhanced farms route with comprehensive error handling"""
     try:
-        print(f"🚜 Farms route accessed by user: {current_user.id}")
+        # Get grid settings for farms
+        grid_settings = GridSettings.query.filter_by(
+            user_id=current_user.id, 
+            grid_type='farm'
+        ).first()
         
-        # Get grid settings with error handling
-        try:
-            grid_settings = get_grid_settings('farm', current_user.id)
-            grid_rows = grid_settings.rows
-            grid_cols = grid_settings.cols
-            print(f"📏 Farm grid settings: {grid_rows}x{grid_cols}")
-        except Exception as grid_error:
-            print(f"⚠️ Grid settings error: {grid_error}")
-            # Use default values
-            grid_rows = 10
-            grid_cols = 10
-            print(f"📏 Using default farm grid: {grid_rows}x{grid_cols}")
+        if not grid_settings:
+            grid_settings = GridSettings(
+                user_id=current_user.id,
+                grid_type='farm',
+                rows=10,
+                cols=10
+            )
+            db.session.add(grid_settings)
+            db.session.commit()
+            print("✅ Created default farm grid settings")
         
-        # Get farms with multiple fallback strategies
-        farms = []
-        try:
-            # Strategy 1: Normal SQLAlchemy query
-            farms = Farm.query.filter_by(user_id=current_user.id).all()
-            print(f"✅ Strategy 1 successful: Found {len(farms)} farms")
-            
-        except Exception as e1:
-            print(f"⚠️ Strategy 1 failed: {e1}")
-            
-            try:
-                # Strategy 2: Raw SQL query
-                with db.engine.connect() as conn:
-                    if is_postgresql():
-                        result = conn.execute(text("""
-                            SELECT id, name, grid_row, grid_col, image_url, user_id, created_at, updated_at
-                            FROM farm 
-                            WHERE user_id = :user_id 
-                            ORDER BY grid_row, grid_col
-                        """), {"user_id": current_user.id})
-                    else:
-                        result = conn.execute(text("""
-                            SELECT id, name, grid_row, grid_col, image_url, user_id, created_at, updated_at
-                            FROM farm 
-                            WHERE user_id = ? 
-                            ORDER BY grid_row, grid_col
-                        """), (current_user.id,))
-                    
-                    # Convert raw results to Farm-like objects
-                    farms = []
-                    for row in result:
-                        farm = type('Farm', (), {})()
-                        farm.id = row[0]
-                        farm.name = row[1]
-                        farm.grid_row = row[2]
-                        farm.grid_col = row[3]
-                        farm.image_url = row[4]
-                        farm.user_id = row[5]
-                        farm.created_at = row[6]
-                        farm.updated_at = row[7]
-                        farms.append(farm)
-                    
-                    print(f"✅ Strategy 2 successful: Found {len(farms)} farms using raw SQL")
-                    
-            except Exception as e2:
-                print(f"⚠️ Strategy 2 failed: {e2}")
-                farms = []
-                print("⚠️ Using empty farms list")
+        # Get all farms for this user
+        farms = Farm.query.filter_by(user_id=current_user.id).all()
         
-        # Add timestamp for cache busting
-        timestamp = int(time.time())
+        print(f"✅ Found {len(farms)} farms")
         
-        # Render template with error handling
-        try:
-            return render_template('farm.html', 
-                                 farms=farms,
-                                 grid_rows=grid_rows,
-                                 grid_cols=grid_cols,
-                                 timestamp=timestamp,
-                                 user=current_user)
-        except Exception as template_error:
-            print(f"❌ Template rendering error: {template_error}")
-            # Return a simple error page
-            return f"""
-            <h1>🚜 Farm System Temporarily Unavailable</h1>
-            <p>We're experiencing technical difficulties. Please try again in a moment.</p>
-            <p><a href="/login">← Back to Login</a></p>
-            <p><strong>Error:</strong> {str(template_error)}</p>
-            """, 500
-        
+        return render_template('farm.html', 
+                             farms=farms,
+                             grid_rows=grid_settings.rows,
+                             grid_cols=grid_settings.cols,
+                             timestamp=int(time.time()),
+                             user=current_user)
+                             
     except Exception as e:
-        print(f"❌ Critical error in farms route: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        
-        # Return simple error page instead of trying to render error template
-        return f"""
-        <h1>🚨 System Error</h1>
-        <p>Something went wrong. Please contact support.</p>
-        <p><a href="/login">← Back to Login</a></p>
-        <p><strong>Error:</strong> {str(e)}</p>
-        """, 500
+        print(f"❌ Error loading farms: {str(e)}")
+        flash('Error loading farms', 'error')
+        return redirect(url_for('index'))
 @app.errorhandler(500)
 def internal_error(error):
     """Simple error handler that doesn't require templates"""
@@ -1216,107 +1151,86 @@ def remove_farm_image(farm_id):
 @app.route('/move_farm/<int:farm_id>', methods=['POST'])
 @login_required
 def move_farm(farm_id):
-    """Move farm to new position"""
     try:
-        data = request.json
-        
-        # Get farm and check ownership
-        farm = Farm.query.filter_by(id=farm_id, user_id=current_user.id).first()
-        if not farm:
-            return jsonify(success=False, error="Farm not found"), 404
-
-        # Get new position
+        data = request.get_json()
         new_row = data.get('grid_row')
         new_col = data.get('grid_col')
-
-        # Convert to integers if they're strings
-        try:
-            new_row = int(new_row)
-            new_col = int(new_col)
-        except (ValueError, TypeError):
-            return jsonify(success=False, error="Invalid position data"), 400
-
-        # Validate grid bounds
-        try:
-            grid = GridSettings.query.first()
-            if not grid:
-                grid = GridSettings(rows=10, cols=10)
-                db.session.add(grid)
-                db.session.commit()
-        except Exception as e:
-            print(f"⚠️ Grid settings error: {e}")
-            grid = type('obj', (object,), {'rows': 10, 'cols': 10})
-            
-        if new_row >= grid.rows or new_col >= grid.cols or new_row < 0 or new_col < 0:
-            return jsonify(success=False, error="Position out of bounds"), 400
-
-        # Check for existing farm in target position
-        existing_farm = Farm.query.filter(
-            Farm.id != farm_id,
-            Farm.grid_row == new_row, 
-            Farm.grid_col == new_col,
-            Farm.user_id == current_user.id
+        
+        if new_row is None or new_col is None:
+            return jsonify({'success': False, 'error': 'Missing grid position'})
+        
+        # Get the farm
+        farm = Farm.query.filter_by(id=farm_id, user_id=current_user.id).first()
+        if not farm:
+            return jsonify({'success': False, 'error': 'Farm not found'})
+        
+        # Check if target position is occupied
+        existing_farm = Farm.query.filter_by(
+            grid_row=new_row, 
+            grid_col=new_col,
+            user_id=current_user.id
         ).first()
         
-        if existing_farm:
-            # SWAP the farms
-            print(f"Swapping farm {farm_id} with farm {existing_farm.id}")
-            
-            # Store original position
-            original_row = farm.grid_row
-            original_col = farm.grid_col
-            
-            # Move the first farm to the target position
-            farm.grid_row = new_row
-            farm.grid_col = new_col
-            farm.updated_at = datetime.utcnow()
-            
-            # Move the existing farm to the original position
-            existing_farm.grid_row = original_row
-            existing_farm.grid_col = original_col
-            existing_farm.updated_at = datetime.utcnow()
-            
-            db.session.commit()
-            
-            return jsonify({
-                'success': True,
-                'swapped': True,
-                'farm1': {
-                    'id': farm.id,
-                    'grid_row': farm.grid_row,
-                    'grid_col': farm.grid_col,
-                    'name': farm.name
-                },
-                'farm2': {
-                    'id': existing_farm.id,
-                    'grid_row': existing_farm.grid_row,
-                    'grid_col': existing_farm.grid_col,
-                    'name': existing_farm.name
-                }
-            })
-        else:
-            # No existing farm, just move to the new position
-            farm.grid_row = new_row
-            farm.grid_col = new_col
-            farm.updated_at = datetime.utcnow()
-            db.session.commit()
-            
-            return jsonify({
-                'success': True,
-                'swapped': False,
-                'farm': {
-                    'id': farm.id,
-                    'grid_row': farm.grid_row,
-                    'grid_col': farm.grid_col,
-                    'name': farm.name
-                }
-            })
-            
+        if existing_farm and existing_farm.id != farm_id:
+            return jsonify({'success': False, 'error': 'Target position already occupied'})
+        
+        # Update farm position
+        old_position = f"({farm.grid_row}, {farm.grid_col})"
+        farm.grid_row = new_row
+        farm.grid_col = new_col
+        db.session.commit()
+        
+        print(f"✅ Farm moved: {farm.name} from {old_position} to ({new_row}, {new_col})")
+        
+        return jsonify({'success': True, 'message': 'Farm moved successfully'})
+        
     except Exception as e:
-        print(f"Error moving farm: {e}")
         db.session.rollback()
-        return jsonify(success=False, error=str(e)), 500
-
+        print(f"❌ Error moving farm: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)})
+@app.route('/swap_farms', methods=['POST'])
+@login_required
+def swap_farms():
+    try:
+        data = request.get_json()
+        farm1_id = data.get('farm1_id')
+        farm2_id = data.get('farm2_id')
+        farm1_new_row = data.get('farm1_new_row')
+        farm1_new_col = data.get('farm1_new_col')
+        farm2_new_row = data.get('farm2_new_row')
+        farm2_new_col = data.get('farm2_new_col')
+        
+        if not all([farm1_id, farm2_id, farm1_new_row is not None, farm1_new_col is not None, 
+                   farm2_new_row is not None, farm2_new_col is not None]):
+            return jsonify({'success': False, 'error': 'Missing required fields'})
+        
+        # Get both farms
+        farm1 = Farm.query.filter_by(id=farm1_id, user_id=current_user.id).first()
+        farm2 = Farm.query.filter_by(id=farm2_id, user_id=current_user.id).first()
+        
+        if not farm1 or not farm2:
+            return jsonify({'success': False, 'error': 'One or both farms not found'})
+        
+        # Store old positions for logging
+        farm1_old = f"({farm1.grid_row}, {farm1.grid_col})"
+        farm2_old = f"({farm2.grid_row}, {farm2.grid_col})"
+        
+        # Swap positions
+        farm1.grid_row = farm1_new_row
+        farm1.grid_col = farm1_new_col
+        farm2.grid_row = farm2_new_row
+        farm2.grid_col = farm2_new_col
+        
+        db.session.commit()
+        
+        print(f"✅ Farms swapped: {farm1.name} {farm1_old} ↔ {farm2.name} {farm2_old}")
+        
+        return jsonify({'success': True, 'message': 'Farms swapped successfully'})
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"❌ Error swapping farms: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)})
 @app.route('/update_farm_grid_size', methods=['POST'])
 @login_required
 def update_farm_grid_size():
@@ -1570,62 +1484,37 @@ def update_farm_name(farm_id):
 @app.route('/delete_farm/<int:farm_id>', methods=['DELETE'])
 @login_required
 def delete_farm(farm_id):
-    """Delete farm and all its domes/trees"""
     try:
+        # Get the farm
         farm = Farm.query.filter_by(id=farm_id, user_id=current_user.id).first()
         if not farm:
-            return jsonify(success=False, error="Farm not found"), 404
+            return jsonify({'success': False, 'error': 'Farm not found'})
         
-        # Delete farm image if exists
-        if hasattr(farm, 'image_url') and farm.image_url:
-            try:
-                filename = farm.image_url.split('/')[-1]
-                upload_folder = current_app.config.get('UPLOAD_FOLDER', 'uploads')
-                filepath = os.path.join(upload_folder, 'farms', filename)
-                if os.path.exists(filepath):
-                    os.remove(filepath)
-                    print(f"🗑️ Removed farm image: {filepath}")
-            except Exception as e:
-                print(f"⚠️ Error deleting farm image: {e}")
+        farm_name = farm.name
         
-        # Delete all domes in this farm (and their trees)
-        domes = Dome.query.filter_by(farm_id=farm_id, user_id=current_user.id).all()
+        # Delete associated domes first
+        domes = Dome.query.filter_by(farm_id=farm_id).all()
+        dome_count = len(domes)
         for dome in domes:
-            # Delete dome images
-            if hasattr(dome, 'image_url') and dome.image_url:
-                try:
-                    filename = dome.image_url.split('/')[-1]
-                    upload_folder = current_app.config.get('UPLOAD_FOLDER', 'uploads')
-                    filepath = os.path.join(upload_folder, 'domes', filename)
-                    if os.path.exists(filepath):
-                        os.remove(filepath)
-                except Exception as e:
-                    print(f"⚠️ Error deleting dome image: {e}")
-            
-            # Delete all trees in this dome
-            trees = Tree.query.filter_by(dome_id=dome.id, user_id=current_user.id).all()
+            # Delete trees in each dome
+            trees = Tree.query.filter_by(dome_id=dome.id).all()
             for tree in trees:
-                # Delete tree images
-                if hasattr(tree, 'image_url') and tree.image_url:
-                    try:
-                        filename = tree.image_url.split('/')[-1]
-                        upload_folder = current_app.config.get('UPLOAD_FOLDER', 'uploads')
-                        filepath = os.path.join(upload_folder, 'trees', filename)
-                        if os.path.exists(filepath):
-                            os.remove(filepath)
-                    except Exception as e:
-                        print(f"⚠️ Error deleting tree image: {e}")
                 db.session.delete(tree)
-            
+            # Delete the dome
             db.session.delete(dome)
         
+        # Delete the farm
         db.session.delete(farm)
         db.session.commit()
-        return jsonify(success=True)
+        
+        print(f"✅ Farm deleted: {farm_name} (with {dome_count} domes)")
+        
+        return jsonify({'success': True, 'message': 'Farm deleted successfully'})
         
     except Exception as e:
         db.session.rollback()
-        return jsonify(success=False, error=str(e)), 500
+        print(f"❌ Error deleting farm: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)})
 
 @app.route('/upload_farm_image/<int:farm_id>', methods=['POST'])
 @login_required
@@ -1923,6 +1812,56 @@ def add_dome():
     except Exception as e:
         db.session.rollback()
         print(f"Error creating dome: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)})
+@app.route('/create_farm', methods=['POST'])
+@login_required
+def create_farm():
+    try:
+        data = request.get_json()
+        name = data.get('name')
+        grid_row = data.get('grid_row')
+        grid_col = data.get('grid_col')
+        
+        if not name or grid_row is None or grid_col is None:
+            return jsonify({'success': False, 'error': 'Missing required fields'})
+        
+        # Check if position is already occupied
+        existing_farm = Farm.query.filter_by(
+            grid_row=grid_row, 
+            grid_col=grid_col,
+            user_id=current_user.id
+        ).first()
+        
+        if existing_farm:
+            return jsonify({'success': False, 'error': 'Position already occupied'})
+        
+        # Create new farm
+        new_farm = Farm(
+            name=name,
+            grid_row=grid_row,
+            grid_col=grid_col,
+            user_id=current_user.id
+        )
+        
+        db.session.add(new_farm)
+        db.session.commit()
+        
+        print(f"✅ Farm created: {new_farm.name} at ({grid_row}, {grid_col})")
+        
+        return jsonify({
+            'success': True, 
+            'message': 'Farm created successfully',
+            'farm': {
+                'id': new_farm.id,
+                'name': new_farm.name,
+                'grid_row': new_farm.grid_row,
+                'grid_col': new_farm.grid_col
+            }
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"❌ Error creating farm: {str(e)}")
         return jsonify({'success': False, 'error': str(e)})
 @app.route('/update_grid_settings', methods=['POST'])
 @login_required
