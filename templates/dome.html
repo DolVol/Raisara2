@@ -826,38 +826,56 @@
 
         <!-- Grid Size Modal -->
 <div id="gridModal" class="modal">
-                    <div class="modal-content">
-                        <h3>Adjust Grid Size</h3>
-                        {% if farm_id %}
-                            <p style="color: #e74c3c; font-weight: bold;">
-                                ⚠️ Farm-specific domes use a fixed 5×5 grid.
-                                <br>Grid resizing is only available for global domes.
-                                <br><br>
-                                <strong>Current farm grid:</strong> 5×5 (25 total cells)
-                                <br>
-                                <strong>Farm context:</strong> Each farm has its own isolated dome grid.
-                            </p>
-                        {% else %}
-                            <div class="input-group">
-                                <label>Rows: <input type="number" id="gridRows" value="{{ grid_rows }}" min="1" max="100"></label>
-                                <label>Cols: <input type="number" id="gridCols" value="{{ grid_cols }}" min="1" max="100"></label>
-                            </div>
-                            <p style="color: #666; font-size: 12px;">
-                                💡 Large grids (20×20+) will show navigation controls. Maximum: 100×100
-                                <br>
-                                <strong>Note:</strong> This only affects global domes, not farm-specific domes.
-                            </p>
-                        {% endif %}
-                        <div class="modal-actions">
-                            {% if farm_id %}
-                                <button class="btn cancel" onclick="closeGridModal()">Close</button>
-                            {% else %}
-                                <button class="btn" onclick="updateGridSize()">Apply</button>
-                                <button class="btn cancel" onclick="closeGridModal()">Cancel</button>
-                            {% endif %}
-                        </div>
-                    </div>
-                </div>
+    <div class="modal-content">
+        <h3>📏 Adjust Grid Size</h3>
+        
+        <div style="background: #e8f5e9; padding: 15px; border-radius: 8px; margin-bottom: 15px; border-left: 4px solid #4CAF50; color: #2e7d32;">
+            <p style="margin: 0 0 10px 0; font-weight: bold;">
+                📏 <strong>Grid Size Editor</strong>
+            </p>
+            <p style="margin: 0; font-size: 14px;">
+                {% if farm_id %}
+                    Editing Farm {{ farm_id }} dome grid. This only affects this farm's domes.
+                {% else %}
+                    Editing global dome grid. This only affects global domes.
+                {% endif %}
+            </p>
+        </div>
+        
+        <!-- ✅ FIXED: Always show input fields for ALL contexts -->
+        <div class="input-group">
+            <label for="gridRows">Rows:</label>
+            <input type="number" id="gridRows" value="{{ grid_rows }}" min="1" max="100" 
+                   placeholder="Enter number of rows (1-100)">
+        </div>
+        
+        <div class="input-group">
+            <label for="gridCols">Columns:</label>
+            <input type="number" id="gridCols" value="{{ grid_cols }}" min="1" max="100" 
+                   placeholder="Enter number of columns (1-100)">
+        </div>
+        
+        <div style="background: #fff3cd; padding: 10px; border-radius: 6px; margin: 15px 0; font-size: 12px; color: #856404;">
+            💡 <strong>Grid Info:</strong>
+            <br>• Current size: {{ grid_rows }}×{{ grid_cols }} ({{ grid_rows * grid_cols }} cells)
+            <br>• Maximum size: 100×100
+            {% if farm_id %}
+            <br>• This farm's grid is independent from other farms
+            {% else %}
+            <br>• Global grid is independent from farm grids
+            {% endif %}
+            <br>• Large grids may affect performance
+        </div>
+        
+        <!-- ✅ FIXED: Always show Apply button for ALL contexts -->
+        <div class="modal-actions">
+            <button class="btn" onclick="updateGridSize()" id="applyGridSize">
+                Apply Changes
+            </button>
+            <button class="btn cancel" onclick="closeGridModal()">Cancel</button>
+        </div>
+    </div>
+</div>
             </div>
 
             <script>
