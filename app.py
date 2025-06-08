@@ -674,7 +674,7 @@ def grid(dome_id):
         if not dome:
             print(f"❌ Dome {dome_id} not found for user {current_user.id}")
             flash('Dome not found', 'error')
-            return redirect(url_for('dome_info', dome_id=dome_id))
+            return redirect(url_for('domes'))
         
         print(f"✅ Dome found: {dome.name}")
         
@@ -682,7 +682,7 @@ def grid(dome_id):
         trees = Tree.query.filter_by(dome_id=dome_id).all()
         print(f"✅ Found {len(trees)} trees for dome {dome_id}")
         
-        # ✅ FIXED: Convert trees to JSON-serializable dictionaries
+        # Convert trees to JSON-serializable dictionaries
         trees_data = []
         for tree in trees:
             tree_dict = {
@@ -701,11 +701,10 @@ def grid(dome_id):
             trees_data.append(tree_dict)
             print(f"Tree {tree.id}: name={tree.name}, internal_row={tree.internal_row}, internal_col={tree.internal_col}")
         
-        # ✅ CRITICAL: Pass trees_data for JSON serialization
         print(f"🎯 Rendering grid.html for dome {dome_id}")
         return render_template('grid.html',
                              dome=dome,
-                             trees_data=trees_data,  # ✅ Use trees_data for JSON
+                             trees_data=trees_data,
                              rows=dome.internal_rows or 10,
                              cols=dome.internal_cols or 10,
                              timestamp=int(time.time()))
@@ -715,7 +714,7 @@ def grid(dome_id):
         import traceback
         traceback.print_exc()
         flash('An error occurred while loading the grid', 'error')
-        return redirect(url_for('dome_info', dome_id=dome_id))
+        return redirect(url_for('domes'))
 @app.route('/test/grid/<int:dome_id>')
 @login_required
 def test_grid(dome_id):
@@ -2006,11 +2005,16 @@ def add_tree():
         internal_row = data.get('internal_row')
         internal_col = data.get('internal_col')
         
+        # Verify dome ownership
+        dome = Dome.query.filter_by(id=dome_id, user_id=current_user.id).first()
+        if not dome:
+            return jsonify({'success': False, 'error': 'Dome not found'})
+        
         # Check if position is already occupied
         existing_tree = Tree.query.filter_by(
             dome_id=dome_id,
-            internal_row=internal_row,  # ✅ Correct column name
-            internal_col=internal_col   # ✅ Correct column name
+            internal_row=internal_row,
+            internal_col=internal_col
         ).first()
         
         if existing_tree:
@@ -2021,8 +2025,8 @@ def add_tree():
             name=name,
             dome_id=dome_id,
             user_id=current_user.id,
-            internal_row=internal_row,  # ✅ Correct column name
-            internal_col=internal_col   # ✅ Correct column name
+            internal_row=internal_row,
+            internal_col=internal_col
         )
         
         db.session.add(new_tree)
@@ -2033,16 +2037,20 @@ def add_tree():
             'id': new_tree.id,
             'name': new_tree.name,
             'dome_id': new_tree.dome_id,
-            'internal_row': new_tree.internal_row,  # ✅ Correct column name
-            'internal_col': new_tree.internal_col,  # ✅ Correct column name
-            'image_url': new_tree.image_url
+            'internal_row': new_tree.internal_row,
+            'internal_col': new_tree.internal_col,
+            'image_url': new_tree.image_url,
+            'info': new_tree.info,
+            'life_days': new_tree.life_days or 0
         }
+        
+        print(f"✅ Tree added: {new_tree.name} at ({internal_row}, {internal_col}) in dome {dome_id}")
         
         return jsonify({'success': True, 'tree': tree_data})
         
     except Exception as e:
         db.session.rollback()
-        print(f"Error adding tree: {str(e)}")
+        print(f"❌ Error adding tree: {str(e)}")
         return jsonify({'success': False, 'error': f'Failed to add tree: {str(e)}'})
 
 # ============= GRID MANAGEMENT =============
@@ -2444,58 +2452,212 @@ def move_tree(tree_id):
 @app.route('/swap_trees', methods=['POST'])
 @login_required
 def swap_trees():
+    """Swap positions of two trees in the grid"""
     try:
         data = request.get_json()
         tree1_id = data.get('tree1_id')
         tree2_id = data.get('tree2_id')
         
         if not tree1_id or not tree2_id:
-            return jsonify({'success': False, 'error': 'Both tree IDs are required'}), 400
+            return jsonify({
+                'success': False,
+                'error': 'Both tree IDs are required'
+            })
         
-        # Get both trees
+        if tree1_id == tree2_id:
+            return jsonify({
+                'success': False,
+                'error': 'Cannot swap tree with itself'
+            })
+        
+        # Get both trees and verify ownership
         tree1 = Tree.query.filter_by(id=tree1_id, user_id=current_user.id).first()
         tree2 = Tree.query.filter_by(id=tree2_id, user_id=current_user.id).first()
         
-        if not tree1 or not tree2:
-            return jsonify({'success': False, 'error': 'One or both trees not found'}), 404
+        if not tree1:
+            return jsonify({
+                'success': False,
+                'error': f'Tree with ID {tree1_id} not found'
+            })
+        
+        if not tree2:
+            return jsonify({
+                'success': False,
+                'error': f'Tree with ID {tree2_id} not found'
+            })
+        
+        # Verify both trees belong to the same dome
+        if tree1.dome_id != tree2.dome_id:
+            return jsonify({
+                'success': False,
+                'error': 'Trees must belong to the same dome'
+            })
         
         # Store original positions
-        tree1_row, tree1_col = tree1.row, tree1.col
-        tree2_row, tree2_col = tree2.row, tree2.col
+        tree1_original_row = tree1.internal_row
+        tree1_original_col = tree1.internal_col
+        tree2_original_row = tree2.internal_row
+        tree2_original_col = tree2.internal_col
         
-        print(f"Swapping trees: {tree1.name} ({tree1_row},{tree1_col}) <-> {tree2.name} ({tree2_row},{tree2_col})")
+        # Swap positions
+        tree1.internal_row = tree2_original_row
+        tree1.internal_col = tree2_original_col
+        tree2.internal_row = tree1_original_row
+        tree2.internal_col = tree1_original_col
         
-        # Use temporary position to avoid UNIQUE constraint
-        # Step 1: Move tree1 to temporary position
-        tree1.row = -999  # Use a position that's guaranteed to be unique
-        tree1.col = -999
-        db.session.flush()  # Apply to database but don't commit
-        
-        # Step 2: Move tree2 to tree1's original position
-        tree2.row = tree1_row
-        tree2.col = tree1_col
-        db.session.flush()
-        
-        # Step 3: Move tree1 to tree2's original position
-        tree1.row = tree2_row
-        tree1.col = tree2_col
-        db.session.flush()
-        
-        # Commit all changes
+        # Commit changes to database
         db.session.commit()
         
-        print(f"Trees swapped successfully: {tree1.name} now at ({tree1.row},{tree1.col}), {tree2.name} now at ({tree2.row},{tree2.col})")
+        print(f"✅ Successfully swapped trees:")
+        print(f"   Tree {tree1_id} ({tree1.name}): ({tree1_original_row},{tree1_original_col}) -> ({tree1.internal_row},{tree1.internal_col})")
+        print(f"   Tree {tree2_id} ({tree2.name}): ({tree2_original_row},{tree2_original_col}) -> ({tree2.internal_row},{tree2.internal_col})")
         
         return jsonify({
             'success': True,
-            'message': f'Trees {tree1.name} and {tree2.name} swapped successfully'
+            'message': 'Trees swapped successfully',
+            'tree1': {
+                'id': tree1.id,
+                'name': tree1.name,
+                'internal_row': tree1.internal_row,
+                'internal_col': tree1.internal_col
+            },
+            'tree2': {
+                'id': tree2.id,
+                'name': tree2.name,
+                'internal_row': tree2.internal_row,
+                'internal_col': tree2.internal_col
+            }
         })
         
     except Exception as e:
-        print(f"Error swapping trees: {e}")
         db.session.rollback()
-        return jsonify({'success': False, 'error': str(e)}), 500
+        print(f"❌ Error swapping trees: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': f'Database error: {str(e)}'
+        })
+@app.route('/api/dome/<int:dome_id>/trees')
+def get_dome_trees_api(dome_id):
+    """API endpoint to get all trees for a dome"""
+    try:
+        dome = Dome.query.get_or_404(dome_id)
+        trees = Tree.query.filter_by(dome_id=dome_id).all()
+        
+        trees_data = []
+        for tree in trees:
+            tree_data = {
+                'id': tree.id,
+                'name': tree.name,
+                'internal_row': tree.internal_row,
+                'internal_col': tree.internal_col,
+                'image_url': tree.image_url,
+                'dome_id': tree.dome_id
+            }
+            trees_data.append(tree_data)
+        
+        return jsonify({
+            'success': True,
+            'trees': trees_data,
+            'count': len(trees_data),
+            'dome_id': dome_id
+        })
+        
+    except Exception as e:
+        print(f"❌ Error getting trees for dome {dome_id}: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'trees': [],
+            'count': 0
+        })
 
+# Also make sure you have the move_tree endpoint
+@app.route('/move_tree/<int:tree_id>', methods=['POST'])
+@login_required
+def move_tree(tree_id):
+    """Move a tree to a new position in the grid"""
+    try:
+        data = request.get_json()
+        new_row = data.get('internal_row')
+        new_col = data.get('internal_col')
+        
+        if new_row is None or new_col is None:
+            return jsonify({
+                'success': False,
+                'error': 'Both internal_row and internal_col are required'
+            })
+        
+        # Get the tree and verify ownership
+        tree = Tree.query.filter_by(id=tree_id, user_id=current_user.id).first()
+        if not tree:
+            return jsonify({
+                'success': False,
+                'error': f'Tree with ID {tree_id} not found'
+            })
+        
+        # Check if target position is already occupied
+        existing_tree = Tree.query.filter_by(
+            dome_id=tree.dome_id,
+            internal_row=new_row,
+            internal_col=new_col
+        ).first()
+        
+        swapped = False
+        swapped_tree_data = None
+        
+        if existing_tree and existing_tree.id != tree_id:
+            # Swap positions
+            old_row = tree.internal_row
+            old_col = tree.internal_col
+            
+            # Move target tree to original position
+            existing_tree.internal_row = old_row
+            existing_tree.internal_col = old_col
+            
+            swapped = True
+            swapped_tree_data = {
+                'id': existing_tree.id,
+                'internal_row': old_row,
+                'internal_col': old_col
+            }
+        
+        # Store original position for logging
+        old_row = tree.internal_row
+        old_col = tree.internal_col
+        
+        # Move the dragged tree to new position
+        tree.internal_row = new_row
+        tree.internal_col = new_col
+        
+        # Commit changes
+        db.session.commit()
+        
+        print(f"✅ Successfully moved tree {tree_id} ({tree.name}): ({old_row},{old_col}) -> ({new_row},{new_col})")
+        if swapped:
+            print(f"✅ Swapped with tree {existing_tree.id} ({existing_tree.name})")
+        
+        return jsonify({
+            'success': True,
+            'message': 'Tree moved successfully',
+            'swapped': swapped,
+            'swapped_tree': swapped_tree_data,
+            'tree': {
+                'id': tree.id,
+                'name': tree.name,
+                'internal_row': tree.internal_row,
+                'internal_col': tree.internal_col,
+                'old_row': old_row,
+                'old_col': old_col
+            }
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"❌ Error moving tree {tree_id}: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': f'Database error: {str(e)}'
+        })
 # ============= TREE IMAGE MANAGEMENT =============
 
 @app.route('/upload_tree_image/<int:tree_id>', methods=['POST'])
