@@ -201,44 +201,46 @@
         .grid-container::-webkit-scrollbar-thumb:hover {
             background: #45a049;
         }
-/* ✅ NEW: Farm image display for base64 data */
-.farm-with-image {
-    position: relative;
-    overflow: hidden;
-}
 
-.farm-background-img {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    border-radius: 15%;
-    z-index: 1;
-}
+        /* ✅ NEW: Farm image display for base64 data */
+        .farm-with-image {
+            position: relative;
+            overflow: hidden;
+        }
 
-.farm-with-image .farm-name {
-    position: relative;
-    z-index: 3;
-    background: rgba(0, 0, 0, 0.7);
-    padding: 2px 6px;
-    border-radius: 4px;
-    margin-top: auto;
-}
+        .farm-background-img {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 15%;
+            z-index: 1;
+        }
 
-/* Ensure the overlay still works */
-.farm-with-image::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.2);
-    border-radius: 15%;
-    z-index: 2;
-}
+        .farm-with-image .farm-name {
+            position: relative;
+            z-index: 3;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-top: auto;
+        }
+
+        /* Ensure the overlay still works */
+        .farm-with-image::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 15%;
+            z-index: 2;
+        }
+        
         /* Main farm grid */
         .farm-grid {
             display: grid;
@@ -727,7 +729,7 @@
                 <div class="farm-grid" id="farmGrid" style="grid-template-columns: repeat({{ grid_cols }}, 1fr)">
                     {% for row in range(grid_rows) %}
                         {% for col in range(grid_cols) %}
-                            {% set farm = farms|selectattr('grid_row', 'equalto', row)|selectattr('grid_col', 'equalto', col)|first %}
+                            {% set farm = farms|selectattr('grid_row', 'equalto', row)|selectattr('grid_col', 'equalto', col)|list|first|default(none) %}
                             <div class="grid-cell{% if farm %} occupied{% endif %}" 
                                  data-row="{{ row }}" 
                                  data-col="{{ col }}"
@@ -735,45 +737,49 @@
                                  ondragover="allowDrop(event)"
                                  ondrop="dropFarm(event)">
                                 
-                                <!-- Add coordinate label -->
-                                <div class="coordinate-label">{{ row }},{{ col }}</div>
-                                
-<!-- ✅ FIXED: Dynamic farm image display for base64 data -->
-{% if farm.image_url and farm.image_url.startswith('data:image/') %}
-    <!-- Farm with base64 image -->
-    <div class="farm farm-with-image" 
-         data-farm-id="{{ farm.id }}"
-         draggable="true"
-         ondragstart="dragFarm(event)"
-         ondragend="dragEnd(event)"
-         onclick="handleFarmClick(event, {{ farm.id }})">
-        <img src="{{ farm.image_url }}" alt="Farm Image" class="farm-background-img">
-        <span class="farm-name" data-name="{{ farm.name }}">{{ farm.name }}</span>
-    </div>
-{% elif farm.image_url and not farm.image_url.startswith('data:image/') %}
-    <!-- Farm with old file URL (fallback) -->
-    <div class="farm" 
-         data-farm-id="{{ farm.id }}"
-         draggable="true"
-         ondragstart="dragFarm(event)"
-         ondragend="dragEnd(event)"
-         onclick="handleFarmClick(event, {{ farm.id }})"
-         style="background-image: url('{{ farm.image_url }}?t={{ timestamp }}');">
-        <span class="farm-name" data-name="{{ farm.name }}">{{ farm.name }}</span>
-    </div>
-{% else %}
-    <!-- Farm placeholder (no image) -->
-    <div class="farm-placeholder" 
-         data-farm-id="{{ farm.id }}"
-         draggable="true"
-         ondragstart="dragFarm(event)"
-         ondragend="dragEnd(event)"
-         onclick="handleFarmClick(event, {{ farm.id }})">
-        🚜
-        <span class="farm-name" data-name="{{ farm.name }}">{{ farm.name }}</span>
-    </div>
-{% endif %}
-                              
+                                {% if farm %}
+                                    <!-- Add coordinate label -->
+                                    <div class="coordinate-label">{{ row }},{{ col }}</div>
+                                    
+                                    <!-- ✅ FIXED: Dynamic farm image display for base64 data -->
+                                    {% if farm.image_url and farm.image_url.startswith('data:image/') %}
+                                        <!-- Farm with base64 image -->
+                                        <div class="farm farm-with-image" 
+                                             data-farm-id="{{ farm.id }}"
+                                             draggable="true"
+                                             ondragstart="dragFarm(event)"
+                                             ondragend="dragEnd(event)"
+                                             onclick="handleFarmClick(event, {{ farm.id }})">
+                                            <img src="{{ farm.image_url }}" alt="Farm Image" class="farm-background-img">
+                                            <span class="farm-name" data-name="{{ farm.name }}">{{ farm.name }}</span>
+                                        </div>
+                                    {% elif farm.image_url and not farm.image_url.startswith('data:image/') %}
+                                        <!-- Farm with old file URL (fallback) -->
+                                        <div class="farm" 
+                                             data-farm-id="{{ farm.id }}"
+                                             draggable="true"
+                                             ondragstart="dragFarm(event)"
+                                             ondragend="dragEnd(event)"
+                                             onclick="handleFarmClick(event, {{ farm.id }})"
+                                             style="background-image: url('{{ farm.image_url }}?t={{ timestamp }}');">
+                                            <span class="farm-name" data-name="{{ farm.name }}">{{ farm.name }}</span>
+                                        </div>
+                                    {% else %}
+                                        <!-- Farm placeholder (no image) -->
+                                        <div class="farm-placeholder" 
+                                             data-farm-id="{{ farm.id }}"
+                                             draggable="true"
+                                             ondragstart="dragFarm(event)"
+                                             ondragend="dragEnd(event)"
+                                             onclick="handleFarmClick(event, {{ farm.id }})">
+                                            🚜
+                                            <span class="farm-name" data-name="{{ farm.name }}">{{ farm.name }}</span>
+                                        </div>
+                                    {% endif %}
+                                {% else %}
+                                    <!-- Empty cell - show coordinate label -->
+                                    <div class="coordinate-label">{{ row }},{{ col }}</div>
+                                {% endif %}
                             </div>
                         {% endfor %}
                     {% endfor %}
@@ -844,7 +850,7 @@
         });
 
         // Logout function
-        async function logout() {
+async function logout() {
             if (confirm('Are you sure you want to logout?')) {
                 try {
                     const response = await fetch('/logout', {
@@ -863,463 +869,173 @@
                     }
                 } catch (error) {
                     console.error('Logout error:', error);
+                    // Force redirect to login even if logout request fails
                     window.location.href = '/login';
                 }
             }
         }
 
-        // Update grid display and show navigation for large grids
-        function updateGridDisplay() {
-            const totalCells = currentGridRows * currentGridCols;
-            const scrollHint = document.getElementById('scrollHint');
-            const quickNav = document.getElementById('quickNav');
-            
-            // Show navigation for grids larger than 10x10
-            if (totalCells > 100 || currentGridCols > 10 || currentGridRows > 10) {
-                scrollHint.classList.add('show');
-                quickNav.style.display = 'block';
-            } else {
-                scrollHint.classList.remove('show');
-                quickNav.style.display = 'none';
-            }
-            
-            // Auto-adjust cell size based on grid dimensions
-            adjustCellSize();
-            
-            // Update grid info display
-            updateGridInfo();
-            
-            // Center the grid after a short delay
-            setTimeout(centerGrid, 100);
-        }
-
-        // Adjust cell size based on grid dimensions for optimal viewing
-function adjustCellSize() {
-            let cellSize = 100; // Default size
-            
-            // Adjust based on number of columns for horizontal fit
-            if (currentGridCols > 50) {
-                cellSize = 40;
-            } else if (currentGridCols > 40) {
-                cellSize = 50;
-            } else if (currentGridCols > 30) {
-                cellSize = 60;
-            } else if (currentGridCols > 25) {
-                cellSize = 70;
-            } else if (currentGridCols > 20) {
-                cellSize = 80;
-            } else if (currentGridCols > 15) {
-                cellSize = 90;
-            } else if (currentGridCols > 12) {
-                cellSize = 100;
-            } else if (currentGridCols > 10) {
-                cellSize = 110;
-            }
-            
-            // Also consider rows for very tall grids
-            if (currentGridRows > 30) {
-                cellSize = Math.min(cellSize, 60);
-            } else if (currentGridRows > 20) {
-                cellSize = Math.min(cellSize, 80);
-            } else if (currentGridRows > 15) {
-                cellSize = Math.min(cellSize, 100);
-            }
-            
-            // Set the CSS custom property
-            document.documentElement.style.setProperty('--cell-size', cellSize + 'px');
-            
-            // Adjust grid gap proportionally
-            const gridGap = Math.max(2, Math.min(10, cellSize * 0.08));
-            document.documentElement.style.setProperty('--grid-gap', gridGap + 'px');
-        }
-
-        // Update grid information display
-        function updateGridInfo() {
-            const gridInfo = document.querySelector('.grid-info');
-            if (gridInfo) {
-                gridInfo.innerHTML = `
-                    <strong>Current Grid:</strong> ${currentGridRows}×${currentGridCols} 
-                    (${currentGridRows * currentGridCols} total cells)
-                `;
-            }
-            
-            // Update grid controls button text
-            const gridControlsBtn = document.querySelector('.grid-controls .btn');
-            if (gridControlsBtn) {
-                gridControlsBtn.textContent = `ปรับขนาด (Current: ${currentGridRows}×${currentGridCols})`;
-            }
-        }
-
-        // Center the grid in the viewport
-        function centerGrid() {
-            const container = document.getElementById('gridContainer');
-            const grid = document.getElementById('farmGrid');
-            
-            if (container && grid) {
-                const containerWidth = container.clientWidth;
-                const gridWidth = grid.scrollWidth;
-                const containerHeight = container.clientHeight;
-                const gridHeight = grid.scrollHeight;
-                
-                const scrollLeft = Math.max(0, (gridWidth - containerWidth) / 2);
-                const scrollTop = Math.max(0, (gridHeight - containerHeight) / 2);
-                
-                container.scrollTo({
-                    left: scrollLeft,
-                    top: scrollTop,
-                    behavior: 'smooth'
-                });
-            }
-        }
-
-        // Fit grid to screen by adjusting cell size
-        function fitToScreen() {
-            const container = document.getElementById('gridContainer');
-            const availableWidth = window.innerWidth - 100; // Account for padding
-            const availableHeight = window.innerHeight - 300; // Account for header and controls
-            
-            const cellSizeByWidth = Math.max(30, Math.floor(availableWidth / currentGridCols) - 10);
-            const cellSizeByHeight = Math.max(30, Math.floor(availableHeight / currentGridRows) - 10);
-            const cellSize = Math.min(cellSizeByWidth, cellSizeByHeight);
-            
-            document.documentElement.style.setProperty('--cell-size', cellSize + 'px');
-            
-            // Adjust grid gap proportionally
-            const gridGap = Math.max(2, Math.min(10, cellSize * 0.08));
-            document.documentElement.style.setProperty('--grid-gap', gridGap + 'px');
-            
-            setTimeout(centerGrid, 100);
-        }
-
-        // Navigate to specific positions in the grid
-        function scrollToPosition(position) {
-            const container = document.getElementById('gridContainer');
-            if (!container) return;
-            
-            const maxScrollLeft = container.scrollWidth - container.clientWidth;
-            const maxScrollTop = container.scrollHeight - container.clientHeight;
-            
-            let scrollLeft = 0;
-            let scrollTop = 0;
-            
-            switch(position) {
-                case 'top-left':
-                    scrollLeft = 0;
-                    scrollTop = 0;
-                    break;
-                case 'top-center':
-                    scrollLeft = maxScrollLeft / 2;
-                    scrollTop = 0;
-                    break;
-                case 'top-right':
-                    scrollLeft = maxScrollLeft;
-                    scrollTop = 0;
-                    break;
-                case 'center-left':
-                    scrollLeft = 0;
-                    scrollTop = maxScrollTop / 2;
-                    break;
-                case 'center-right':
-                    scrollLeft = maxScrollLeft;
-                    scrollTop = maxScrollTop / 2;
-                    break;
-                case 'bottom-left':
-                    scrollLeft = 0;
-                    scrollTop = maxScrollTop;
-                    break;
-                case 'bottom-center':
-                    scrollLeft = maxScrollLeft / 2;
-                    scrollTop = maxScrollTop;
-                    break;
-                case 'bottom-right':
-                    scrollLeft = maxScrollLeft;
-                    scrollTop = maxScrollTop;
-                    break;
-            }
-            
-            container.scrollTo({
-                left: scrollLeft,
-                top: scrollTop,
-                behavior: 'smooth'
-            });
-        }
-
-        // Add keyboard navigation for large grids
-        function addKeyboardNavigation() {
-            document.addEventListener('keydown', function(e) {
-                const container = document.getElementById('gridContainer');
-                if (!container) return;
-                
-                const scrollAmount = 100;
-                
-                switch(e.key) {
-                    case 'ArrowLeft':
-                        e.preventDefault();
-                        container.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
-                        break;
-                    case 'ArrowRight':
-                        e.preventDefault();
-                        container.scrollBy({ left: scrollAmount, behavior: 'smooth' });
-                        break;
-                    case 'ArrowUp':
-                        e.preventDefault();
-                        container.scrollBy({ top: -scrollAmount, behavior: 'smooth' });
-                        break;
-                    case 'ArrowDown':
-                        e.preventDefault();
-                        container.scrollBy({ top: scrollAmount, behavior: 'smooth' });
-                        break;
-                    case 'Home':
-                        e.preventDefault();
-                        scrollToPosition('top-left');
-                        break;
-                    case 'End':
-                        e.preventDefault();
-                        scrollToPosition('bottom-right');
-                        break;
-                    case ' ': // Spacebar
-                        e.preventDefault();
-                        centerGrid();
-                        break;
-                }
-            });
-        }
-
-        // Add touch navigation for mobile devices
-        function addTouchNavigation() {
-            const container = document.getElementById('gridContainer');
-            if (!container) return;
-            
-            let startX, startY;
-            
-            container.addEventListener('touchstart', function(e) {
-                startX = e.touches[0].clientX;
-                startY = e.touches[0].clientY;
-            });
-            
-            container.addEventListener('touchmove', function(e) {
-                if (!startX || !startY) return;
-                
-                const currentX = e.touches[0].clientX;
-                const currentY = e.touches[0].clientY;
-                
-                const diffX = startX - currentX;
-                const diffY = startY - currentY;
-                
-                // Scroll the container
-                container.scrollBy(diffX, diffY);
-                
-                startX = currentX;
-                startY = currentY;
-            });
-            
-            container.addEventListener('touchend', function() {
-                startX = null;
-                startY = null;
-            });
-        }
-
         // Grid size modal functions
         function showGridSizeModal() {
             document.getElementById('gridModal').style.display = 'flex';
-            document.getElementById('gridRows').value = currentGridRows;
-            document.getElementById('gridCols').value = currentGridCols;
         }
 
         function closeGridModal() {
             document.getElementById('gridModal').style.display = 'none';
         }
 
+        // Update grid size
         async function updateGridSize() {
-            const newRows = parseInt(document.getElementById('gridRows').value);
-            const newCols = parseInt(document.getElementById('gridCols').value);
+            const rows = parseInt(document.getElementById('gridRows').value);
+            const cols = parseInt(document.getElementById('gridCols').value);
             
-            if (newRows < 1 || newCols < 1 || newRows > 100 || newCols > 100) {
-                alert('Grid size must be between 1x1 and 100x100');
+            if (rows < 1 || rows > 100 || cols < 1 || cols > 100) {
+                alert('Grid size must be between 1 and 100 for both rows and columns');
                 return;
             }
             
             try {
-                const response = await fetch('/update_farm_grid_size', {
+                const response = await fetch('/update_grid_settings', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
-                        rows: newRows,
-                        cols: newCols
+                        grid_type: 'farm',
+                        rows: rows,
+                        cols: cols
                     })
                 });
                 
                 const result = await response.json();
                 
                 if (result.success) {
-                    currentGridRows = newRows;
-                    currentGridCols = newCols;
                     closeGridModal();
-                    window.location.reload(); // Reload to show new grid
+                    window.location.reload();
                 } else {
-                    alert('Failed to update grid size: ' + result.error);
+                    alert('Failed to update grid size: ' + (result.error || 'Unknown error'));
                 }
             } catch (error) {
                 console.error('Error updating grid size:', error);
-                alert('Error updating grid size');
+                alert('Error updating grid size. Please try again.');
             }
         }
 
-        // Handle cell clicks for adding new farms
-        function handleCellClick(row, col) {
-            if (isDragging) return; // Don't add farm if we're dragging
+        // Grid display and navigation functions
+        function updateGridDisplay() {
+            const totalCells = currentGridRows * currentGridCols;
+            const isLargeGrid = totalCells > 400; // 20x20
             
-            const farmName = prompt('Enter farm name:');
-            if (farmName) {
-                addFarm(farmName, row, col);
+            // Show navigation for large grids
+            const quickNav = document.getElementById('quickNav');
+            const scrollHint = document.getElementById('scrollHint');
+            
+            if (isLargeGrid) {
+                quickNav.style.display = 'block';
+                scrollHint.classList.add('show');
+            } else {
+                quickNav.style.display = 'none';
+                scrollHint.classList.remove('show');
             }
+            
+            // Center the grid initially
+            setTimeout(centerGrid, 100);
         }
 
-        // Handle farm clicks for viewing farm info
-// Handle farm clicks for viewing farm info
-async function handleFarmClick(event, farmId) {
-    event.stopPropagation();
-    if (isDragging) return;
-    
-    console.log('Navigating to farm info for farm ID:', farmId);
-    
-    // Show loading indicator
-    const originalCursor = document.body.style.cursor;
-    document.body.style.cursor = 'wait';
-    
-    try {
-        // Try the main farm info route
-        window.location.href = `/farm_info/${farmId}`;
-        
-    } catch (error) {
-        console.error('Error accessing farm:', error);
-        
-        // Reset cursor
-        document.body.style.cursor = originalCursor;
-        
-        // Show user-friendly error with options
-        const userChoice = confirm(
-            `Unable to access farm information.\n\n` +
-            `Would you like to:\n` +
-            `• OK - Try viewing farm domes instead\n` +
-            `• Cancel - Stay on this page`
-        );
-        
-        if (userChoice) {
-            try {
-                window.location.href = `/farm/${farmId}/domes`;
-            } catch (fallbackError) {
-                alert('Unable to access farm. Please refresh the page and try again.');
-            }
-        }
-    }
-}
-        // Add new farm
-        async function addFarm(name, row, col) {
-            try {
-                const response = await fetch('/add_farm', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        name: name,
-                        grid_row: row,
-                        grid_col: col
-                    })
+        // Navigation functions
+        function centerGrid() {
+            const container = document.getElementById('gridContainer');
+            const grid = document.getElementById('farmGrid');
+            
+            if (container && grid) {
+                const containerRect = container.getBoundingClientRect();
+                const gridRect = grid.getBoundingClientRect();
+                
+                const scrollLeft = (gridRect.width - containerRect.width) / 2;
+                const scrollTop = (gridRect.height - containerRect.height) / 2;
+                
+                container.scrollTo({
+                    left: Math.max(0, scrollLeft),
+                    top: Math.max(0, scrollTop),
+                    behavior: 'smooth'
                 });
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    window.location.reload(); // Reload to show new farm
-                } else {
-                    alert('Failed to add farm: ' + result.error);
-                }
-            } catch (error) {
-                console.error('Error adding farm:', error);
-                alert('Error adding farm');
             }
         }
 
-        // Drag and drop functions
-        function dragFarm(event) {
-            draggedFarm = {
-                id: event.target.dataset.farmId,
-                element: event.target
-            };
-            isDragging = true;
-            event.target.style.opacity = '0.5';
-        }
-
-        function dragEnd(event) {
-            if (draggedFarm) {
-                draggedFarm.element.style.opacity = '1';
-                draggedFarm = null;
-            }
-            isDragging = false;
+        function fitToScreen() {
+            const container = document.getElementById('gridContainer');
+            const grid = document.getElementById('farmGrid');
             
-            // Remove drag-over class from all cells
-            document.querySelectorAll('.grid-cell').forEach(cell => {
-                cell.classList.remove('drag-over');
+            if (container && grid) {
+                const containerRect = container.getBoundingClientRect();
+                const gridRect = grid.getBoundingClientRect();
+                
+                // Calculate scale to fit
+                const scaleX = containerRect.width / gridRect.width;
+                const scaleY = containerRect.height / gridRect.height;
+                const scale = Math.min(scaleX, scaleY, 1); // Don't scale up
+                
+                if (scale < 1) {
+                    const newCellSize = Math.floor(100 * scale);
+                    document.documentElement.style.setProperty('--cell-size', `${newCellSize}px`);
+                    
+                    setTimeout(() => {
+                        centerGrid();
+                    }, 100);
+                }
+            }
+        }
+
+        function scrollToPosition(position) {
+            const container = document.getElementById('gridContainer');
+            const grid = document.getElementById('farmGrid');
+            
+            if (!container || !grid) return;
+            
+            const containerRect = container.getBoundingClientRect();
+            const gridRect = grid.getBoundingClientRect();
+            
+            let scrollLeft = 0;
+            let scrollTop = 0;
+            
+            switch (position) {
+                case 'top-left':
+                    scrollLeft = 0;
+                    scrollTop = 0;
+                    break;
+                case 'top-center':
+                    scrollLeft = (gridRect.width - containerRect.width) / 2;
+                    scrollTop = 0;
+                    break;
+                case 'top-right':
+                    scrollLeft = gridRect.width - containerRect.width;
+                    scrollTop = 0;
+                    break;
+                case 'center-left':
+                    scrollLeft = 0;
+                    scrollTop = (gridRect.height - containerRect.height) / 2;
+                    break;
+                case 'center-right':
+                    scrollLeft = gridRect.width - containerRect.width;
+                    scrollTop = (gridRect.height - containerRect.height) / 2;
+                    break;
+                case 'bottom-left':
+                    scrollLeft = 0;
+                    scrollTop = gridRect.height - containerRect.height;
+                    break;
+                case 'bottom-center':
+                    scrollLeft = (gridRect.width - containerRect.width) / 2;
+                    scrollTop = gridRect.height - containerRect.height;
+                    break;
+                case 'bottom-right':
+                    scrollLeft = gridRect.width - containerRect.width;
+                    scrollTop = gridRect.height - containerRect.height;
+                    break;
+            }
+            
+            container.scrollTo({
+                left: Math.max(0, scrollLeft),
+                top: Math.max(0, scrollTop),
+                behavior: 'smooth'
             });
         }
-
-        function allowDrop(event) {
-            event.preventDefault();
-            if (draggedFarm) {
-                event.target.closest('.grid-cell').classList.add('drag-over');
-            }
-        }
-
-        function dropFarm(event) {
-            event.preventDefault();
-            const cell = event.target.closest('.grid-cell');
-            cell.classList.remove('drag-over');
-            
-            if (draggedFarm) {
-                const newRow = parseInt(cell.dataset.row);
-                const newCol = parseInt(cell.dataset.col);
-                moveFarm(draggedFarm.id, newRow, newCol);
-            }
-        }
-
-        // Move farm to new position
-        async function moveFarm(farmId, newRow, newCol) {
-            try {
-                const response = await fetch(`/move_farm/${farmId}`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        grid_row: newRow,
-                        grid_col: newCol
-                    })
-                });
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    window.location.reload(); // Reload to show updated positions
-                } else {
-                    alert('Failed to move farm: ' + result.error);
-                }
-            } catch (error) {
-                console.error('Error moving farm:', error);
-                alert('Error moving farm');
-            }
-        }
-
-        // Close modal when clicking outside
-        window.onclick = function(event) {
-            const modal = document.getElementById('gridModal');
-            if (event.target === modal) {
-                closeGridModal();
-            }
-        }
-    </script>
-</body>
-</html>
