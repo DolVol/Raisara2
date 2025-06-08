@@ -8,7 +8,7 @@ import base64
 from PIL import Image
 from sqlalchemy import text
 import time
-
+import requests
 # Load environment variables from .env file
 load_dotenv()
 
@@ -537,7 +537,31 @@ If you did not request this, please ignore this email.
 def allowed_file(filename):
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-
+def save_image_to_database(image_file, entity_type, entity_id):
+    """Save image as base64 in database instead of filesystem"""
+    try:
+        # Read and process the image
+        image_data = image_file.read()
+        
+        # Convert to base64
+        image_base64 = base64.b64encode(image_data).decode('utf-8')
+        
+        # Get file extension
+        filename = image_file.filename.lower()
+        if filename.endswith(('.png', '.jpg', '.jpeg', '.gif', '.webp')):
+            ext = filename.split('.')[-1]
+        else:
+            ext = 'jpg'
+        
+        # Create data URL
+        mime_type = f'image/{ext}' if ext != 'jpg' else 'image/jpeg'
+        data_url = f'data:{mime_type};base64,{image_base64}'
+        
+        return data_url
+        
+    except Exception as e:
+        print(f"❌ Error saving image: {e}")
+        return None
 def initialize_scheduler():
     """Initialize the daily life updater when the app starts"""
     global life_updater
@@ -1381,61 +1405,36 @@ def delete_farm(farm_id):
 @app.route('/upload_farm_image/<int:farm_id>', methods=['POST'])
 @login_required
 def upload_farm_image(farm_id):
-    """Upload farm image"""
     try:
         farm = Farm.query.filter_by(id=farm_id, user_id=current_user.id).first()
         if not farm:
-            return jsonify({'success': False, 'error': 'Farm not found'}), 404
+            return jsonify({'success': False, 'error': 'Farm not found'})
         
         if 'image' not in request.files:
-            return jsonify({'success': False, 'error': 'No image file provided'}), 400
+            return jsonify({'success': False, 'error': 'No image file'})
         
         file = request.files['image']
         if file.filename == '':
-            return jsonify({'success': False, 'error': 'No file selected'}), 400
+            return jsonify({'success': False, 'error': 'No file selected'})
         
-        if file and allowed_file(file.filename):
-            # Create farms directory if it doesn't exist
-            farms_dir = os.path.join(app.config['UPLOAD_FOLDER'], 'farms')
-            os.makedirs(farms_dir, exist_ok=True)
-            
-            # Delete old image if exists
-            if hasattr(farm, 'image_url') and farm.image_url:
-                try:
-                    old_filename = farm.image_url.split('/')[-1]
-                    old_file_path = os.path.join(farms_dir, old_filename)
-                    if os.path.exists(old_file_path):
-                        os.remove(old_file_path)
-                except Exception as e:
-                    print(f"Error deleting old farm image: {e}")
-            
-            # Generate unique filename
-            timestamp = int(time.time())
-            file_extension = file.filename.rsplit('.', 1)[1].lower()
-            filename = f"farm_{farm_id}_{timestamp}_{secrets.token_hex(16)}.{file_extension}"
-            
-            # Save file
-            file_path = os.path.join(farms_dir, filename)
-            file.save(file_path)
-            
-            # Update farm image URL
-            farm.image_url = f"/static/uploads/farms/{filename}"
-            farm.updated_at = datetime.utcnow()
-            
+        # Save image as base64 data URL
+        image_url = save_image_to_database(file, 'farm', farm_id)
+        
+        if image_url:
+            farm.image_url = image_url
             db.session.commit()
             
             return jsonify({
                 'success': True, 
-                'image_url': farm.image_url,
-                'message': 'Farm image uploaded successfully'
+                'message': 'Image uploaded successfully',
+                'image_url': image_url
             })
         else:
-            return jsonify({'success': False, 'error': 'Invalid file type'}), 400
+            return jsonify({'success': False, 'error': 'Failed to process image'})
             
     except Exception as e:
-        print(f"Error uploading farm image: {e}")
-        db.session.rollback()
-        return jsonify({'success': False, 'error': str(e)}), 500
+        print(f"❌ Farm image upload error: {e}")
+        return jsonify({'success': False, 'error': str(e)})
 @app.route('/')
 @login_required
 def index():
@@ -1732,56 +1731,33 @@ def upload_dome_image(dome_id):
     try:
         dome = Dome.query.filter_by(id=dome_id, user_id=current_user.id).first()
         if not dome:
-            return jsonify({'success': False, 'error': 'Dome not found'}), 404
+            return jsonify({'success': False, 'error': 'Dome not found'})
         
         if 'image' not in request.files:
-            return jsonify({'success': False, 'error': 'No image file provided'}), 400
+            return jsonify({'success': False, 'error': 'No image file'})
         
         file = request.files['image']
         if file.filename == '':
-            return jsonify({'success': False, 'error': 'No file selected'}), 400
+            return jsonify({'success': False, 'error': 'No file selected'})
         
-        if file and allowed_file(file.filename):
-            # Create domes directory if it doesn't exist
-            domes_dir = os.path.join(app.config['UPLOAD_FOLDER'], 'domes')
-            os.makedirs(domes_dir, exist_ok=True)
-            
-            # Delete old image if exists
-            if dome.image_url:
-                try:
-                    old_filename = dome.image_url.split('/')[-1]
-                    old_file_path = os.path.join(domes_dir, old_filename)
-                    if os.path.exists(old_file_path):
-                        os.remove(old_file_path)
-                except Exception as e:
-                    print(f"Error deleting old dome image: {e}")
-            
-            # Generate unique filename
-            timestamp = int(time.time())
-            file_extension = file.filename.rsplit('.', 1)[1].lower()
-            filename = f"dome_{dome_id}_{timestamp}_{secrets.token_hex(16)}.{file_extension}"
-            
-            # Save file
-            file_path = os.path.join(domes_dir, filename)
-            file.save(file_path)
-            
-            # Update dome image URL
-            dome.image_url = f"/static/uploads/domes/{filename}"
-            
+        # Save image as base64 data URL
+        image_url = save_image_to_database(file, 'dome', dome_id)
+        
+        if image_url:
+            dome.image_url = image_url
             db.session.commit()
             
             return jsonify({
                 'success': True, 
-                'image_url': dome.image_url,
-                'message': 'Dome image uploaded successfully'
+                'message': 'Image uploaded successfully',
+                'image_url': image_url
             })
         else:
-            return jsonify({'success': False, 'error': 'Invalid file type'}), 400
+            return jsonify({'success': False, 'error': 'Failed to process image'})
             
     except Exception as e:
-        print(f"Error uploading dome image: {e}")
-        db.session.rollback()
-        return jsonify({'success': False, 'error': str(e)}), 500
+        print(f"❌ Dome image upload error: {e}")
+        return jsonify({'success': False, 'error': str(e)})
 
 # ============= TREE MANAGEMENT =============
 
@@ -2293,57 +2269,72 @@ def upload_tree_image(tree_id):
     try:
         tree = Tree.query.filter_by(id=tree_id, user_id=current_user.id).first()
         if not tree:
-            return jsonify({'success': False, 'error': 'Tree not found'}), 404
+            return jsonify({'success': False, 'error': 'Tree not found'})
         
         if 'image' not in request.files:
-            return jsonify({'success': False, 'error': 'No image file provided'}), 400
+            return jsonify({'success': False, 'error': 'No image file'})
         
         file = request.files['image']
         if file.filename == '':
-            return jsonify({'success': False, 'error': 'No file selected'}), 400
+            return jsonify({'success': False, 'error': 'No file selected'})
         
-        if file and allowed_file(file.filename):
-            # Create trees directory if it doesn't exist
-            trees_dir = os.path.join(app.config['UPLOAD_FOLDER'], 'trees')
-            os.makedirs(trees_dir, exist_ok=True)
-            
-            # Delete old image if exists
-            if tree.image_url:
-                try:
-                    old_filename = tree.image_url.split('/')[-1]
-                    old_file_path = os.path.join(trees_dir, old_filename)
-                    if os.path.exists(old_file_path):
-                        os.remove(old_file_path)
-                except Exception as e:
-                    print(f"Error deleting old tree image: {e}")
-            
-            # Generate unique filename
-            timestamp = int(time.time())
-            file_extension = file.filename.rsplit('.', 1)[1].lower()
-            filename = f"tree_{tree_id}_{timestamp}_{secrets.token_hex(8)}.{file_extension}"
-            
-            # Save file
-            file_path = os.path.join(trees_dir, filename)
-            file.save(file_path)
-            
-            # Update tree image URL
-            tree.image_url = f"/static/uploads/trees/{filename}"
-            
+        # Save image as base64 data URL
+        image_url = save_image_to_database(file, 'tree', tree_id)
+        
+        if image_url:
+            tree.image_url = image_url
             db.session.commit()
             
             return jsonify({
                 'success': True, 
-                'image_url': tree.image_url,
-                'message': 'Tree image uploaded successfully'
+                'message': 'Image uploaded successfully',
+                'image_url': image_url
             })
         else:
-            return jsonify({'success': False, 'error': 'Invalid file type'}), 400
+            return jsonify({'success': False, 'error': 'Failed to process image'})
             
     except Exception as e:
-        print(f"Error uploading tree image: {e}")
-        db.session.rollback()
-        return jsonify({'success': False, 'error': str(e)}), 500
-
+        print(f"❌ Tree image upload error: {e}")
+        return jsonify({'success': False, 'error': str(e)})
+@app.route('/migrate_images_to_database')
+@login_required
+def migrate_images_to_database():
+    """One-time migration to convert file URLs to data URLs"""
+    try:
+        migrated = 0
+        
+        # Check farms with file-based image URLs
+        farms = Farm.query.filter(Farm.image_url.like('/uploads/%')).all()
+        for farm in farms:
+            # Convert to placeholder or remove
+            farm.image_url = None
+            migrated += 1
+        
+        # Check domes with file-based image URLs
+        domes = Dome.query.filter(Dome.image_url.like('/uploads/%')).all()
+        for dome in domes:
+            # Convert to placeholder or remove
+            dome.image_url = None
+            migrated += 1
+        
+        # Check trees with file-based image URLs
+        trees = Tree.query.filter(Tree.image_url.like('/uploads/%')).all()
+        for tree in trees:
+            # Convert to placeholder or remove
+            tree.image_url = None
+            migrated += 1
+        
+        db.session.commit()
+        
+        return f"""
+        <h2>✅ Image Migration Complete</h2>
+        <p>Cleaned up {migrated} old file references.</p>
+        <p>All future uploads will be stored in the database.</p>
+        <p><a href="/farms">Back to Farms</a></p>
+        """
+        
+    except Exception as e:
+        return f"❌ Migration error: {e}"
 @app.route('/remove_tree_image/<int:tree_id>', methods=['POST'])
 @login_required
 def remove_tree_image(tree_id):
