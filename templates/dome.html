@@ -1295,13 +1295,31 @@
                 }
 
                 // Grid size modal functions
-                function showGridSizeModal() {
-                    if (!isGlobalContext) {
-                        alert('Farm-specific domes use a fixed 5x5 grid.\n\nGrid resizing is only available for global domes.\n\nTo access global domes, go to the main domes page.');
-                        return;
-                    }
-                    document.getElementById('gridModal').style.display = 'flex';
-                }
+function showGridSizeModal() {
+    console.log('🔧 showGridSizeModal called for context:', contextType);
+    
+    try {
+        const modal = document.getElementById('gridModal');
+        if (!modal) {
+            console.error('❌ Grid modal element not found');
+            showFallbackGridResize();
+            return;
+        }
+        
+        console.log('✅ Showing grid modal for', contextType);
+        modal.style.display = 'flex';
+        
+        // Focus on the first input
+        const firstInput = modal.querySelector('input');
+        if (firstInput) {
+            setTimeout(() => firstInput.focus(), 100);
+        }
+        
+    } catch (error) {
+        console.error('❌ Error in showGridSizeModal:', error);
+        showFallbackGridResize();
+    }
+}
 
                 function closeGridModal() {
                     document.getElementById('gridModal').style.display = 'none';
