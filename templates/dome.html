@@ -685,12 +685,12 @@ async function handleDomeClick(event, domeId) {
     }
     
     try {
-        // ✅ FIXED: Try grid route first (this is more likely to work)
-        console.log('Navigating to grid for dome:', domeId);
-        window.location.href = `/grid/${domeId}`;
+        // ✅ FIXED: Navigate to dome_info instead of grid
+        console.log('Navigating to dome info for dome:', domeId);
+        window.location.href = `/dome_info/${domeId}`;
         
     } catch (error) {
-        console.error('Error accessing dome grid:', error);
+        console.error('Error accessing dome info:', error);
         
         // Reset dome appearance
         if (domeElement) {
@@ -698,16 +698,21 @@ async function handleDomeClick(event, domeId) {
             domeElement.style.transform = '';
         }
         
-        // Show user-friendly error
+        // ✅ ENHANCED: Try fallback routes
         const userChoice = confirm(
-            `Unable to access dome grid.\n\n` +
-            `This might be a temporary issue. Would you like to:\n` +
-            `• OK - Try refreshing the page\n` +
+            `Unable to access dome information.\n\n` +
+            `Would you like to:\n` +
+            `• OK - Try dome grid instead\n` +
             `• Cancel - Stay here`
         );
         
         if (userChoice) {
-            window.location.reload();
+            try {
+                // Fallback to grid route
+                window.location.href = `/grid/${domeId}`;
+            } catch (fallbackError) {
+                alert('Unable to access dome. Please refresh the page and try again.');
+            }
         }
     }
 }

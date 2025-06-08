@@ -2024,17 +2024,19 @@ def profile():
 @app.route('/dome_info/<int:dome_id>')
 @login_required
 def dome_info(dome_id):
-    import time
-    
-    dome = Dome.query.filter_by(id=dome_id, user_id=current_user.id).first()
-    if not dome:
-        abort(404)
-    
-    # ✅ FIXED: Add timestamp for cache busting
-    timestamp = int(time.time())
-    
-    return render_template('dome_info.html', dome=dome, timestamp=timestamp)
-
+    try:
+        dome = Dome.query.filter_by(id=dome_id, user_id=current_user.id).first()
+        if not dome:
+            flash('Dome not found', 'error')
+            return redirect(url_for('domes'))
+        
+        # Your dome_info logic here...
+        return render_template('dome_info.html', dome=dome)
+        
+    except Exception as e:
+        print(f"❌ Error in dome_info route: {e}")
+        flash('Error loading dome information', 'error')
+        return redirect(url_for('domes'))
 
 @app.route('/api/tree/<int:tree_id>')
 @login_required
