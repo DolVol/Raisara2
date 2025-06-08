@@ -1583,7 +1583,7 @@ def index():
 @app.route('/update_dome_grid/<int:dome_id>', methods=['POST'])
 @login_required
 def update_dome_grid(dome_id):
-    """Update dome internal grid size"""
+    """Update individual dome's internal grid size"""
     try:
         dome = Dome.query.filter_by(id=dome_id, user_id=current_user.id).first()
         if not dome:
@@ -1593,7 +1593,7 @@ def update_dome_grid(dome_id):
         new_rows = data.get('rows')
         new_cols = data.get('cols')
         
-        print(f"🔧 Updating dome {dome_id} internal grid size to {new_rows}x{new_cols}")
+        print(f"🔧 Updating dome {dome_id} ({dome.name}) internal grid size to {new_rows}x{new_cols}")
         
         # Validation
         if not new_rows or not new_cols:
@@ -1606,11 +1606,14 @@ def update_dome_grid(dome_id):
             return jsonify({'success': False, 'error': 'Invalid grid size values'}), 400
         
         # Validate size bounds
-        if new_rows < 1 or new_cols < 1 or new_rows > 100 or new_cols > 100:
-            return jsonify({'success': False, 'error': 'Grid size must be between 1x1 and 100x100'}), 400
+        if new_rows < 1 or new_cols < 1 or new_rows > 50 or new_cols > 50:
+            return jsonify({'success': False, 'error': 'Grid size must be between 1x1 and 50x50'}), 400
         
         # Check if shrinking would affect existing trees
-        if new_rows < (dome.internal_rows or 5) or new_cols < (dome.internal_cols or 5):
+        current_rows = dome.internal_rows or 5
+        current_cols = dome.internal_cols or 5
+        
+        if new_rows < current_rows or new_cols < current_cols:
             affected_trees = Tree.query.filter(
                 Tree.dome_id == dome_id,
                 Tree.user_id == current_user.id,
@@ -1618,35 +1621,290 @@ def update_dome_grid(dome_id):
             ).all()
             
             if affected_trees:
-                tree_names = [tree.name for tree in affected_trees]
+                tree_names = [tree.name for tree in affected_trees[:5]]  # Show max 5 names
+                tree_list = ", ".join(tree_names)
+                if len(affected_trees) > 5:
+                    tree_list += f" and {len(affected_trees) - 5} more"
+                
                 return jsonify({
                     'success': False, 
-                    'error': f'Cannot shrink grid. Trees would be affected: {", ".join(tree_names)}'
+                    'error': f'Cannot shrink grid. {len(affected_trees)} trees would be outside the new grid: {tree_list}'
                 }), 400
         
         # Update dome internal grid size
+        old_size = f"{current_rows}x{current_cols}"
         dome.internal_rows = new_rows
         dome.internal_cols = new_cols
         dome.updated_at = datetime.utcnow()
         
         db.session.commit()
         
-        print(f"✅ Dome {dome_id} internal grid size updated to {new_rows}x{new_cols}")
+        print(f"✅ Dome {dome_id} ({dome.name}) grid size updated from {old_size} to {new_rows}x{new_cols}")
         
         return jsonify({
             'success': True,
-            'message': f'Dome grid updated to {new_rows}x{new_cols}',
+            'message': f'Dome "{dome.name}" grid updated to {new_rows}x{new_cols}',
             'dome': {
                 'id': dome.id,
+                'name': dome.name,
                 'internal_rows': dome.internal_rows,
-                'internal_cols': dome.internal_cols
+                'internal_cols': dome.internal_cols,
+                'old_size': old_size,
+                'new_size': f"{new_rows}x{new_cols}"
             }
         })
         
     except Exception as e:
         print(f"❌ Error updating dome grid size: {str(e)}")
         db.session.rollback()
+        return jsonify({'success': False, 'error': f'Failed to update dome grid: {str(e)}'}), 500
+@app.route('/api/dome/<int:dome_id>/info')
+@login_required
+def get_dome_info(dome_id):
+    """Get detailed dome information including grid size and tree count"""
+    try:
+        dome = Dome.query.filter_by(id=dome_id, user_id=current_user.id).first()
+        if not dome:
+            return jsonify({'success': False, 'error': 'Dome not found'}), 404
+        
+        # Get tree count and positions
+        trees = Tree.query.filter_by(dome_id=dome_id, user_id=current_user.id).all()
+        tree_positions = []
+        
+        for tree in trees:
+            tree_positions.append({
+                'id': tree.id,
+                'name': tree.name,
+                'internal_row': tree.internal_row,
+                'internal_col': tree.internal_col,
+                'life_days': tree.life_days or 0,
+                'life_stage': tree.get_life_stage() if hasattr(tree, 'get_life_stage') else 'Unknown'
+            })
+        
+        # Check for trees that would be outside current grid
+        current_rows = dome.internal_rows or 5
+        current_cols = dome.internal_cols or 5
+        
+        trees_outside_grid = [
+            tree for tree in trees 
+            if tree.internal_row >= current_rows or tree.internal_col >= current_cols
+        ]
+        
+        dome_info = {
+            'id': dome.id,
+            'name': dome.name,
+            'grid_row': dome.grid_row,
+            'grid_col': dome.grid_col,
+            'internal_rows': current_rows,
+            'internal_cols': current_cols,
+            'farm_id': dome.farm_id,
+            'tree_count': len(trees),
+            'trees': tree_positions,
+            'trees_outside_grid': len(trees_outside_grid),
+            'max_tree_row': max([tree.internal_row for tree in trees], default=0),
+            'max_tree_col': max([tree.internal_col for tree in trees], default=0),
+            'created_at': dome.created_at.isoformat() if dome.created_at else None,
+            'updated_at': dome.updated_at.isoformat() if dome.updated_at else None
+        }
+        
+        return jsonify({
+            'success': True,
+            'dome': dome_info
+        })
+        
+    except Exception as e:
+        print(f"❌ Error getting dome info: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
+@app.route('/api/dome/<int:dome_id>/grid-constraints')
+@login_required
+def get_dome_grid_constraints(dome_id):
+    """Get minimum grid size constraints based on existing trees"""
+    try:
+        dome = Dome.query.filter_by(id=dome_id, user_id=current_user.id).first()
+        if not dome:
+            return jsonify({'success': False, 'error': 'Dome not found'}), 404
+        
+        # Find the maximum tree positions
+        trees = Tree.query.filter_by(dome_id=dome_id, user_id=current_user.id).all()
+        
+        if not trees:
+            min_rows = 1
+            min_cols = 1
+        else:
+            # Add 1 because positions are 0-indexed
+            min_rows = max([tree.internal_row for tree in trees], default=0) + 1
+            min_cols = max([tree.internal_col for tree in trees], default=0) + 1
+        
+        current_rows = dome.internal_rows or 5
+        current_cols = dome.internal_cols or 5
+        
+        return jsonify({
+            'success': True,
+            'constraints': {
+                'min_rows': min_rows,
+                'min_cols': min_cols,
+                'current_rows': current_rows,
+                'current_cols': current_cols,
+                'max_rows': 50,
+                'max_cols': 50,
+                'tree_count': len(trees),
+                'can_shrink': min_rows <= current_rows and min_cols <= current_cols
+            }
+        })
+        
+    except Exception as e:
+        print(f"❌ Error getting dome constraints: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+@app.route('/reset_dome_grid/<int:dome_id>', methods=['POST'])
+@login_required
+def reset_dome_grid(dome_id):
+    """Reset dome grid to default size (5x5) if no trees would be affected"""
+    try:
+        dome = Dome.query.filter_by(id=dome_id, user_id=current_user.id).first()
+        if not dome:
+            return jsonify({'success': False, 'error': 'Dome not found'}), 404
+        
+        # Check if any trees would be outside a 5x5 grid
+        trees_outside = Tree.query.filter(
+            Tree.dome_id == dome_id,
+            Tree.user_id == current_user.id,
+            (Tree.internal_row >= 5) | (Tree.internal_col >= 5)
+        ).all()
+        
+        if trees_outside:
+            tree_names = [tree.name for tree in trees_outside[:3]]
+            tree_list = ", ".join(tree_names)
+            if len(trees_outside) > 3:
+                tree_list += f" and {len(trees_outside) - 3} more"
+                
+            return jsonify({
+                'success': False,
+                'error': f'Cannot reset to 5x5. {len(trees_outside)} trees would be outside the grid: {tree_list}'
+            }), 400
+        
+        # Reset to default 5x5
+        old_size = f"{dome.internal_rows or 5}x{dome.internal_cols or 5}"
+        dome.internal_rows = 5
+        dome.internal_cols = 5
+        dome.updated_at = datetime.utcnow()
+        
+        db.session.commit()
+        
+        print(f"✅ Dome {dome_id} ({dome.name}) grid reset from {old_size} to 5x5")
+        
+        return jsonify({
+            'success': True,
+            'message': f'Dome "{dome.name}" grid reset to 5x5',
+            'dome': {
+                'id': dome.id,
+                'name': dome.name,
+                'internal_rows': 5,
+                'internal_cols': 5
+            }
+        })
+        
+    except Exception as e:
+        print(f"❌ Error resetting dome grid: {str(e)}")
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+@app.route('/optimize_dome_grid/<int:dome_id>', methods=['POST'])
+@login_required
+def optimize_dome_grid(dome_id):
+    """Automatically optimize dome grid size to fit existing trees with minimal padding"""
+    try:
+        dome = Dome.query.filter_by(id=dome_id, user_id=current_user.id).first()
+        if not dome:
+            return jsonify({'success': False, 'error': 'Dome not found'}), 404
+        
+        trees = Tree.query.filter_by(dome_id=dome_id, user_id=current_user.id).all()
+        
+        if not trees:
+            # No trees, set to minimum size
+            optimal_rows = 3
+            optimal_cols = 3
+        else:
+            # Find the maximum positions and add padding
+            max_row = max([tree.internal_row for tree in trees], default=0)
+            max_col = max([tree.internal_col for tree in trees], default=0)
+            
+            # Add 1 for 0-indexing and 1-2 for padding
+            optimal_rows = max_row + 2
+            optimal_cols = max_col + 2
+            
+            # Ensure minimum size
+            optimal_rows = max(optimal_rows, 3)
+            optimal_cols = max(optimal_cols, 3)
+            
+            # Ensure maximum size
+            optimal_rows = min(optimal_rows, 50)
+            optimal_cols = min(optimal_cols, 50)
+        
+        old_size = f"{dome.internal_rows or 5}x{dome.internal_cols or 5}"
+        dome.internal_rows = optimal_rows
+        dome.internal_cols = optimal_cols
+        dome.updated_at = datetime.utcnow()
+        
+        db.session.commit()
+        
+        print(f"✅ Dome {dome_id} ({dome.name}) grid optimized from {old_size} to {optimal_rows}x{optimal_cols}")
+        
+        return jsonify({
+            'success': True,
+            'message': f'Dome "{dome.name}" grid optimized to {optimal_rows}x{optimal_cols}',
+            'dome': {
+                'id': dome.id,
+                'name': dome.name,
+                'internal_rows': optimal_rows,
+                'internal_cols': optimal_cols,
+                'tree_count': len(trees)
+            }
+        })
+        
+    except Exception as e:
+        print(f"❌ Error optimizing dome grid: {str(e)}")
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+@app.route('/debug/dome/<int:dome_id>/grid')
+@login_required
+def debug_dome_grid(dome_id):
+    """Debug route to check dome grid configuration"""
+    try:
+        dome = Dome.query.filter_by(id=dome_id, user_id=current_user.id).first()
+        if not dome:
+            return f"<pre>Dome {dome_id} not found</pre>"
+        
+        trees = Tree.query.filter_by(dome_id=dome_id, user_id=current_user.id).all()
+        
+        debug_info = {
+            'dome_id': dome_id,
+            'dome_name': dome.name,
+            'current_grid': f"{dome.internal_rows or 5}x{dome.internal_cols or 5}",
+            'farm_id': dome.farm_id,
+            'tree_count': len(trees),
+            'trees': []
+        }
+        
+        for tree in trees:
+            debug_info['trees'].append({
+                'id': tree.id,
+                'name': tree.name,
+                'position': f"({tree.internal_row}, {tree.internal_col})",
+                'outside_grid': (
+                    tree.internal_row >= (dome.internal_rows or 5) or 
+                    tree.internal_col >= (dome.internal_cols or 5)
+                )
+            })
+        
+        if trees:
+            max_row = max([tree.internal_row for tree in trees])
+            max_col = max([tree.internal_col for tree in trees])
+            debug_info['max_tree_position'] = f"({max_row}, {max_col})"
+            debug_info['min_required_grid'] = f"{max_row + 1}x{max_col + 1}"
+        
+        return f"<pre>{json.dumps(debug_info, indent=2)}</pre>"
+        
+    except Exception as e:
+        return f"<pre>Error: {str(e)}</pre>"
 @app.route('/farm/<int:farm_id>/domes')
 @login_required
 def farm_domes(farm_id):
