@@ -201,7 +201,44 @@
         .grid-container::-webkit-scrollbar-thumb:hover {
             background: #45a049;
         }
+/* ✅ NEW: Farm image display for base64 data */
+.farm-with-image {
+    position: relative;
+    overflow: hidden;
+}
 
+.farm-background-img {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 15%;
+    z-index: 1;
+}
+
+.farm-with-image .farm-name {
+    position: relative;
+    z-index: 3;
+    background: rgba(0, 0, 0, 0.7);
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-top: auto;
+}
+
+/* Ensure the overlay still works */
+.farm-with-image::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 15%;
+    z-index: 2;
+}
         /* Main farm grid */
         .farm-grid {
             display: grid;
@@ -701,29 +738,41 @@
                                 <!-- Add coordinate label -->
                                 <div class="coordinate-label">{{ row }},{{ col }}</div>
                                 
-                                {% if farm %}
-                                    <!-- Dynamic farm image display -->
-                                    {% if farm.image_url %}
-                                        <div class="farm" 
-                                             data-farm-id="{{ farm.id }}"
-                                             draggable="true"
-                                             ondragstart="dragFarm(event)"
-                                             ondragend="dragEnd(event)"
-                                             onclick="handleFarmClick(event, {{ farm.id }})"
-                                             style="background-image: url('{{ farm.image_url }}?t={{ timestamp }}');">
-                                            <span class="farm-name" data-name="{{ farm.name }}">{{ farm.name }}</span>
-                                        </div>
-                                    {% else %}
-                                        <div class="farm-placeholder" 
-                                             data-farm-id="{{ farm.id }}"
-                                             draggable="true"
-                                             ondragstart="dragFarm(event)"
-                                             ondragend="dragEnd(event)"
-                                             onclick="handleFarmClick(event, {{ farm.id }})">
-                                            🚜
-                                            <span class="farm-name" data-name="{{ farm.name }}">{{ farm.name }}</span>
-                                        </div>
-                                    {% endif %}
+<!-- ✅ FIXED: Dynamic farm image display for base64 data -->
+{% if farm.image_url and farm.image_url.startswith('data:image/') %}
+    <!-- Farm with base64 image -->
+    <div class="farm farm-with-image" 
+         data-farm-id="{{ farm.id }}"
+         draggable="true"
+         ondragstart="dragFarm(event)"
+         ondragend="dragEnd(event)"
+         onclick="handleFarmClick(event, {{ farm.id }})">
+        <img src="{{ farm.image_url }}" alt="Farm Image" class="farm-background-img">
+        <span class="farm-name" data-name="{{ farm.name }}">{{ farm.name }}</span>
+    </div>
+{% elif farm.image_url and not farm.image_url.startswith('data:image/') %}
+    <!-- Farm with old file URL (fallback) -->
+    <div class="farm" 
+         data-farm-id="{{ farm.id }}"
+         draggable="true"
+         ondragstart="dragFarm(event)"
+         ondragend="dragEnd(event)"
+         onclick="handleFarmClick(event, {{ farm.id }})"
+         style="background-image: url('{{ farm.image_url }}?t={{ timestamp }}');">
+        <span class="farm-name" data-name="{{ farm.name }}">{{ farm.name }}</span>
+    </div>
+{% else %}
+    <!-- Farm placeholder (no image) -->
+    <div class="farm-placeholder" 
+         data-farm-id="{{ farm.id }}"
+         draggable="true"
+         ondragstart="dragFarm(event)"
+         ondragend="dragEnd(event)"
+         onclick="handleFarmClick(event, {{ farm.id }})">
+        🚜
+        <span class="farm-name" data-name="{{ farm.name }}">{{ farm.name }}</span>
+    </div>
+{% endif %}
                                 {% endif %}
                             </div>
                         {% endfor %}

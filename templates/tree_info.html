@@ -47,6 +47,64 @@
             bottom: 0;
             background: rgba(0, 0, 0, 0.2);
             border-radius: 50%;
+            .tree-image-container {
+    width: 150px;
+    height: 150px;
+    border-radius: 50%;
+    border: 3px solid #2e8b57;
+    margin: 0 auto 15px;
+    position: relative;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    cursor: pointer;
+    transition: transform 0.3s ease;
+    overflow: hidden;
+}
+
+.tree-image-container:hover {
+    transform: scale(1.05);
+}
+
+.tree-image-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+    display: block;
+}
+
+.tree-placeholder {
+    width: 150px;
+    height: 150px;
+    border-radius: 50%;
+    border: 3px solid #2e8b57;
+    margin: 0 auto 15px;
+    position: relative;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    cursor: pointer;
+    transition: transform 0.3s ease;
+    background: #f0f0f0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 48px;
+}
+
+.tree-placeholder:hover {
+    transform: scale(1.05);
+    background: #e8f5e8;
+}
+
+.tree-image-container::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 50%;
+    pointer-events: none;
+}
         }
         .image-upload-section {
             text-align: center;
@@ -330,35 +388,43 @@
         </div>
         
         <!-- Tree Image Section -->
-        <div class="tree-image-section">
-            <div class="tree-image loading" id="treeImage"></div>
-            
-            <!-- Image Upload Section -->
-            <div class="image-upload-section">
-                <div class="upload-title">📸 Change Tree Image</div>
-                
-                <div class="file-input-wrapper">
-                    <input type="file" id="imageInput" class="file-input" accept="image/*" onchange="previewImage(event)">
-                    <label for="imageInput" class="file-input-label">Choose Image</label>
-                </div>
-                
-                <div>
-                    <img id="uploadPreview" class="upload-preview" alt="Preview">
-                </div>
-                
-                <div class="upload-buttons">
-                    <button class="upload-btn upload-btn-upload" onclick="uploadImage()" id="uploadBtn" style="display: none;">
-                        📤 Upload Image
-                    </button>
-                    <button class="upload-btn upload-btn-remove" onclick="removeImage()" id="removeBtn" 
-                            style="{% if not tree.image_url %}display: none;{% endif %}">
-                        🗑️ Remove Image
-                    </button>
-                </div>
-                
-                <div id="uploadStatus" class="upload-status"></div>
-            </div>
+ <div class="tree-image-section">
+    {% if tree.image_url and tree.image_url.startswith('data:image/') %}
+        <div class="tree-image-container" onclick="openImageUpload()">
+            <img id="treeImage" src="{{ tree.image_url }}" alt="Tree Image" class="tree-image-img">
         </div>
+    {% else %}
+        <div class="tree-placeholder" id="treePlaceholder" onclick="openImageUpload()">
+            🌳
+        </div>
+    {% endif %}
+    
+    <!-- Image Upload Section -->
+    <div class="image-upload-section">
+        <div class="upload-title">📸 Change Tree Image</div>
+        
+        <div class="file-input-wrapper">
+            <input type="file" id="imageInput" class="file-input" accept="image/*" onchange="previewImage(event)">
+            <label for="imageInput" class="file-input-label">Choose Image</label>
+        </div>
+        
+        <div>
+            <img id="uploadPreview" class="upload-preview" alt="Preview">
+        </div>
+        
+        <div class="upload-buttons">
+            <button class="upload-btn upload-btn-upload" onclick="uploadImage()" id="uploadBtn" style="display: none;">
+                📤 Upload Image
+            </button>
+            <button class="upload-btn upload-btn-remove" onclick="removeImage()" id="removeBtn" 
+                    style="{% if not (tree.image_url and tree.image_url.startswith('data:image/')) %}display: none;{% endif %}">
+                🗑️ Remove Image
+            </button>
+        </div>
+        
+        <div id="uploadStatus" class="upload-status"></div>
+    </div>
+</div>
         
         <h1 class="tree-name">{{ tree.name }}</h1>
         
@@ -613,94 +679,110 @@ function forceGoToGrid() {
         }
     }
     
-    async function uploadImage() {
-        if (!selectedFile) {
-            showUploadStatus('Please select an image first.', 'error');
-            return;
-        }
-        
-        const formData = new FormData();
-        formData.append('image', selectedFile);
-        
-        try {
-            showUploadStatus('Uploading image...', 'info');
-            
-            const response = await fetch(`/upload_tree_image/${treeId}`, {
-                method: 'POST',
-                body: formData
-            });
-            
-            const result = await response.json();
-            
-            if (result.success) {
-                showUploadStatus('Image uploaded successfully!', 'success');
-                
-                // Update tree image immediately with cache busting
-                updateTreeImage(result.image_url);
-                
-                // Show remove button
-                document.getElementById('removeBtn').style.display = 'inline-block';
-                
-                // Hide upload button and preview
-                document.getElementById('uploadBtn').style.display = 'none';
-                document.getElementById('uploadPreview').style.display = 'none';
-                document.getElementById('imageInput').value = '';
-                selectedFile = null;
-                
-                // Force refresh after upload
-                setTimeout(() => {
-                    console.log('Force refreshing image after upload...');
-                    refreshTreeImageOnLoad();
-                }, 1000);
-                
-            } else {
-                showUploadStatus(result.error || 'Failed to upload image.', 'error');
-            }
-            
-        } catch (error) {
-            console.error('Error uploading image:', error);
-            showUploadStatus('Error uploading image. Please try again.', 'error');
-        }
+ async function uploadImage() {
+    if (!selectedFile) {
+        showUploadStatus('Please select an image first.', 'error');
+        return;
     }
     
-    async function removeImage() {
-        if (!confirm('Are you sure you want to remove the tree image?')) {
-            return;
-        }
+    const formData = new FormData();
+    formData.append('image', selectedFile);
+    
+    try {
+        showUploadStatus('Uploading image...', 'info');
         
-        try {
-            showUploadStatus('Removing image...', 'info');
+        const response = await fetch(`/upload_tree_image/${treeId}`, {
+            method: 'POST',
+            body: formData
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showUploadStatus('Image uploaded successfully!', 'success');
             
-            const response = await fetch(`/remove_tree_image/${treeId}`, {
-                method: 'POST'
-            });
+            // ✅ FIXED: Update image display immediately
+            const treeImage = document.getElementById('treeImage');
+            const treePlaceholder = document.getElementById('treePlaceholder');
             
-            const result = await response.json();
-            
-            if (result.success) {
-                showUploadStatus('Image removed successfully!', 'success');
-                
-                // Reset to default image
-                updateTreeImage(null);
-                
-                // Hide remove button
-                document.getElementById('removeBtn').style.display = 'none';
-                
-                // Force refresh after removal
-                setTimeout(() => {
-                    console.log('Force refreshing image after removal...');
-                    refreshTreeImageOnLoad();
-                }, 500);
-                
-            } else {
-                showUploadStatus(result.error || 'Failed to remove image.', 'error');
+            if (treePlaceholder) {
+                // Replace placeholder with image
+                treePlaceholder.parentNode.innerHTML = `
+                    <div class="tree-image-container" onclick="openImageUpload()">
+                        <img id="treeImage" src="${result.image_url}" alt="Tree Image" class="tree-image-img">
+                    </div>
+                `;
+            } else if (treeImage) {
+                // Update existing image
+                treeImage.src = result.image_url;
             }
             
-        } catch (error) {
-            console.error('Error removing image:', error);
-            showUploadStatus('Error removing image. Please try again.', 'error');
+            // Show remove button
+            document.getElementById('removeBtn').style.display = 'inline-block';
+            
+            // Hide upload button and preview
+            document.getElementById('uploadBtn').style.display = 'none';
+            document.getElementById('uploadPreview').style.display = 'none';
+            document.getElementById('imageInput').value = '';
+            selectedFile = null;
+            
+            console.log('✅ Tree image uploaded and displayed');
+            
+        } else {
+            showUploadStatus(result.error || 'Failed to upload image.', 'error');
         }
+        
+    } catch (error) {
+        console.error('Error uploading image:', error);
+        showUploadStatus('Error uploading image. Please try again.', 'error');
     }
+}
+    
+async function removeImage() {
+    if (!confirm('Are you sure you want to remove the tree image?')) {
+        return;
+    }
+    
+    try {
+        showUploadStatus('Removing image...', 'info');
+        
+        const response = await fetch(`/remove_tree_image/${treeId}`, {
+            method: 'POST'
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showUploadStatus('Image removed successfully!', 'success');
+            
+            // ✅ FIXED: Replace image with placeholder
+            const imageContainer = document.querySelector('.tree-image-container');
+            if (imageContainer) {
+                imageContainer.parentNode.innerHTML = `
+                    <div class="tree-placeholder" id="treePlaceholder" onclick="openImageUpload()">
+                        🌳
+                    </div>
+                `;
+            }
+            
+            // Hide remove button
+            document.getElementById('removeBtn').style.display = 'none';
+            
+            console.log('✅ Tree image removed and placeholder shown');
+            
+        } else {
+            showUploadStatus(result.error || 'Failed to remove image.', 'error');
+        }
+        
+    } catch (error) {
+        console.error('Error removing image:', error);
+        showUploadStatus('Error removing image. Please try again.', 'error');
+    }
+}
+function openImageUpload() {
+    // Simple approach - just trigger the file input
+    document.getElementById('imageInput').click();
+}
     
     function showUploadStatus(message, type) {
         const statusDiv = document.getElementById('uploadStatus');
@@ -919,17 +1001,35 @@ function forceGoToGrid() {
     }
     
     // ✅ INITIALIZATION (runs when page loads)
-    document.addEventListener('DOMContentLoaded', function() {
-        console.log('Page loaded, initializing...');
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Tree info page loaded, initializing...');
+    
+    // ✅ NEW: Add error handling for tree images
+    const treeImage = document.getElementById('treeImage');
+    if (treeImage) {
+        treeImage.onerror = function() {
+            console.error('❌ Failed to load tree image');
+            showUploadStatus('Failed to load image', 'error');
+            
+            // Replace with placeholder
+            this.parentNode.parentNode.innerHTML = `
+                <div class="tree-placeholder" id="treePlaceholder" onclick="openImageUpload()">
+                    🌳
+                </div>
+            `;
+            document.getElementById('removeBtn').style.display = 'none';
+        };
         
-        // Refresh tree image
-        refreshTreeImageOnLoad();
-        
-        // Generate QR code after a short delay
-        setTimeout(() => {
-            generateQRCode();
-        }, 1000);
-    });
+        treeImage.onload = function() {
+            console.log('✅ Tree image loaded successfully');
+        };
+    }
+    
+    // Generate QR code after a short delay
+    setTimeout(() => {
+        generateQRCode();
+    }, 1000);
+});
 </script>
 </body>
 </html>

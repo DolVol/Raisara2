@@ -47,6 +47,42 @@
             background: rgba(0, 0, 0, 0.2);
             border-radius: 7px;
         }
+        .dome-image-container {
+    width: 200px;
+    height: 200px;
+    border-radius: 10px;
+    border: 3px solid #2e8b57;
+    margin: 0 auto 15px;
+    position: relative;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    cursor: pointer;
+    transition: transform 0.3s ease;
+    overflow: hidden;
+}
+
+.dome-image-container:hover {
+    transform: scale(1.05);
+}
+
+.dome-image-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 7px;
+    display: block;
+}
+
+.dome-image-img::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 7px;
+    pointer-events: none;
+}
         .dome-placeholder {
             width: 200px;
             height: 200px;
@@ -303,13 +339,15 @@
         
         <!-- Dome Image Section -->
         <div class="dome-image-section">
-            {% if dome.image_url %}
-                <div class="dome-image" id="domeImage" style="background-image: url('{{ dome.image_url }}?t={{ timestamp }}');" onclick="openImageUpload()"></div>
-            {% else %}
-                <div class="dome-placeholder" id="domePlaceholder" onclick="openImageUpload()">
-                    🏠
-                </div>
-            {% endif %}
+{% if dome.image_url and dome.image_url.startswith('data:image/') %}
+    <div class="dome-image-container" onclick="openImageUpload()">
+        <img id="domeImage" src="{{ dome.image_url }}" alt="Dome Image" class="dome-image-img">
+    </div>
+{% else %}
+    <div class="dome-placeholder" id="domePlaceholder" onclick="openImageUpload()">
+        🏠
+    </div>
+{% endif %}
             
             <!-- Image Controls -->
             <div class="image-controls">
@@ -625,117 +663,137 @@ function viewGrid() {
             document.getElementById('imageUploadSection').style.display = 'none';
         }
         
-        async function uploadDomeImage() {
-            const fileInput = document.getElementById('imageInput');
-            const file = fileInput.files[0];
+async function uploadDomeImage() {
+    const fileInput = document.getElementById('imageInput');
+    const file = fileInput.files[0];
+    
+    if (!file) {
+        showStatus('Please select an image file', 'error');
+        return;
+    }
+    
+    const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif'];
+    if (!allowedTypes.includes(file.type)) {
+        showStatus('Please select a valid image file (PNG, JPG, JPEG, GIF)', 'error');
+        return;
+    }
+    
+    if (file.size > 16 * 1024 * 1024) {
+        showStatus('File size must be less than 16MB', 'error');
+        return;
+    }
+    
+    try {
+        showLoading(true);
+        showStatus('Uploading image...', 'info');
+        
+        const formData = new FormData();
+        formData.append('image', file);
+        
+        const response = await fetch(`/upload_dome_image/${domeId}`, {
+            method: 'POST',
+            body: formData
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showStatus('Image uploaded successfully!', 'success');
             
-            if (!file) {
-                showStatus('Please select an image file', 'error');
-                return;
+            // ✅ FIXED: Update image display immediately
+            const domeImage = document.getElementById('domeImage');
+            const domePlaceholder = document.getElementById('domePlaceholder');
+            
+            if (domePlaceholder) {
+                // Replace placeholder with image
+                domePlaceholder.parentNode.innerHTML = `
+                    <div class="dome-image-container" onclick="openImageUpload()">
+                        <img id="domeImage" src="${result.image_url}" alt="Dome Image" class="dome-image-img">
+                    </div>
+                `;
+            } else if (domeImage) {
+                // Update existing image
+                domeImage.src = result.image_url;
             }
             
-            const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif'];
-            if (!allowedTypes.includes(file.type)) {
-                showStatus('Please select a valid image file (PNG, JPG, JPEG, GIF)', 'error');
-                return;
-            }
+            // Update image controls
+            updateImageControls(true);
+            closeImageUpload();
+            fileInput.value = '';
+            localStorage.setItem('domeImageUpdated', 'true');
+            console.log('✅ Dome image uploaded and displayed');
             
-            if (file.size > 16 * 1024 * 1024) {
-                showStatus('File size must be less than 16MB', 'error');
-                return;
-            }
-            
-            try {
-                showLoading(true);
-                showStatus('Uploading image...', 'info');
-                
-                const formData = new FormData();
-                formData.append('image', file);
-                
-                const response = await fetch(`/upload_dome_image/${domeId}`, {
-                    method: 'POST',
-                    body: formData
-                });
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    showStatus('Image uploaded successfully!', 'success');
-                    updateDomeImageDisplay(result.image_url);
-                    closeImageUpload();
-                    fileInput.value = '';
-                    localStorage.setItem('domeImageUpdated', 'true');
-                } else {
-                    showStatus(result.error || 'Failed to upload image', 'error');
-                }
-                
-            } catch (error) {
-                console.error('Error uploading image:', error);
-                showStatus('Error uploading image. Please try again.', 'error');
-            } finally {
-                showLoading(false);
-            }
+        } else {
+            showStatus(result.error || 'Failed to upload image', 'error');
         }
         
-        async function removeDomeImage() {
-            if (!confirm('Are you sure you want to remove the dome image?')) {
-                return;
-            }
-            
-            try {
-                showLoading(true);
-                showStatus('Removing image...', 'info');
-                
-                const response = await fetch(`/remove_dome_image/${domeId}`, {
-                    method: 'POST'
-                });
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    showStatus('Image removed successfully!', 'success');
-                    updateDomeImageDisplay(null);
-                    localStorage.setItem('domeImageUpdated', 'true');
-                } else {
-                    showStatus(result.error || 'Failed to remove image', 'error');
-                }
-                
-            } catch (error) {
-                console.error('Error removing image:', error);
-                showStatus('Error removing image. Please try again.', 'error');
-            } finally {
-                showLoading(false);
-            }
-        }
+    } catch (error) {
+        console.error('Error uploading image:', error);
+        showStatus('Error uploading image. Please try again.', 'error');
+    } finally {
+        showLoading(false);
+    }
+}
         
-        function updateDomeImageDisplay(imageUrl) {
-            const imageSection = document.querySelector('.dome-image-section');
-            const imageControls = document.querySelector('.image-controls');
+async function removeDomeImage() {
+    if (!confirm('Are you sure you want to remove the dome image?')) {
+        return;
+    }
+    
+    try {
+        showLoading(true);
+        showStatus('Removing image...', 'info');
+        
+        const response = await fetch(`/remove_dome_image/${domeId}`, {
+            method: 'POST'
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showStatus('Image removed successfully!', 'success');
             
-            if (imageUrl) {
-                imageSection.innerHTML = `
-                    <div class="dome-image" id="domeImage" style="background-image: url('${imageUrl}?t=${Date.now()}');" onclick="openImageUpload()"></div>
-                `;
-                
-                imageControls.innerHTML = `
-                    <button class="btn btn-info" onclick="openImageUpload()">📷 Change Image</button>
-                    <button class="btn btn-warning" onclick="removeDomeImage()">🗑️ Remove Image</button>
-                `;
-            } else {
-                imageSection.innerHTML = `
+            // ✅ FIXED: Replace image with placeholder
+            const imageContainer = document.querySelector('.dome-image-container');
+            if (imageContainer) {
+                imageContainer.parentNode.innerHTML = `
                     <div class="dome-placeholder" id="domePlaceholder" onclick="openImageUpload()">
                         🏠
                     </div>
                 `;
-                
-                imageControls.innerHTML = `
-                    <button class="btn btn-info" onclick="openImageUpload()">📷 Change Image</button>
-                `;
             }
             
-            imageSection.appendChild(imageControls);
-            imageSection.appendChild(document.getElementById('imageUploadSection'));
+            // Update image controls
+            updateImageControls(false);
+            localStorage.setItem('domeImageUpdated', 'true');
+            console.log('✅ Dome image removed and placeholder shown');
+            
+        } else {
+            showStatus(result.error || 'Failed to remove image', 'error');
         }
+        
+    } catch (error) {
+        console.error('Error removing image:', error);
+        showStatus('Error removing image. Please try again.', 'error');
+    } finally {
+        showLoading(false);
+    }
+}
+        
+function updateImageControls(hasImage) {
+    const imageControls = document.querySelector('.image-controls');
+    
+    if (hasImage) {
+        imageControls.innerHTML = `
+            <button class="btn btn-info" onclick="openImageUpload()">📷 Change Image</button>
+            <button class="btn btn-warning" onclick="removeDomeImage()">🗑️ Remove Image</button>
+        `;
+    } else {
+        imageControls.innerHTML = `
+            <button class="btn btn-info" onclick="openImageUpload()">📷 Add Image</button>
+        `;
+    }
+}
         
         // Utility functions
         function setupDragAndDrop() {
@@ -806,6 +864,30 @@ function viewGrid() {
         document.addEventListener('DOMContentLoaded', function() {
             setupDragAndDrop();
         });
+        document.addEventListener('DOMContentLoaded', function() {
+    setupDragAndDrop();
+    
+    // ✅ NEW: Add error handling for dome images
+    const domeImage = document.getElementById('domeImage');
+    if (domeImage) {
+        domeImage.onerror = function() {
+            console.error('❌ Failed to load dome image');
+            showStatus('Failed to load image', 'error');
+            
+            // Replace with placeholder
+            this.parentNode.parentNode.innerHTML = `
+                <div class="dome-placeholder" id="domePlaceholder" onclick="openImageUpload()">
+                    🏠
+                </div>
+            `;
+            updateImageControls(false);
+        };
+        
+        domeImage.onload = function() {
+            console.log('✅ Dome image loaded successfully');
+        };
+    }
+});
     </script>
 </body>
 </html>

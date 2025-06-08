@@ -47,6 +47,42 @@
             background: rgba(0, 0, 0, 0.2);
             border-radius: 15%;
         }
+        .farm-image-container {
+    width: 200px;
+    height: 200px;
+    border-radius: 15%;
+    border: 3px solid #8B4513;
+    margin: 0 auto 15px;
+    position: relative;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    cursor: pointer;
+    transition: transform 0.3s ease;
+    overflow: hidden;
+}
+
+.farm-image-container:hover {
+    transform: scale(1.05);
+}
+
+.farm-image-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 15%;
+    display: block;
+}
+
+.farm-image-img::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 15%;
+    pointer-events: none;
+}
         .farm-placeholder {
             width: 200px;
             height: 200px;
@@ -292,13 +328,15 @@
         
         <!-- Farm Image Section -->
         <div class="farm-image-section">
-            {% if farm.image_url %}
-                <div class="farm-image" id="farmImage" style="background-image: url('{{ farm.image_url }}?t={{ timestamp }}');" onclick="openImageUpload()"></div>
-            {% else %}
-                <div class="farm-placeholder" id="farmPlaceholder" onclick="openImageUpload()">
-                    🚜
-                </div>
-            {% endif %}
+            {% if farm.image_url and farm.image_url.startswith('data:image/') %}
+    <div class="farm-image-container" onclick="openImageUpload()">
+        <img id="farmImage" src="{{ farm.image_url }}" alt="Farm Image" class="farm-image-img">
+    </div>
+{% else %}
+    <div class="farm-placeholder" id="farmPlaceholder" onclick="openImageUpload()">
+        🚜
+    </div>
+{% endif %}
             
             <!-- Image Controls -->
             <div class="image-controls">
@@ -472,125 +510,141 @@ function goToFarmDomes() {
             document.getElementById('imageUploadSection').style.display = 'none';
         }
         
-        async function uploadFarmImage() {
-            const fileInput = document.getElementById('imageInput');
-            const file = fileInput.files[0];
+async function uploadFarmImage() {
+    const fileInput = document.getElementById('imageInput');
+    const file = fileInput.files[0];
+    
+    if (!file) {
+        showStatus('Please select an image file', 'error');
+        return;
+    }
+    
+    const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif'];
+    if (!allowedTypes.includes(file.type)) {
+        showStatus('Please select a valid image file (PNG, JPG, JPEG, GIF)', 'error');
+        return;
+    }
+    
+    if (file.size > 16 * 1024 * 1024) {
+        showStatus('File size must be less than 16MB', 'error');
+        return;
+    }
+    
+    try {
+        showLoading(true);
+        showStatus('Uploading image...', 'info');
+        
+        const formData = new FormData();
+        formData.append('image', file);
+        
+        const response = await fetch(`/upload_farm_image/${farmId}`, {
+            method: 'POST',
+            body: formData
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showStatus('Image uploaded successfully!', 'success');
             
-            if (!file) {
-                showStatus('Please select an image file', 'error');
-                return;
+            // ✅ FIXED: Update image display immediately
+            const farmImage = document.getElementById('farmImage');
+            const farmPlaceholder = document.getElementById('farmPlaceholder');
+            
+            if (farmPlaceholder) {
+                // Replace placeholder with image
+                farmPlaceholder.parentNode.innerHTML = `
+                    <div class="farm-image-container" onclick="openImageUpload()">
+                        <img id="farmImage" src="${result.image_url}" alt="Farm Image" class="farm-image-img">
+                    </div>
+                `;
+            } else if (farmImage) {
+                // Update existing image
+                farmImage.src = result.image_url;
             }
             
-            const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif'];
-            if (!allowedTypes.includes(file.type)) {
-                showStatus('Please select a valid image file (PNG, JPG, JPEG, GIF)', 'error');
-                return;
-            }
+            // Update remove button visibility
+            updateImageControls(true);
+            closeImageUpload();
+            fileInput.value = '';
             
-            if (file.size > 16 * 1024 * 1024) {
-                showStatus('File size must be less than 16MB', 'error');
-                return;
-            }
+            // Set flag for farm page to refresh
+            localStorage.setItem('farmImageUpdated', 'true');
+            console.log('✅ Image uploaded and displayed');
             
-            try {
-                showLoading(true);
-                showStatus('Uploading image...', 'info');
-                
-                const formData = new FormData();
-                formData.append('image', file);
-                
-                const response = await fetch(`/upload_farm_image/${farmId}`, {
-                    method: 'POST',
-                    body: formData
-                });
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    showStatus('Image uploaded successfully!', 'success');
-                    updateFarmImageDisplay(result.image_url);
-                    closeImageUpload();
-                    fileInput.value = '';
-                    
-                    // Set flag for farm page to refresh
-                    localStorage.setItem('farmImageUpdated', 'true');
-                    console.log('Set farmImageUpdated flag to true');
-                    
-                } else {
-                    showStatus(result.error || 'Failed to upload image', 'error');
-                }
-                
-            } catch (error) {
-                console.error('Error uploading image:', error);
-                showStatus('Error uploading image. Please try again.', 'error');
-            } finally {
-                showLoading(false);
-            }
+        } else {
+            showStatus(result.error || 'Failed to upload image', 'error');
         }
         
-        async function removeFarmImage() {
-            if (!confirm('Are you sure you want to remove the farm image?')) {
-                return;
-            }
-            
-            try {
-                showLoading(true);
-                showStatus('Removing image...', 'info');
-                
-                const response = await fetch(`/remove_farm_image/${farmId}`, {
-                    method: 'POST'
-                });
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    showStatus('Image removed successfully!', 'success');
-                    updateFarmImageDisplay(null);
-                    
-                    // Set flag for farm page to refresh
-                    localStorage.setItem('farmImageUpdated', 'true');
-                    console.log('Set farmImageUpdated flag to true');
-                    
-                } else {
-                    showStatus(result.error || 'Failed to remove image', 'error');
-                }
-                
-            } catch (error) {
-                console.error('Error removing image:', error);
-                showStatus('Error removing image. Please try again.', 'error');
-            } finally {
-                showLoading(false);
-            }
-        }
+    } catch (error) {
+        console.error('Error uploading image:', error);
+        showStatus('Error uploading image. Please try again.', 'error');
+    } finally {
+        showLoading(false);
+    }
+}
         
-        function updateFarmImageDisplay(imageUrl) {
-            const imageSection = document.querySelector('.farm-image-section');
-            const imageControls = document.querySelector('.image-controls');
+ async function removeFarmImage() {
+    if (!confirm('Are you sure you want to remove the farm image?')) {
+        return;
+    }
+    
+    try {
+        showLoading(true);
+        showStatus('Removing image...', 'info');
+        
+        const response = await fetch(`/remove_farm_image/${farmId}`, {
+            method: 'POST'
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showStatus('Image removed successfully!', 'success');
             
-            if (imageUrl) {
-                imageSection.innerHTML = `
-                    <div class="farm-image" id="farmImage" style="background-image: url('${imageUrl}?t=${Date.now()}');" onclick="openImageUpload()"></div>
-                `;
-                
-                imageControls.innerHTML = `
-                    <button class="btn btn-info" onclick="openImageUpload()">📷 Change Image</button>
-                    <button class="btn btn-warning" onclick="removeFarmImage()">🗑️ Remove Image</button>
-                `;
-            } else {
-                imageSection.innerHTML = `
+            // ✅ FIXED: Replace image with placeholder
+            const imageContainer = document.querySelector('.farm-image-container');
+            if (imageContainer) {
+                imageContainer.parentNode.innerHTML = `
                     <div class="farm-placeholder" id="farmPlaceholder" onclick="openImageUpload()">
                         🚜
                     </div>
                 `;
-                
-                imageControls.innerHTML = `
-                    <button class="btn btn-info" onclick="openImageUpload()">📷 Change Image</button>
-                `;
             }
             
-            imageSection.appendChild(imageControls);
-            imageSection.appendChild(document.getElementById('imageUploadSection'));
+            // Update remove button visibility
+            updateImageControls(false);
+            
+            // Set flag for farm page to refresh
+            localStorage.setItem('farmImageUpdated', 'true');
+            console.log('✅ Image removed and placeholder shown');
+            
+        } else {
+            showStatus(result.error || 'Failed to remove image', 'error');
         }
+        
+    } catch (error) {
+        console.error('Error removing image:', error);
+        showStatus('Error removing image. Please try again.', 'error');
+    } finally {
+        showLoading(false);
+    }
+}
+ function updateImageControls(hasImage) {
+    const imageControls = document.querySelector('.image-controls');
+    
+    if (hasImage) {
+        imageControls.innerHTML = `
+            <button class="btn btn-info" onclick="openImageUpload()">📷 Change Image</button>
+            <button class="btn btn-warning" onclick="removeFarmImage()">🗑️ Remove Image</button>
+        `;
+    } else {
+        imageControls.innerHTML = `
+            <button class="btn btn-info" onclick="openImageUpload()">📷 Add Image</button>
+        `;
+    }
+}       
+
         
         function setupDragAndDrop() {
             const uploadArea = document.querySelector('.upload-area');
@@ -661,6 +715,30 @@ function goToFarmDomes() {
         document.addEventListener('DOMContentLoaded', function() {
             setupDragAndDrop();
         });
+        document.addEventListener('DOMContentLoaded', function() {
+    setupDragAndDrop();
+    
+    // ✅ NEW: Add error handling for images
+    const farmImage = document.getElementById('farmImage');
+    if (farmImage) {
+        farmImage.onerror = function() {
+            console.error('❌ Failed to load farm image');
+            showStatus('Failed to load image', 'error');
+            
+            // Replace with placeholder
+            this.parentNode.parentNode.innerHTML = `
+                <div class="farm-placeholder" id="farmPlaceholder" onclick="openImageUpload()">
+                    🚜
+                </div>
+            `;
+            updateImageControls(false);
+        };
+        
+        farmImage.onload = function() {
+            console.log('✅ Farm image loaded successfully');
+        };
+    }
+});
     </script>
 </body>
 </html>

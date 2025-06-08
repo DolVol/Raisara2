@@ -306,7 +306,44 @@
             transform: scale(1.1);
             box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
         }
+/* ✅ NEW: Dome image display for base64 data */
+.dome-with-image {
+    position: relative;
+    overflow: hidden;
+}
 
+.dome-background-img {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+    z-index: 1;
+}
+
+.dome-with-image .dome-name {
+    position: relative;
+    z-index: 3;
+    background: rgba(0, 0, 0, 0.8);
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-top: auto;
+}
+
+/* Ensure the overlay still works for base64 images */
+.dome-with-image::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 50%;
+    z-index: 2;
+}
         .dome-placeholder {
             width: calc(var(--cell-size, 100px) * 0.8);
             height: calc(var(--cell-size, 100px) * 0.8);
@@ -605,27 +642,40 @@
                                 <div class="coordinate-label">{{ row }},{{ col }}</div>
                                 
                                 {% if dome %}
-                                    {% if dome.image_url %}
-                                        <div class="dome" 
-                                             data-dome-id="{{ dome.id }}"
-                                             draggable="true"
-                                             ondragstart="dragDome(event)"
-                                             ondragend="dragEnd(event)"
-                                             onclick="handleDomeClick(event, {{ dome.id }})"
-                                             style="background-image: url('{{ dome.image_url }}?t={{ timestamp }}');">
-                                            <span class="dome-name">{{ dome.name }}</span>
-                                        </div>
-                                    {% else %}
-                                        <div class="dome-placeholder" 
-                                             data-dome-id="{{ dome.id }}"
-                                             draggable="true"
-                                             ondragstart="dragDome(event)"
-                                             ondragend="dragEnd(event)"
-                                             onclick="handleDomeClick(event, {{ dome.id }})">
-                                            🏠
-                                            <span class="dome-name">{{ dome.name }}</span>
-                                        </div>
-                                    {% endif %}
+                                    {% if dome.image_url and dome.image_url.startswith('data:image/') %}
+    <!-- Dome with base64 image -->
+    <div class="dome dome-with-image" 
+         data-dome-id="{{ dome.id }}"
+         draggable="true"
+         ondragstart="dragDome(event)"
+         ondragend="dragEnd(event)"
+         onclick="handleDomeClick(event, {{ dome.id }})">
+        <img src="{{ dome.image_url }}" alt="Dome Image" class="dome-background-img">
+        <span class="dome-name">{{ dome.name }}</span>
+    </div>
+{% elif dome.image_url and not dome.image_url.startswith('data:image/') %}
+    <!-- Dome with old file URL (fallback) -->
+    <div class="dome" 
+         data-dome-id="{{ dome.id }}"
+         draggable="true"
+         ondragstart="dragDome(event)"
+         ondragend="dragEnd(event)"
+         onclick="handleDomeClick(event, {{ dome.id }})"
+         style="background-image: url('{{ dome.image_url }}?t={{ timestamp }}');">
+        <span class="dome-name">{{ dome.name }}</span>
+    </div>
+{% else %}
+    <!-- Dome placeholder (no image) -->
+    <div class="dome-placeholder" 
+         data-dome-id="{{ dome.id }}"
+         draggable="true"
+         ondragstart="dragDome(event)"
+         ondragend="dragEnd(event)"
+         onclick="handleDomeClick(event, {{ dome.id }})">
+        🏠
+        <span class="dome-name">{{ dome.name }}</span>
+    </div>
+{% endif %}
                                 {% endif %}
                             </div>
                         {% endfor %}
@@ -975,23 +1025,38 @@ function rebuildGrid(rows, cols) {
     farmGrid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
     
     // Get existing domes data
-    const existingDomes = {};
-    document.querySelectorAll('.dome, .dome-placeholder').forEach(dome => {
-        const cell = dome.closest('.grid-cell');
-        const row = parseInt(cell.dataset.row);
-        const col = parseInt(cell.dataset.col);
-        const domeId = dome.dataset.domeId;
-        const domeName = dome.querySelector('.dome-name').textContent;
-        const hasImage = dome.classList.contains('dome');
-        const imageUrl = hasImage ? dome.style.backgroundImage : null;
-        
-        existingDomes[`${row}-${col}`] = {
-            id: domeId,
-            name: domeName,
-            hasImage: hasImage,
-            imageUrl: imageUrl
-        };
-    });
+const existingDomes = {};
+document.querySelectorAll('.dome, .dome-placeholder').forEach(dome => {
+    const cell = dome.closest('.grid-cell');
+    const row = parseInt(cell.dataset.row);
+    const col = parseInt(cell.dataset.col);
+    const domeId = dome.dataset.domeId;
+    const domeName = dome.querySelector('.dome-name').textContent;
+    
+    // ✅ FIXED: Better image detection
+    let hasImage = false;
+    let imageUrl = null;
+    
+    if (dome.classList.contains('dome-with-image')) {
+        // Base64 image
+        const img = dome.querySelector('.dome-background-img');
+        if (img && img.src) {
+            hasImage = true;
+            imageUrl = img.src;
+        }
+    } else if (dome.classList.contains('dome') && dome.style.backgroundImage) {
+        // Old file URL
+        hasImage = true;
+        imageUrl = dome.style.backgroundImage;
+    }
+    
+    existingDomes[`${row}-${col}`] = {
+        id: domeId,
+        name: domeName,
+        hasImage: hasImage,
+        imageUrl: imageUrl
+    };
+});
     
     // Clear and rebuild grid
     farmGrid.innerHTML = '';
@@ -1013,31 +1078,47 @@ function rebuildGrid(rows, cols) {
             cell.appendChild(coordLabel);
             
             // Check if there's an existing dome at this position
-            const existingDome = existingDomes[`${row}-${col}`];
-            if (existingDome) {
-                cell.classList.add('occupied');
-                
-                const domeElement = document.createElement('div');
-                domeElement.className = existingDome.hasImage ? 'dome' : 'dome-placeholder';
-                domeElement.dataset.domeId = existingDome.id;
-                domeElement.draggable = true;
-                domeElement.ondragstart = dragDome;
-                domeElement.ondragend = dragEnd;
-                domeElement.onclick = (e) => handleDomeClick(e, existingDome.id);
-                
-                if (existingDome.hasImage && existingDome.imageUrl) {
-                    domeElement.style.backgroundImage = existingDome.imageUrl;
-                } else if (!existingDome.hasImage) {
-                    domeElement.textContent = '🏠';
-                }
-                
-                const nameSpan = document.createElement('span');
-                nameSpan.className = 'dome-name';
-                nameSpan.textContent = existingDome.name;
-                domeElement.appendChild(nameSpan);
-                
-                cell.appendChild(domeElement);
-            }
+const existingDome = existingDomes[`${row}-${col}`];
+if (existingDome) {
+    cell.classList.add('occupied');
+    
+    const domeElement = document.createElement('div');
+    
+    // ✅ FIXED: Handle base64 images properly
+    if (existingDome.hasImage && existingDome.imageUrl && existingDome.imageUrl.includes('data:image/')) {
+        // Base64 image
+        domeElement.className = 'dome dome-with-image';
+        
+        const img = document.createElement('img');
+        img.src = existingDome.imageUrl.replace(/url\(['"]?|['"]?\)/g, ''); // Clean the URL
+        img.alt = 'Dome Image';
+        img.className = 'dome-background-img';
+        domeElement.appendChild(img);
+    } else if (existingDome.hasImage && existingDome.imageUrl) {
+        // Old file URL
+        domeElement.className = 'dome';
+        domeElement.style.backgroundImage = existingDome.imageUrl;
+    } else {
+        // No image
+        domeElement.className = 'dome-placeholder';
+        const icon = document.createElement('span');
+        icon.textContent = '🏠';
+        domeElement.appendChild(icon);
+    }
+    
+    domeElement.dataset.domeId = existingDome.id;
+    domeElement.draggable = true;
+    domeElement.ondragstart = dragDome;
+    domeElement.ondragend = dragEnd;
+    domeElement.onclick = (e) => handleDomeClick(e, existingDome.id);
+    
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'dome-name';
+    nameSpan.textContent = existingDome.name;
+    domeElement.appendChild(nameSpan);
+    
+    cell.appendChild(domeElement);
+}
             
             farmGrid.appendChild(cell);
         }

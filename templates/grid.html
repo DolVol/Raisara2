@@ -57,6 +57,74 @@
             background: rgba(0, 0, 0, 0.2);
             border-radius: 50%;
         }
+        .dome-image-container {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    border: 3px solid #4CAF50;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    position: relative;
+    cursor: pointer;
+    transition: transform 0.3s ease;
+    overflow: hidden;
+}
+
+.dome-image-container:hover {
+    transform: scale(1.05);
+}
+
+.dome-image-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+    display: block;
+}
+
+.dome-image-container::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 50%;
+    z-index: 1;
+}
+
+/* ✅ NEW: Tree image display for base64 data */
+.tree-image-container {
+    width: calc(var(--cell-size, 100px) * 0.6);
+    height: calc(var(--cell-size, 100px) * 0.6);
+    border-radius: 50%;
+    border: 2px solid #4CAF50;
+    margin-bottom: 5px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+    position: relative;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+.tree-image-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+    display: block;
+}
+
+.tree-image-container::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 50%;
+    z-index: 1;
+}
         .dome-placeholder {
             width: 80px;
             height: 80px;
@@ -644,13 +712,17 @@
         <!-- Header -->
         <div class="header">
             <div class="dome-info">
-                {% if dome.image_url %}
-                    <div class="dome-image" style="background-image: url('{{ dome.image_url }}?t={{ timestamp }}');" onclick="openDomeInfo()" title="Click to edit dome - {{ dome.name }}"></div>
-                {% else %}
-                    <div class="dome-placeholder" onclick="openDomeInfo()" title="Click to edit dome - {{ dome.name }}">
-                        🏠
-                    </div>
-                {% endif %}
+                {% if dome.image_url and dome.image_url.startswith('data:image/') %}
+    <div class="dome-image-container" onclick="openDomeInfo()" title="Click to edit dome - {{ dome.name }}">
+        <img src="{{ dome.image_url }}" alt="Dome Image" class="dome-image-img">
+    </div>
+{% elif dome.image_url and not dome.image_url.startswith('data:image/') %}
+    <div class="dome-image" style="background-image: url('{{ dome.image_url }}?t={{ timestamp }}');" onclick="openDomeInfo()" title="Click to edit dome - {{ dome.name }}"></div>
+{% else %}
+    <div class="dome-placeholder" onclick="openDomeInfo()" title="Click to edit dome - {{ dome.name }}">
+        🏠
+    </div>
+{% endif %}
                 <h1 class="dome-title">{{ dome.name }}</h1>
             </div>
             <p>Internal Grid: {{ rows }}×{{ cols }} | Total Trees: <span id="treeCount">{{ trees|length }}</span></p>
@@ -779,31 +851,66 @@ function goToMainIndex() {
             panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
         }
 
-        function refreshDebugInfo() {
-            document.getElementById('frontendTreesCount').textContent = trees.length;
-            document.getElementById('emptyPositionsCount').textContent = getEmptyPositions().length;
-            document.getElementById('frontendTreesDisplay').textContent = trees.length;
-            
-            // Update trees data display
-            document.getElementById('treesData').textContent = JSON.stringify(trees, null, 2);
-            
-            console.log('=== DEBUG INFO ===');
-            console.log('Dome ID:', domeId);
-            console.log('Grid Size:', currentRows, 'x', currentCols);
-            console.log('Trees Array:', trees);
-            console.log('Trees Count:', trees.length);
-            console.log('Empty Positions:', getEmptyPositions().length);
-            console.log('==================');
-        }
+function refreshDebugInfo() {
 
-        function testNavigation() {
-            console.log('Testing navigation functions...');
-            console.log('Dome ID:', domeId);
-            console.log('Available navigation:');
-            console.log('- goBack() -> /dome_info/' + domeId);
-            console.log('- goToMainIndex() -> /');
-            showStatus('Navigation test completed - check console', 'info');
-        }
+
+// ✅ FIXED: DOMContentLoaded should be at the top level, not inside a function
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('=== GRID PAGE LOADED ===');
+    console.log('Dome ID:', domeId);
+    console.log('Grid Size:', currentRows, 'x', currentCols);
+    console.log('Initial trees from backend:', trees);
+    console.log('Trees count:', trees.length);
+    console.log('========================');
+    
+    // ✅ Check dome image on load
+    const domeImage = document.querySelector('.dome-image-img');
+    if (domeImage) {
+        domeImage.onerror = function() {
+            console.error('❌ Failed to load dome image');
+            // Replace with placeholder
+            const placeholder = document.createElement('div');
+            placeholder.className = 'dome-placeholder';
+            placeholder.textContent = '🏠';
+            placeholder.onclick = openDomeInfo;
+            placeholder.title = 'Click to edit dome - {{ dome.name }}';
+            
+            const container = this.closest('.dome-image-container');
+            if (container && container.parentNode) {
+                container.parentNode.replaceChild(placeholder, container);
+            }
+        };
+        
+        domeImage.onload = function() {
+            console.log('✅ Dome image loaded successfully');
+        };
+    }
+    
+    // Initial debug info update
+    refreshDebugInfo();
+});
+    
+    // Update trees data display
+    document.getElementById('treesData').textContent = JSON.stringify(trees, null, 2);
+    
+    console.log('=== DEBUG INFO ===');
+    console.log('Dome ID:', domeId);
+    console.log('Grid Size:', currentRows, 'x', currentCols);
+    console.log('Trees Array:', trees);
+    console.log('Trees Count:', trees.length);
+    console.log('Empty Positions:', getEmptyPositions().length);
+    console.log('==================');
+
+
+// ✅ FIXED: Function should be outside the DOMContentLoaded event
+function testNavigation() {
+    console.log('Testing navigation functions...');
+    console.log('Dome ID:', domeId);
+    console.log('Available navigation:');
+    console.log('- goBack() -> /dome_info/' + domeId);
+    console.log('- goToMainIndex() -> /');
+    showStatus('Navigation test completed - check console', 'info');
+}
 
         // ✅ ENHANCED: Force refresh trees from server
         function forceRefreshTrees() {
@@ -1210,19 +1317,39 @@ function createTreeElement(tree) {
     });
     
     // Tree image or placeholder
-    if (tree.image_url) {
-        const treeImage = document.createElement('div');
-        treeImage.className = 'tree-image';
-        treeImage.style.backgroundImage = `url('${tree.image_url}?t=${Date.now()}')`;
-        treeImage.style.pointerEvents = 'none'; // ✅ ADDED: Prevent image from interfering with drag
-        treeItem.appendChild(treeImage);
-    } else {
-        const treePlaceholder = document.createElement('div');
-        treePlaceholder.className = 'tree-placeholder';
-        treePlaceholder.textContent = '🌱';
-        treePlaceholder.style.pointerEvents = 'none'; // ✅ ADDED: Prevent placeholder from interfering with drag
-        treeItem.appendChild(treePlaceholder);
-    }
+if (tree.image_url && tree.image_url.includes('data:image/')) {
+    // ✅ FIXED: Base64 image using img tag
+    const treeImageContainer = document.createElement('div');
+    treeImageContainer.className = 'tree-image-container';
+    
+const treeImage = document.createElement('img');
+treeImage.src = tree.image_url;
+treeImage.alt = 'Tree Image';
+treeImage.className = 'tree-image-img';
+treeImage.style.pointerEvents = 'none';
+
+// ✅ ADD THIS LINE:
+handleImageError(treeImage, '🌱');
+
+treeImageContainer.appendChild(treeImage);
+    
+    treeImageContainer.appendChild(treeImage);
+    treeItem.appendChild(treeImageContainer);
+} else if (tree.image_url) {
+    // ✅ FALLBACK: Old file URL using background-image
+    const treeImage = document.createElement('div');
+    treeImage.className = 'tree-image';
+    treeImage.style.backgroundImage = `url('${tree.image_url}?t=${Date.now()}')`;
+    treeImage.style.pointerEvents = 'none';
+    treeItem.appendChild(treeImage);
+} else {
+    // ✅ NO IMAGE: Placeholder
+    const treePlaceholder = document.createElement('div');
+    treePlaceholder.className = 'tree-placeholder';
+    treePlaceholder.textContent = '🌱';
+    treePlaceholder.style.pointerEvents = 'none';
+    treeItem.appendChild(treePlaceholder);
+}
     
     // Tree name
     const treeName = document.createElement('div');
@@ -1264,7 +1391,27 @@ function createTreeElement(tree) {
     
     return treeItem;
 }
-
+function handleImageError(imgElement, fallbackContent = '🌱') {
+    imgElement.onerror = function() {
+        console.warn('Failed to load image:', this.src);
+        
+        // Replace with placeholder
+        const placeholder = document.createElement('div');
+        placeholder.className = 'tree-placeholder';
+        placeholder.textContent = fallbackContent;
+        placeholder.style.pointerEvents = 'none';
+        
+        // Replace the image container with placeholder
+        const container = this.closest('.tree-image-container');
+        if (container && container.parentNode) {
+            container.parentNode.replaceChild(placeholder, container);
+        }
+    };
+    
+    imgElement.onload = function() {
+        console.log('✅ Tree image loaded successfully');
+    };
+}
         // Drag and drop functions
 function dragStart(e) {
     console.log('Drag started for tree:', e.target.dataset.treeId);
