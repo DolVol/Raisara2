@@ -2393,61 +2393,7 @@ def delete_tree(tree_id):
         db.session.rollback()
         return jsonify(success=False, error=str(e)), 500
 
-@app.route('/move_tree/<int:tree_id>', methods=['POST'])
-@login_required
-def move_tree(tree_id):
-    try:
-        data = request.get_json()
-        new_row = data.get('internal_row')
-        new_col = data.get('internal_col')
-        
-        # Get the tree to move
-        tree = Tree.query.filter_by(id=tree_id, user_id=current_user.id).first()
-        if not tree:
-            return jsonify({'success': False, 'error': 'Tree not found'})
-        
-        # Check if target position is occupied
-        target_tree = Tree.query.filter_by(
-            dome_id=tree.dome_id,
-            internal_row=new_row,
-            internal_col=new_col
-        ).first()
-        
-        swapped = False
-        swapped_tree_data = None
-        
-        if target_tree and target_tree.id != tree_id:
-            # Swap positions
-            old_row = tree.internal_row
-            old_col = tree.internal_col
-            
-            # Move target tree to original position
-            target_tree.internal_row = old_row
-            target_tree.internal_col = old_col
-            
-            swapped = True
-            swapped_tree_data = {
-                'id': target_tree.id,
-                'internal_row': old_row,
-                'internal_col': old_col
-            }
-        
-        # Move the dragged tree to new position
-        tree.internal_row = new_row
-        tree.internal_col = new_col
-        
-        db.session.commit()
-        
-        return jsonify({
-            'success': True,
-            'swapped': swapped,
-            'swapped_tree': swapped_tree_data
-        })
-        
-    except Exception as e:
-        db.session.rollback()
-        print(f"Error moving tree: {str(e)}")
-        return jsonify({'success': False, 'error': str(e)})
+
 
 @app.route('/swap_trees', methods=['POST'])
 @login_required
