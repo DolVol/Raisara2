@@ -136,7 +136,7 @@
             <p>Create your Tree Management System account</p>
         </div>
         
-        <form id="registerForm">
+        <form id="registerForm" method="POST" action="/register">
             <div class="form-group">
                 <label for="username">Username:</label>
                 <input type="text" id="username" name="username" required minlength="3">
@@ -175,7 +175,7 @@
 
     <script>
         document.getElementById('registerForm').addEventListener('submit', async function(e) {
-            e.preventDefault();
+            e.preventDefault(); // ✅ CRITICAL: Prevent default form submission
             
             const submitBtn = document.getElementById('submitBtn');
             const loading = document.getElementById('loading');
@@ -212,24 +212,55 @@
             messageDiv.innerHTML = '';
             
             try {
+                console.log('Sending registration request...'); // ✅ DEBUG: Log the request
+                
                 const response = await fetch('/register', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
+                        'Accept': 'application/json'
                     },
                     body: JSON.stringify(data)
                 });
                 
-                const result = await response.json();
+                console.log('Response status:', response.status); // ✅ DEBUG: Log response status
                 
-if (result.success) {
-    messageDiv.innerHTML = '<div class="success">' + result.message + '</div>';
-    setTimeout(() => {
-        window.location.href = '/farms';  // ✅ CHANGED: Go to farms page instead of main index
-    }, 1500);
-} else {
-    messageDiv.innerHTML = '<div class="error">' + result.error + '</div>';
-}
+                // ✅ FIXED: Handle both JSON and non-JSON responses
+                let result;
+                const contentType = response.headers.get('content-type');
+                
+                if (contentType && contentType.includes('application/json')) {
+                    result = await response.json();
+                } else {
+                    // If not JSON, treat as error
+                    const text = await response.text();
+                    console.log('Non-JSON response:', text);
+                    result = { 
+                        success: false, 
+                        error: 'Server returned unexpected response. Please try again.' 
+                    };
+                }
+                
+                console.log('Registration result:', result); // ✅ DEBUG: Log the result
+                
+                if (result.success) {
+                    messageDiv.innerHTML = '<div class="success">' + result.message + '</div>';
+                    setTimeout(() => {
+                        window.location.href = '/farms';
+                    }, 1500);
+                } else {
+                    messageDiv.innerHTML = '<div class="error">' + (result.error || result.message || 'Registration failed') + '</div>';
+                }
+                
+            } catch (error) {
+                console.error('Registration error:', error); // ✅ DEBUG: Log errors
+                messageDiv.innerHTML = '<div class="error">Network error. Please check your connection and try again.</div>';
+            } finally {
+                // ✅ FIXED: Always reset loading state
+                submitBtn.disabled = false;
+                loading.style.display = 'none';
+            }
+        });
         
         // Real-time password confirmation validation
         document.getElementById('confirm_password').addEventListener('input', function() {
