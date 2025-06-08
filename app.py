@@ -26,7 +26,13 @@ from flask_mail import Mail, Message
 
 mail = Mail()
 # Add these helper functions to your app.py file (after the imports section)
+def is_postgresql():
+    """Check if we're using PostgreSQL"""
+    return 'postgresql' in DATABASE_URL or os.getenv('RENDER') or os.getenv('DATABASE_URL', '').startswith('postgres')
 
+def is_sqlite():
+    """Check if we're using SQLite"""
+    return 'sqlite' in DATABASE_URL and not os.getenv('RENDER')
 def get_grid_settings(grid_type='dome', user_id=None):
     """Get grid settings for specific type and user"""
     try:
@@ -166,8 +172,19 @@ def get_grid_settings(grid_type='dome', user_id=None, farm_id=None):
                 user_id=user_id
             )
             db.session.add(settings)
-            db.session.commit()
-            print(f"✅ Created default {grid_type_key} settings: {default_rows}x{default_cols}")
+            
+            try:
+                db.session.commit()
+                print(f"✅ Created default {grid_type_key} settings: {default_rows}x{default_cols}")
+            except Exception as commit_error:
+                db.session.rollback()
+                print(f"⚠️ Failed to create grid settings: {commit_error}")
+                # Return a default object instead
+                return type('obj', (object,), {
+                    'rows': default_rows,
+                    'cols': default_cols,
+                    'grid_type': grid_type_key
+                })
             
         return settings
     except Exception as e:
@@ -265,40 +282,33 @@ def force_schema_refresh():
         
         # Method 3: Direct SQL check to verify column exists
         with db.engine.connect() as conn:
-            result = conn.execute(db.text("PRAGMA table_info(dome)"))
-            columns = [row[1] for row in result.fetchall()]
-            print(f"✅ Direct SQL check - Dome columns: {columns}")
+            if 'postgresql' in DATABASE_URL or os.getenv('RENDER'):
+                # PostgreSQL version
+                result = conn.execute(text("""
+                    SELECT column_name 
+                    FROM information_schema.columns 
+                    WHERE table_name = 'dome' AND column_name = 'farm_id'
+                """))
+                columns = [row[0] for row in result.fetchall()]
+                print(f"✅ PostgreSQL check - Dome columns with farm_id: {columns}")
+            else:
+                # SQLite version
+                result = conn.execute(text("PRAGMA table_info(dome)"))
+                columns = [row[1] for row in result.fetchall()]
+                print(f"✅ SQLite check - Dome columns: {columns}")
             
             if 'farm_id' in columns:
                 print("✅ farm_id column confirmed in database")
                 
-                # Method 4: Test actual query
+                # Test actual query
                 try:
-                    test_result = conn.execute(db.text("SELECT farm_id FROM dome LIMIT 1"))
-                    print("✅ farm_id column is queryable")
-                    
-                    # Method 5: Force SQLAlchemy to re-inspect the table
-                    from sqlalchemy import inspect
-                    inspector = inspect(db.engine)
-                    dome_columns = [col['name'] for col in inspector.get_columns('dome')]
-                    print(f"✅ SQLAlchemy inspector sees: {dome_columns}")
-                    
-                    if 'farm_id' in dome_columns:
-                        print("✅ SQLAlchemy can see farm_id column")
-                        return True
+                    if 'postgresql' in DATABASE_URL or os.getenv('RENDER'):
+                        test_result = conn.execute(text('SELECT farm_id FROM dome LIMIT 1'))
                     else:
-                        print("❌ SQLAlchemy inspector missing farm_id")
-                        # Force table recreation in metadata
-                        if 'dome' in db.metadata.tables:
-                            db.metadata.remove(db.metadata.tables['dome'])
-                        
-                        # Re-reflect just the dome table
-                        from sqlalchemy import Table
-                        dome_table = Table('dome', db.metadata, autoload_with=db.engine)
-                        updated_columns = [col.name for col in dome_table.columns]
-                        print(f"✅ Re-reflected dome table: {updated_columns}")
-                        return 'farm_id' in updated_columns
-                        
+                        test_result = conn.execute(text("SELECT farm_id FROM dome LIMIT 1"))
+                    print("✅ farm_id column is queryable")
+                    return True
+                    
                 except Exception as query_error:
                     print(f"❌ Cannot query farm_id: {query_error}")
                     return False
@@ -365,6 +375,7 @@ def create_app():
     os.makedirs(UPLOAD_FOLDER, exist_ok=True)
     
     # ✅ FIXED: Better database initialization with proper schema refresh
+    # ✅ FIXED: PostgreSQL-compatible migration code
     with app.app_context():
         try:
             # Create all tables
@@ -376,14 +387,26 @@ def create_app():
             else:
                 print("⚠️ Schema refresh had issues, but continuing...")
             
-            # ✅ ADD THE MIGRATION CODE HERE
+            # ✅ FIXED: PostgreSQL-compatible column addition
             try:
                 # Add new columns if they don't exist
                 with db.engine.connect() as conn:
                     try:
-                        # Check if columns exist
-                        result = conn.execute(text("PRAGMA table_info(grid_settings)"))
-                        columns = [row[1] for row in result.fetchall()]
+                        # ✅ FIXED: Use PostgreSQL-compatible table info query
+                        if 'postgresql' in DATABASE_URL or os.getenv('RENDER'):
+                            # PostgreSQL version
+                            result = conn.execute(text("""
+                                SELECT column_name 
+                                FROM information_schema.columns 
+                                WHERE table_name = 'grid_settings'
+                            """))
+                            columns = [row[0] for row in result.fetchall()]
+                        else:
+                            # SQLite version (for local development)
+                            result = conn.execute(text("PRAGMA table_info(grid_settings)"))
+                            columns = [row[1] for row in result.fetchall()]
+                        
+                        print(f"📋 Grid settings columns: {columns}")
                         
                         if 'grid_type' not in columns:
                             conn.execute(text("ALTER TABLE grid_settings ADD COLUMN grid_type VARCHAR(20) DEFAULT 'dome'"))
@@ -394,11 +417,11 @@ def create_app():
                             print("✅ Added user_id column")
                         
                         if 'created_at' not in columns:
-                            conn.execute(text("ALTER TABLE grid_settings ADD COLUMN created_at DATETIME"))
+                            conn.execute(text("ALTER TABLE grid_settings ADD COLUMN created_at TIMESTAMP"))
                             print("✅ Added created_at column")
                         
                         if 'updated_at' not in columns:
-                            conn.execute(text("ALTER TABLE grid_settings ADD COLUMN updated_at DATETIME"))
+                            conn.execute(text("ALTER TABLE grid_settings ADD COLUMN updated_at TIMESTAMP"))
                             print("✅ Added updated_at column")
                         
                         conn.commit()
@@ -407,7 +430,7 @@ def create_app():
                         conn.execute(text("UPDATE grid_settings SET grid_type = 'dome' WHERE grid_type IS NULL"))
                         
                         # Get the first user ID to assign to existing settings
-                        result = conn.execute(text("SELECT id FROM user LIMIT 1"))
+                        result = conn.execute(text("SELECT id FROM \"user\" LIMIT 1"))  # Note: "user" is quoted for PostgreSQL
                         first_user = result.fetchone()
                         
                         if first_user:
@@ -418,7 +441,7 @@ def create_app():
                         
                         # Set timestamps for existing records
                         from datetime import datetime
-                        current_time = datetime.utcnow().isoformat()
+                        current_time = datetime.utcnow()
                         conn.execute(text("UPDATE grid_settings SET created_at = :time WHERE created_at IS NULL"), {"time": current_time})
                         conn.execute(text("UPDATE grid_settings SET updated_at = :time WHERE updated_at IS NULL"), {"time": current_time})
                         
@@ -439,7 +462,7 @@ def create_app():
                 print(f"⚠️ Warning during defaults initialization: {init_error}")
                 # Continue anyway - the app can still work
                 
-        except Exception as e:
+        except Exception as e:  # ✅ FIXED: Proper indentation
             print(f"❌ Database initialization error: {e}")
             # Don't crash the app, just log the error
             
