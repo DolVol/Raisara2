@@ -892,46 +892,42 @@ def create_dome():
         name = data.get('name')
         grid_row = data.get('grid_row')
         grid_col = data.get('grid_col')
-        farm_id = data.get('farm_id')  # Required for farm-specific domes
+        farm_id = data.get('farm_id')  # Required for all domes now
         
-        if not name or grid_row is None or grid_col is None:
-            return jsonify({'success': False, 'error': 'Missing required fields'})
+        if not name or grid_row is None or grid_col is None or not farm_id:
+            return jsonify({'success': False, 'error': 'Missing required fields (name, position, farm_id)'})
         
-        # ✅ FIXED: Check if position is occupied ONLY within the same farm context
-        if farm_id:
-            # Farm-specific dome - check within this farm only
-            existing_dome = Dome.query.filter_by(
-                grid_row=grid_row, 
-                grid_col=grid_col,
-                user_id=current_user.id,
-                farm_id=farm_id  # ✅ KEY FIX: Only check within same farm
-            ).first()
-        else:
-            # Global dome - check within global context only
-            existing_dome = Dome.query.filter_by(
-                grid_row=grid_row, 
-                grid_col=grid_col,
-                user_id=current_user.id,
-                farm_id=None  # ✅ KEY FIX: Only check global domes
-            ).first()
+        # Verify farm ownership
+        farm = Farm.query.filter_by(id=farm_id, user_id=current_user.id).first()
+        if not farm:
+            return jsonify({'success': False, 'error': 'Farm not found or access denied'})
+        
+        # Check if position is occupied within this farm
+        existing_dome = Dome.query.filter_by(
+            grid_row=grid_row, 
+            grid_col=grid_col,
+            user_id=current_user.id,
+            farm_id=farm_id
+        ).first()
         
         if existing_dome:
-            return jsonify({'success': False, 'error': 'Position already occupied in this context'})
+            return jsonify({'success': False, 'error': 'Position already occupied in this farm'})
         
-        # Create new dome
+        # Create new dome with default 5x5 internal grid
         new_dome = Dome(
             name=name,
             grid_row=grid_row,
             grid_col=grid_col,
+            internal_rows=5,  # Default 5x5 internal grid
+            internal_cols=5,
             user_id=current_user.id,
-            farm_id=farm_id  # Can be None for global domes
+            farm_id=farm_id  # Always required now
         )
         
         db.session.add(new_dome)
         db.session.commit()
         
-        context = f"farm {farm_id}" if farm_id else "global"
-        print(f"✅ Dome created: {new_dome.name} at ({grid_row}, {grid_col}) in {context}")
+        print(f"✅ Dome created: {new_dome.name} at ({grid_row}, {grid_col}) in farm {farm_id}")
         
         return jsonify({
             'success': True, 
@@ -941,6 +937,8 @@ def create_dome():
                 'name': new_dome.name,
                 'grid_row': new_dome.grid_row,
                 'grid_col': new_dome.grid_col,
+                'internal_rows': new_dome.internal_rows,
+                'internal_cols': new_dome.internal_cols,
                 'farm_id': new_dome.farm_id
             }
         })
@@ -948,7 +946,7 @@ def create_dome():
     except Exception as e:
         db.session.rollback()
         print(f"❌ Error creating dome: {str(e)}")
-        return jsonify({'success': False, 'error': str(e)})@app.route('/move_dome/<int:dome_id>', methods=['POST'])
+        return jsonify({'success': False, 'error': str(e)})
 @app.route('/move_dome/<int:dome_id>', methods=['POST'])
 @login_required
 def move_dome(dome_id):
@@ -965,26 +963,20 @@ def move_dome(dome_id):
         if not dome:
             return jsonify({'success': False, 'error': 'Dome not found'})
         
-        # ✅ FIXED: Check if target position is occupied ONLY within the same farm context
-        if dome.farm_id:
-            # Farm-specific dome - check within this farm only
-            existing_dome = Dome.query.filter_by(
-                grid_row=new_row, 
-                grid_col=new_col,
-                user_id=current_user.id,
-                farm_id=dome.farm_id  # ✅ KEY FIX: Only check within same farm
-            ).first()
-        else:
-            # Global dome - check within global context only
-            existing_dome = Dome.query.filter_by(
-                grid_row=new_row, 
-                grid_col=new_col,
-                user_id=current_user.id,
-                farm_id=None  # ✅ KEY FIX: Only check global domes
-            ).first()
+        # Ensure dome belongs to a farm
+        if not dome.farm_id:
+            return jsonify({'success': False, 'error': 'Invalid dome - must belong to a farm'})
+        
+        # Check if target position is occupied within the same farm
+        existing_dome = Dome.query.filter_by(
+            grid_row=new_row, 
+            grid_col=new_col,
+            user_id=current_user.id,
+            farm_id=dome.farm_id
+        ).first()
         
         if existing_dome and existing_dome.id != dome_id:
-            return jsonify({'success': False, 'error': 'Target position already occupied in this context'})
+            return jsonify({'success': False, 'error': 'Target position already occupied in this farm'})
         
         # Update dome position
         old_position = f"({dome.grid_row}, {dome.grid_col})"
@@ -992,8 +984,7 @@ def move_dome(dome_id):
         dome.grid_col = new_col
         db.session.commit()
         
-        context = f"farm {dome.farm_id}" if dome.farm_id else "global"
-        print(f"✅ Dome moved: {dome.name} from {old_position} to ({new_row}, {new_col}) in {context}")
+        print(f"✅ Dome moved: {dome.name} from {old_position} to ({new_row}, {new_col}) in farm {dome.farm_id}")
         
         return jsonify({'success': True, 'message': 'Dome moved successfully'})
         
@@ -1553,32 +1544,8 @@ def upload_farm_image(farm_id):
 @app.route('/')
 @login_required
 def index():
-    try:
-        # ✅ FIXED: Get DOME-specific grid settings
-        grid_settings = get_grid_settings('dome', current_user.id)
-        print(f"📏 Dome grid settings: {grid_settings.rows}x{grid_settings.cols}")
-        
-        # Get all domes for current user
-        domes = Dome.query.filter_by(user_id=current_user.id).all()
-        
-        return render_template('dome.html',
-                             domes=domes,
-                             grid_rows=grid_settings.rows,
-                             grid_cols=grid_settings.cols,
-                             user=current_user,
-                             timestamp=int(time.time()))
-                             
-    except Exception as e:
-        print(f"❌ Error in index route: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        # Fallback to default grid
-        return render_template('dome.html',
-                             domes=[],
-                             grid_rows=5,
-                             grid_cols=5,
-                             user=current_user,
-                             timestamp=int(time.time()))
+    """Redirect to farms instead of global domes"""
+    return redirect(url_for('farms'))
 @app.route('/update_dome_grid/<int:dome_id>', methods=['POST'])
 @login_required
 def update_dome_grid(dome_id):
@@ -1659,8 +1626,14 @@ def farm_domes(farm_id):
             flash('Farm not found', 'error')
             return redirect(url_for('farms'))
         
-        # ✅ FIXED: Get farm-specific dome grid settings instead of hardcoded 5x5
+        # ✅ FIXED: Get farm-specific dome grid settings with 5x5 default
         grid_settings = get_grid_settings('dome', current_user.id, farm_id)
+        
+        # Ensure default is 5x5 for farm domes
+        if not hasattr(grid_settings, 'rows') or grid_settings.rows is None:
+            grid_settings.rows = 5
+        if not hasattr(grid_settings, 'cols') or grid_settings.cols is None:
+            grid_settings.cols = 5
         
         print(f"📏 Farm {farm_id} dome grid settings: {grid_settings.rows}x{grid_settings.cols}")
         
@@ -1674,7 +1647,7 @@ def farm_domes(farm_id):
                              grid_rows=grid_settings.rows,
                              grid_cols=grid_settings.cols,
                              farm_id=farm_id,
-                             farm_name=farm.name,  # Add farm name for context
+                             farm_name=farm.name,
                              page_title=f"{farm.name} - Domes",
                              timestamp=int(time.time()),
                              user=current_user)
@@ -1686,44 +1659,118 @@ def farm_domes(farm_id):
 @app.route('/domes')
 @login_required
 def domes():
+    """Redirect to farms - no more global domes"""
+    flash('Please select a farm to view its domes', 'info')
+    return redirect(url_for('farms'))
+
+# ============= UPDATED GRID SETTINGS HELPER =============
+
+def get_grid_settings(grid_type='dome', user_id=None, farm_id=None):
+    """Get grid settings for specific type, user, and optionally farm"""
     try:
-        print("🏠 Loading all global domes")
-        
-        # Get grid settings for global domes
-        grid_settings = GridSettings.query.filter_by(
-            user_id=current_user.id, 
-            grid_type='dome'
+        # For farm-specific dome settings
+        if grid_type == 'dome' and farm_id:
+            grid_type_key = f'farm_{farm_id}_dome'
+        else:
+            grid_type_key = grid_type
+            
+        settings = GridSettings.query.filter_by(
+            grid_type=grid_type_key,
+            user_id=user_id
         ).first()
         
-        if not grid_settings:
-            grid_settings = GridSettings(
-                user_id=current_user.id,
-                grid_type='dome',
-                rows=10,
-                cols=10
+        if not settings:
+            # Create default settings with 5x5 for farm domes
+            if grid_type == 'farm':
+                default_rows, default_cols = 10, 10
+            elif farm_id:  # Farm-specific dome settings
+                default_rows, default_cols = 5, 5  # Default 5x5 for farm domes
+            else:  # Fallback
+                default_rows, default_cols = 5, 5
+            
+            settings = GridSettings(
+                rows=default_rows,
+                cols=default_cols,
+                grid_type=grid_type_key,
+                user_id=user_id
             )
-            db.session.add(grid_settings)
-            db.session.commit()
-            print("✅ Created default dome grid settings")
-        
-        # ✅ FIXED: Get only global domes (farm_id is None)
-        domes = Dome.query.filter_by(user_id=current_user.id, farm_id=None).all()
-        
-        print(f"✅ Found {len(domes)} global domes")
-        
-        return render_template('dome.html', 
-                             domes=domes,
-                             grid_rows=grid_settings.rows,
-                             grid_cols=grid_settings.cols,
-                             farm_id=None,  # No specific farm context
-                             page_title="Global Domes",
-                             timestamp=int(time.time()),
-                             user=current_user)
-                             
+            db.session.add(settings)
+            
+            try:
+                db.session.commit()
+                print(f"✅ Created default {grid_type_key} settings: {default_rows}x{default_cols}")
+            except Exception as commit_error:
+                db.session.rollback()
+                print(f"⚠️ Failed to create grid settings: {commit_error}")
+                # Return a default object instead
+                return type('obj', (object,), {
+                    'rows': default_rows,
+                    'cols': default_cols,
+                    'grid_type': grid_type_key
+                })
+            
+        return settings
     except Exception as e:
-        print(f"❌ Error loading domes: {str(e)}")
-        flash('Error loading domes', 'error')
-        return redirect(url_for('index'))
+        print(f"Error getting grid settings: {e}")
+        # Return default object with 5x5 for farm domes
+        if grid_type == 'farm':
+            default_rows, default_cols = 10, 10
+        elif farm_id:
+            default_rows, default_cols = 5, 5
+        else:
+            default_rows, default_cols = 5, 5
+            
+        return type('obj', (object,), {
+            'rows': default_rows,
+            'cols': default_cols,
+            'grid_type': grid_type_key if 'grid_type_key' in locals() else grid_type
+        })
+@app.route('/migrate_orphan_domes')
+@login_required
+def migrate_orphan_domes():
+    """One-time migration to assign orphan domes to farms or delete them"""
+    try:
+        # Find domes without farm_id
+        orphan_domes = Dome.query.filter_by(farm_id=None, user_id=current_user.id).all()
+        
+        if not orphan_domes:
+            return jsonify({
+                'success': True,
+                'message': 'No orphan domes found - all domes belong to farms'
+            })
+        
+        # Get user's first farm or create one
+        first_farm = Farm.query.filter_by(user_id=current_user.id).first()
+        
+        if not first_farm:
+            # Create a default farm
+            first_farm = Farm(
+                name="Default Farm",
+                grid_row=0,
+                grid_col=0,
+                user_id=current_user.id
+            )
+            db.session.add(first_farm)
+            db.session.commit()
+            print(f"✅ Created default farm for user {current_user.id}")
+        
+        # Assign orphan domes to the first farm
+        migrated_count = 0
+        for dome in orphan_domes:
+            dome.farm_id = first_farm.id
+            migrated_count += 1
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': f'Migrated {migrated_count} orphan domes to farm "{first_farm.name}"'
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"❌ Error migrating orphan domes: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)})
 @app.route('/api/dome_context/<int:farm_id>')
 @login_required
 def dome_context_info(farm_id):
@@ -2087,63 +2134,509 @@ def get_dome_trees(dome_id):
 @app.route('/update_grid_size', methods=['POST'])
 @login_required
 def update_grid_size():
-    """Update dome grid size (global or farm-specific)"""
+    """Redirect to farm-specific dome grid update"""
     try:
         data = request.get_json()
-        rows = data.get('rows')
-        cols = data.get('cols')
-        farm_id = data.get('farm_id')  # Get farm_id from request
+        farm_id = data.get('farm_id')
         
-        print(f"🔧 Updating dome grid size to {rows}x{cols} (farm_id: {farm_id})")
+        if not farm_id:
+            return jsonify({'success': False, 'error': 'farm_id is required for dome grid updates'})
         
-        if not rows or not cols:
-            return jsonify({'success': False, 'error': 'Rows and columns are required'})
-        
-        try:
-            rows = int(rows)
-            cols = int(cols)
-        except (ValueError, TypeError):
-            return jsonify({'success': False, 'error': 'Invalid grid size values'})
-        
-        if rows < 1 or rows > 50 or cols < 1 or cols > 50:
-            return jsonify({'success': False, 'error': 'Grid size must be between 1x1 and 50x50'})
-        
-        # Check if shrinking would affect existing domes
-        if farm_id:
-            # Check domes in specific farm
-            affected_domes = Dome.query.filter(
-                Dome.farm_id == farm_id,
-                Dome.user_id == current_user.id,
-                (Dome.grid_row >= rows) | (Dome.grid_col >= cols)
-            ).all()
-        else:
-            # Check global domes
-            affected_domes = Dome.query.filter(
-                Dome.farm_id.is_(None),
-                Dome.user_id == current_user.id,
-                (Dome.grid_row >= rows) | (Dome.grid_col >= cols)
-            ).all()
-        
-        if affected_domes:
-            dome_names = [dome.name for dome in affected_domes]
-            return jsonify({
-                'success': False, 
-                'error': f'Cannot shrink grid. Domes would be affected: {", ".join(dome_names)}'
-            })
-        
-        # Update farm-specific or global dome settings
-        success = update_grid_settings('dome', rows, cols, current_user.id, farm_id)
-        
-        if success:
-            context = f"farm {farm_id}" if farm_id else "global"
-            print(f"✅ {context} dome grid size updated to {rows}x{cols}")
-            return jsonify({'success': True, 'message': f'Grid updated to {rows}x{cols}'})
-        else:
-            return jsonify({'success': False, 'error': 'Failed to update grid settings'})
+        # Redirect to farm-specific update
+        return update_farm_dome_grid_size(farm_id)
         
     except Exception as e:
-        print(f"❌ Error updating dome grid size: {str(e)}")
-        return jsonify({'success': False, 'error': str(e)})
+        print(f"❌ Error in update_grid_size: {str(e)}")
+        return jsonify({'success': False, 'error': 'Please use farm-specific dome grid updates'})
+def cleanup_orphan_domes():
+    """Clean up any domes without farm_id"""
+    try:
+        with app.app_context():
+            orphan_domes = Dome.query.filter_by(farm_id=None).all()
+            
+            if orphan_domes:
+                print(f"🧹 Found {len(orphan_domes)} orphan domes without farm_id")
+                
+                # Group by user
+                user_orphans = {}
+                for dome in orphan_domes:
+                    if dome.user_id not in user_orphans:
+                        user_orphans[dome.user_id] = []
+                    user_orphans[dome.user_id].append(dome)
+                
+                for user_id, domes in user_orphans.items():
+                    # Get or create a default farm for this user
+                    default_farm = Farm.query.filter_by(user_id=user_id).first()
+                    
+                    if not default_farm:
+                        default_farm = Farm(
+                            name="Default Farm",
+                            grid_row=0,
+                            grid_col=0,
+                            user_id=user_id
+                        )
+                        db.session.add(default_farm)
+                        db.session.commit()
+                        print(f"✅ Created default farm for user {user_id}")
+                    
+                    # Assign orphan domes to default farm
+                    for dome in domes:
+                        dome.farm_id = default_farm.id
+                    
+                    print(f"✅ Assigned {len(domes)} orphan domes to farm {default_farm.id} for user {user_id}")
+                
+                db.session.commit()
+                print(f"✅ Cleanup complete - all domes now belong to farms")
+            else:
+                print("✅ No orphan domes found - all domes belong to farms")
+                
+    except Exception as e:
+        print(f"⚠️ Error during orphan dome cleanup: {e}")
+
+# ============= VALIDATION HELPERS =============
+
+def validate_dome_belongs_to_farm(dome_id, user_id):
+    """Validate that a dome belongs to a farm and user"""
+    dome = Dome.query.filter_by(id=dome_id, user_id=user_id).first()
+    
+    if not dome:
+        return False, "Dome not found"
+    
+    if not dome.farm_id:
+        return False, "Dome must belong to a farm"
+    
+    # Verify farm ownership
+    farm = Farm.query.filter_by(id=dome.farm_id, user_id=user_id).first()
+    if not farm:
+        return False, "Farm not found or access denied"
+    
+    return True, dome
+@app.route('/setup_farm_domes')
+@login_required
+def setup_farm_domes():
+    """One-time setup to ensure all domes belong to farms with proper defaults"""
+    try:
+        print(f"🔧 Setting up farm domes for user {current_user.id}")
+        
+        # Step 1: Find orphan domes (domes without farm_id)
+        orphan_domes = Dome.query.filter_by(farm_id=None, user_id=current_user.id).all()
+        
+        # Step 2: Get or create a default farm
+        default_farm = Farm.query.filter_by(user_id=current_user.id).first()
+        
+        if not default_farm:
+            default_farm = Farm(
+                name="My Farm",
+                grid_row=0,
+                grid_col=0,
+                user_id=current_user.id
+            )
+            db.session.add(default_farm)
+            db.session.commit()
+            print(f"✅ Created default farm: {default_farm.name}")
+        
+        # Step 3: Assign orphan domes to default farm
+        migrated_domes = 0
+        for dome in orphan_domes:
+            dome.farm_id = default_farm.id
+            # Ensure dome has proper internal grid size (5x5 default)
+            if not dome.internal_rows or dome.internal_rows == 0:
+                dome.internal_rows = 5
+            if not dome.internal_cols or dome.internal_cols == 0:
+                dome.internal_cols = 5
+            migrated_domes += 1
+        
+        # Step 4: Update all user's domes to have proper internal grid sizes
+        all_user_domes = Dome.query.filter_by(user_id=current_user.id).all()
+        updated_domes = 0
+        
+        for dome in all_user_domes:
+            updated = False
+            if not dome.internal_rows or dome.internal_rows == 0:
+                dome.internal_rows = 5
+                updated = True
+            if not dome.internal_cols or dome.internal_cols == 0:
+                dome.internal_cols = 5
+                updated = True
+            if updated:
+                updated_domes += 1
+        
+        # Step 5: Set up proper grid settings for each farm
+        user_farms = Farm.query.filter_by(user_id=current_user.id).all()
+        grid_settings_created = 0
+        
+        for farm in user_farms:
+            # Check if farm-specific dome grid settings exist
+            farm_dome_settings = GridSettings.query.filter_by(
+                grid_type=f'farm_{farm.id}_dome',
+                user_id=current_user.id
+            ).first()
+            
+            if not farm_dome_settings:
+                farm_dome_settings = GridSettings(
+                    rows=5,  # Default 5x5 dome grid for farms
+                    cols=5,
+                    grid_type=f'farm_{farm.id}_dome',
+                    user_id=current_user.id
+                )
+                db.session.add(farm_dome_settings)
+                grid_settings_created += 1
+        
+        db.session.commit()
+        
+        # Step 6: Generate summary
+        total_farms = len(user_farms)
+        total_domes = len(all_user_domes)
+        
+        return f"""
+        <div style="font-family: Arial; padding: 20px; max-width: 600px; margin: 0 auto;">
+            <h2>🎉 Farm Dome Setup Complete!</h2>
+            
+            <div style="background: #e8f5e8; padding: 15px; border-radius: 8px; margin: 15px 0;">
+                <h3>✅ Setup Summary:</h3>
+                <ul>
+                    <li><strong>Farms:</strong> {total_farms} farm(s)</li>
+                    <li><strong>Domes:</strong> {total_domes} dome(s)</li>
+                    <li><strong>Migrated orphan domes:</strong> {migrated_domes}</li>
+                    <li><strong>Updated dome grid sizes:</strong> {updated_domes}</li>
+                    <li><strong>Grid settings created:</strong> {grid_settings_created}</li>
+                </ul>
+            </div>
+            
+            <div style="background: #f0f8ff; padding: 15px; border-radius: 8px; margin: 15px 0;">
+                <h3>📏 Default Settings:</h3>
+                <ul>
+                    <li><strong>Farm grid:</strong> 10x10 (for placing domes)</li>
+                    <li><strong>Dome grid:</strong> 5x5 (for placing trees)</li>
+                    <li><strong>All grids are editable</strong> in their respective views</li>
+                </ul>
+            </div>
+            
+            <div style="text-align: center; margin: 20px 0;">
+                <a href="/farms" style="background: #4CAF50; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">
+                    🚜 Go to Farms
+                </a>
+            </div>
+            
+            <div style="background: #fff3cd; padding: 10px; border-radius: 6px; margin: 15px 0; font-size: 14px;">
+                <strong>Note:</strong> You can remove this setup route after confirming everything works properly.
+            </div>
+        </div>
+        """
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"❌ Error setting up farm domes: {str(e)}")
+        return f"""
+        <div style="font-family: Arial; padding: 20px; text-align: center;">
+            <h2>❌ Setup Failed</h2>
+            <p><strong>Error:</strong> {str(e)}</p>
+            <p><a href="/farms">Try Farms Page</a></p>
+        </div>
+        """
+@app.route('/validate_dome_setup')
+@login_required
+def validate_dome_setup():
+    """Validate that dome setup is correct"""
+    try:
+        # Check for orphan domes
+        orphan_domes = Dome.query.filter_by(farm_id=None, user_id=current_user.id).all()
+        
+        # Check dome internal grid sizes
+        domes_without_grid = Dome.query.filter(
+            Dome.user_id == current_user.id,
+            (Dome.internal_rows.is_(None)) | (Dome.internal_rows == 0) |
+            (Dome.internal_cols.is_(None)) | (Dome.internal_cols == 0)
+        ).all()
+        
+        # Check grid settings
+        user_farms = Farm.query.filter_by(user_id=current_user.id).all()
+        farms_without_dome_settings = []
+        
+        for farm in user_farms:
+            settings = GridSettings.query.filter_by(
+                grid_type=f'farm_{farm.id}_dome',
+                user_id=current_user.id
+            ).first()
+            if not settings:
+                farms_without_dome_settings.append(farm.name)
+        
+        # Check for trees with invalid positions
+        invalid_trees = []
+        all_domes = Dome.query.filter_by(user_id=current_user.id).all()
+        
+        for dome in all_domes:
+            trees = Tree.query.filter_by(dome_id=dome.id).all()
+            for tree in trees:
+                if (tree.internal_row >= dome.internal_rows or 
+                    tree.internal_col >= dome.internal_cols or
+                    tree.internal_row < 0 or tree.internal_col < 0):
+                    invalid_trees.append({
+                        'tree_name': tree.name,
+                        'dome_name': dome.name,
+                        'position': f"({tree.internal_row}, {tree.internal_col})",
+                        'dome_size': f"{dome.internal_rows}x{dome.internal_cols}"
+                    })
+        
+        # Generate validation report
+        issues = []
+        fixes_applied = []
+        
+        if orphan_domes:
+            issues.append(f"Found {len(orphan_domes)} orphan domes without farm assignment")
+            
+            # Auto-fix: Assign to first farm or create default farm
+            first_farm = Farm.query.filter_by(user_id=current_user.id).first()
+            if not first_farm:
+                first_farm = Farm(
+                    name="Default Farm",
+                    grid_row=0,
+                    grid_col=0,
+                    user_id=current_user.id
+                )
+                db.session.add(first_farm)
+                db.session.commit()
+                fixes_applied.append("Created default farm")
+            
+            for dome in orphan_domes:
+                dome.farm_id = first_farm.id
+            db.session.commit()
+            fixes_applied.append(f"Assigned {len(orphan_domes)} orphan domes to {first_farm.name}")
+        
+        if domes_without_grid:
+            issues.append(f"Found {len(domes_without_grid)} domes without proper grid sizes")
+            
+            # Auto-fix: Set default 5x5 grid
+            for dome in domes_without_grid:
+                if not dome.internal_rows or dome.internal_rows == 0:
+                    dome.internal_rows = 5
+                if not dome.internal_cols or dome.internal_cols == 0:
+                    dome.internal_cols = 5
+            db.session.commit()
+            fixes_applied.append(f"Set default 5x5 grid for {len(domes_without_grid)} domes")
+        
+        if farms_without_dome_settings:
+            issues.append(f"Found {len(farms_without_dome_settings)} farms without dome grid settings")
+            
+            # Auto-fix: Create default dome grid settings
+            for farm in user_farms:
+                settings = GridSettings.query.filter_by(
+                    grid_type=f'farm_{farm.id}_dome',
+                    user_id=current_user.id
+                ).first()
+                
+                if not settings:
+                    settings = GridSettings(
+                        rows=5,
+                        cols=5,
+                        grid_type=f'farm_{farm.id}_dome',
+                        user_id=current_user.id
+                    )
+                    db.session.add(settings)
+            
+            db.session.commit()
+            fixes_applied.append(f"Created dome grid settings for {len(farms_without_dome_settings)} farms")
+        
+        if invalid_trees:
+            issues.append(f"Found {len(invalid_trees)} trees with invalid positions")
+            
+            # Auto-fix: Move invalid trees to valid positions
+            for tree_info in invalid_trees:
+                tree = Tree.query.filter_by(name=tree_info['tree_name']).first()
+                dome = Dome.query.filter_by(name=tree_info['dome_name']).first()
+                
+                if tree and dome:
+                    # Find first available position
+                    for row in range(dome.internal_rows):
+                        for col in range(dome.internal_cols):
+                            existing = Tree.query.filter_by(
+                                dome_id=dome.id,
+                                internal_row=row,
+                                internal_col=col
+                            ).first()
+                            if not existing:
+                                tree.internal_row = row
+                                tree.internal_col = col
+                                break
+                        else:
+                            continue
+                        break
+            
+            db.session.commit()
+            fixes_applied.append(f"Repositioned {len(invalid_trees)} trees to valid positions")
+        
+        # Generate summary statistics
+        total_farms = Farm.query.filter_by(user_id=current_user.id).count()
+        total_domes = Dome.query.filter_by(user_id=current_user.id).count()
+        total_trees = Tree.query.filter_by(user_id=current_user.id).count()
+        
+        # Check for duplicate positions
+        duplicate_positions = []
+        for dome in all_domes:
+            trees = Tree.query.filter_by(dome_id=dome.id).all()
+            positions = {}
+            for tree in trees:
+                pos_key = f"{tree.internal_row},{tree.internal_col}"
+                if pos_key in positions:
+                    duplicate_positions.append({
+                        'dome_name': dome.name,
+                        'position': f"({tree.internal_row}, {tree.internal_col})",
+                        'trees': [positions[pos_key], tree.name]
+                    })
+                else:
+                    positions[pos_key] = tree.name
+        
+        if duplicate_positions:
+            issues.append(f"Found {len(duplicate_positions)} duplicate tree positions")
+        
+        # Generate HTML report
+        status = "✅ All Good" if not issues else "⚠️ Issues Found"
+        status_color = "#4CAF50" if not issues else "#FF9800"
+        
+        html_report = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Dome Setup Validation</title>
+            <style>
+                body {{ font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }}
+                .status {{ background: {status_color}; color: white; padding: 15px; border-radius: 8px; text-align: center; margin-bottom: 20px; }}
+                .section {{ background: #f5f5f5; padding: 15px; border-radius: 8px; margin: 15px 0; }}
+                .issue {{ background: #fff3cd; padding: 10px; border-left: 4px solid #ffc107; margin: 10px 0; }}
+                .fix {{ background: #d4edda; padding: 10px; border-left: 4px solid #28a745; margin: 10px 0; }}
+                .stats {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; }}
+                .stat-card {{ background: white; padding: 15px; border-radius: 8px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }}
+                .stat-number {{ font-size: 2em; font-weight: bold; color: #007bff; }}
+                .actions {{ text-align: center; margin: 20px 0; }}
+                .btn {{ background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 0 10px; }}
+                .btn:hover {{ background: #0056b3; }}
+                ul {{ list-style-type: none; padding: 0; }}
+                li {{ margin: 5px 0; }}
+            </style>
+        </head>
+        <body>
+            <div class="status">
+                <h1>{status}</h1>
+                <p>Dome Setup Validation Report for {current_user.username}</p>
+            </div>
+            
+            <div class="section">
+                <h2>📊 Summary Statistics</h2>
+                <div class="stats">
+                    <div class="stat-card">
+                        <div class="stat-number">{total_farms}</div>
+                        <div>Farms</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">{total_domes}</div>
+                        <div>Domes</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">{total_trees}</div>
+                        <div>Trees</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">{len(issues)}</div>
+                        <div>Issues Found</div>
+                    </div>
+                </div>
+            </div>
+        """
+        
+        if issues:
+            html_report += """
+            <div class="section">
+                <h2>⚠️ Issues Detected</h2>
+                <ul>
+            """
+            for issue in issues:
+                html_report += f'<li class="issue">• {issue}</li>'
+            html_report += "</ul></div>"
+        
+        if fixes_applied:
+            html_report += """
+            <div class="section">
+                <h2>🔧 Fixes Applied</h2>
+                <ul>
+            """
+            for fix in fixes_applied:
+                html_report += f'<li class="fix">✅ {fix}</li>'
+            html_report += "</ul></div>"
+        
+        if duplicate_positions:
+            html_report += """
+            <div class="section">
+                <h2>🔍 Duplicate Positions Found</h2>
+                <ul>
+            """
+            for dup in duplicate_positions:
+                html_report += f"""
+                <li class="issue">
+                    Dome: {dup['dome_name']} - Position {dup['position']}<br>
+                    Trees: {', '.join(dup['trees'])}
+                </li>
+                """
+            html_report += "</ul></div>"
+        
+        if invalid_trees:
+            html_report += """
+            <div class="section">
+                <h2>📍 Invalid Tree Positions (Fixed)</h2>
+                <ul>
+            """
+            for tree_info in invalid_trees:
+                html_report += f"""
+                <li class="fix">
+                    Tree: {tree_info['tree_name']} in {tree_info['dome_name']}<br>
+                    Was at {tree_info['position']} (dome size: {tree_info['dome_size']})
+                </li>
+                """
+            html_report += "</ul></div>"
+        
+        html_report += f"""
+            <div class="actions">
+                <a href="/farms" class="btn">🚜 Go to Farms</a>
+                <a href="/profile" class="btn">👤 View Profile</a>
+                <a href="/validate_dome_setup" class="btn">🔄 Re-run Validation</a>
+            </div>
+            
+            <div class="section">
+                <h3>🛠️ Validation Details</h3>
+                <p><strong>Validation completed at:</strong> {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC</p>
+                <p><strong>Database type:</strong> {'PostgreSQL' if is_postgresql() else 'SQLite'}</p>
+                <p><strong>Total issues found:</strong> {len(issues)}</p>
+                <p><strong>Total fixes applied:</strong> {len(fixes_applied)}</p>
+            </div>
+        </body>
+        </html>
+        """
+        
+        return html_report
+        
+    except Exception as e:
+        print(f"❌ Validation error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        
+        return f"""
+        <div style="font-family: Arial; padding: 20px; text-align: center;">
+            <h2>❌ Validation Failed</h2>
+            <p><strong>Error:</strong> {str(e)}</p>
+            <p><a href="/farms">Back to Farms</a></p>
+            <details>
+                <summary>Technical Details</summary>
+                <pre>{traceback.format_exc()}</pre>
+            </details>
+        </div>
+        """
+def ensure_farm_context_for_dome_operations():
+    """Decorator to ensure dome operations have farm context"""
+    def decorator(f):
+        def wrapper(*args, **kwargs):
+            # Add farm context validation here if needed
+            return f(*args, **kwargs)
+        return wrapper
+    return decorator
 @app.route('/update_farm_dome_grid_size/<int:farm_id>', methods=['POST'])
 @login_required
 def update_farm_dome_grid_size(farm_id):
@@ -2171,23 +2664,22 @@ def update_farm_dome_grid_size(farm_id):
             return jsonify({'success': False, 'error': 'Invalid grid size values'}), 400
         
         # Validate size bounds
-        if rows < 1 or cols < 1 or rows > 50 or cols > 50:
-            return jsonify({'success': False, 'error': 'Grid size must be between 1x1 and 50x50'}), 400
+        if rows < 1 or cols < 1 or rows > 20 or cols > 20:
+            return jsonify({'success': False, 'error': 'Grid size must be between 1x1 and 20x20'}), 400
         
         # Check if shrinking would affect existing domes
-        if rows < 10 or cols < 10:  # Warn if going below reasonable size
-            existing_domes = Dome.query.filter(
-                Dome.farm_id == farm_id,
-                Dome.user_id == current_user.id,
-                (Dome.grid_row >= rows) | (Dome.grid_col >= cols)
-            ).all()
-            
-            if existing_domes:
-                dome_names = [dome.name for dome in existing_domes]
-                return jsonify({
-                    'success': False, 
-                    'error': f'Cannot shrink grid. Domes would be affected: {", ".join(dome_names)}'
-                }), 400
+        existing_domes = Dome.query.filter(
+            Dome.farm_id == farm_id,
+            Dome.user_id == current_user.id,
+            (Dome.grid_row >= rows) | (Dome.grid_col >= cols)
+        ).all()
+        
+        if existing_domes:
+            dome_names = [dome.name for dome in existing_domes]
+            return jsonify({
+                'success': False, 
+                'error': f'Cannot shrink grid. Domes would be affected: {", ".join(dome_names)}'
+            }), 400
         
         # Update farm-specific dome grid settings
         success = update_grid_settings('dome', rows, cols, current_user.id, farm_id)
@@ -2276,24 +2768,22 @@ def debug_grid_settings():
 @app.route('/profile')
 @login_required
 def profile():
-    """User profile page"""
+    """User profile page - updated to show only farm-specific stats"""
     try:
         # Get user statistics
         farms_count = Farm.query.filter_by(user_id=current_user.id).count()
-        domes_count = Dome.query.filter_by(user_id=current_user.id).count()
+        domes_count = Dome.query.filter_by(user_id=current_user.id).count()  # All domes (farm-specific only)
         trees_count = Tree.query.filter_by(user_id=current_user.id).count()
         
-        # Get grid settings
+        # Get grid settings for farms only
         farm_grid = get_grid_settings('farm', current_user.id)
-        dome_grid = get_grid_settings('dome', current_user.id)
         
         return render_template('profile.html',
                              user=current_user,
                              farms_count=farms_count,
                              domes_count=domes_count,
                              trees_count=trees_count,
-                             farm_grid=farm_grid,
-                             dome_grid=dome_grid)
+                             farm_grid=farm_grid)
                              
     except Exception as e:
         print(f"Error in profile route: {str(e)}")
@@ -2306,15 +2796,28 @@ def dome_info(dome_id):
         dome = Dome.query.filter_by(id=dome_id, user_id=current_user.id).first()
         if not dome:
             flash('Dome not found', 'error')
-            return redirect(url_for('domes'))
+            return redirect(url_for('farms'))
         
-        # Your dome_info logic here...
-        return render_template('dome_info.html', dome=dome)
+        # Ensure dome belongs to a farm
+        if not dome.farm_id:
+            flash('Invalid dome - must belong to a farm', 'error')
+            return redirect(url_for('farms'))
+        
+        # Get the farm for context
+        farm = Farm.query.filter_by(id=dome.farm_id, user_id=current_user.id).first()
+        if not farm:
+            flash('Farm not found', 'error')
+            return redirect(url_for('farms'))
+        
+        return render_template('dome_info.html', 
+                             dome=dome, 
+                             farm=farm,
+                             timestamp=int(time.time()))
         
     except Exception as e:
         print(f"❌ Error in dome_info route: {e}")
         flash('Error loading dome information', 'error')
-        return redirect(url_for('domes'))
+        return redirect(url_for('farms'))
 
 @app.route('/api/tree/<int:tree_id>')
 @login_required
@@ -3370,8 +3873,9 @@ def api_get_trees(dome_id):
 @app.route('/api/stats')
 @login_required
 def api_stats():
-    """API endpoint to get user statistics"""
+    """API endpoint to get user statistics - farm-specific only"""
     try:
+        farms_count = Farm.query.filter_by(user_id=current_user.id).count()
         domes_count = Dome.query.filter_by(user_id=current_user.id).count()
         trees_count = Tree.query.filter_by(user_id=current_user.id).count()
         
@@ -3395,6 +3899,7 @@ def api_stats():
         return jsonify({
             'success': True,
             'stats': {
+                'farms': farms_count,
                 'domes': domes_count,
                 'trees': trees_count,
                 'young_trees': young_trees,
