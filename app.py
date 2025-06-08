@@ -986,6 +986,8 @@ def create_dome():
         db.session.add(new_dome)
         db.session.commit()
         
+        print(f"✅ Dome created: {new_dome.name} at ({grid_row}, {grid_col})")
+        
         return jsonify({
             'success': True, 
             'message': 'Dome created successfully',
@@ -999,7 +1001,7 @@ def create_dome():
         
     except Exception as e:
         db.session.rollback()
-        print(f"Error creating dome: {str(e)}")
+        print(f"❌ Error creating dome: {str(e)}")
         return jsonify({'success': False, 'error': str(e)})
 @app.route('/move_dome/<int:dome_id>', methods=['POST'])
 @login_required
@@ -1028,15 +1030,18 @@ def move_dome(dome_id):
             return jsonify({'success': False, 'error': 'Target position already occupied'})
         
         # Update dome position
+        old_position = f"({dome.grid_row}, {dome.grid_col})"
         dome.grid_row = new_row
         dome.grid_col = new_col
         db.session.commit()
+        
+        print(f"✅ Dome moved: {dome.name} from {old_position} to ({new_row}, {new_col})")
         
         return jsonify({'success': True, 'message': 'Dome moved successfully'})
         
     except Exception as e:
         db.session.rollback()
-        print(f"Error moving dome: {str(e)}")
+        print(f"❌ Error moving dome: {str(e)}")
         return jsonify({'success': False, 'error': str(e)})
 @app.route('/swap_domes', methods=['POST'])
 @login_required
@@ -1061,6 +1066,10 @@ def swap_domes():
         if not dome1 or not dome2:
             return jsonify({'success': False, 'error': 'One or both domes not found'})
         
+        # Store old positions for logging
+        dome1_old = f"({dome1.grid_row}, {dome1.grid_col})"
+        dome2_old = f"({dome2.grid_row}, {dome2.grid_col})"
+        
         # Swap positions
         dome1.grid_row = dome1_new_row
         dome1.grid_col = dome1_new_col
@@ -1069,11 +1078,13 @@ def swap_domes():
         
         db.session.commit()
         
+        print(f"✅ Domes swapped: {dome1.name} {dome1_old} ↔ {dome2.name} {dome2_old}")
+        
         return jsonify({'success': True, 'message': 'Domes swapped successfully'})
         
     except Exception as e:
         db.session.rollback()
-        print(f"Error swapping domes: {str(e)}")
+        print(f"❌ Error swapping domes: {str(e)}")
         return jsonify({'success': False, 'error': str(e)})
 @app.route('/add_farm', methods=['POST'])
 @login_required
@@ -1722,13 +1733,16 @@ def update_dome_grid(dome_id):
 @login_required
 def farm_domes(farm_id):
     try:
+        print(f"🚜 Loading domes for farm {farm_id}")
+        
         # Get the farm
         farm = Farm.query.filter_by(id=farm_id, user_id=current_user.id).first()
         if not farm:
+            print(f"❌ Farm {farm_id} not found")
             flash('Farm not found', 'error')
             return redirect(url_for('farms'))
         
-        # Get grid settings
+        # Get grid settings for domes
         grid_settings = GridSettings.query.filter_by(
             user_id=current_user.id, 
             grid_type='dome'
@@ -1743,9 +1757,12 @@ def farm_domes(farm_id):
             )
             db.session.add(grid_settings)
             db.session.commit()
+            print("✅ Created default dome grid settings")
         
         # Get domes for this specific farm
         domes = Dome.query.filter_by(farm_id=farm_id, user_id=current_user.id).all()
+        
+        print(f"✅ Found {len(domes)} domes for farm {farm.name}")
         
         return render_template('dome.html', 
                              domes=domes,
@@ -1757,14 +1774,16 @@ def farm_domes(farm_id):
                              user=current_user)
                              
     except Exception as e:
-        print(f"Error loading farm domes: {str(e)}")
+        print(f"❌ Error loading farm domes: {str(e)}")
         flash('Error loading farm domes', 'error')
         return redirect(url_for('farms'))
 @app.route('/domes')
 @login_required
 def domes():
     try:
-        # Get grid settings
+        print("🏠 Loading all domes")
+        
+        # Get grid settings for domes
         grid_settings = GridSettings.query.filter_by(
             user_id=current_user.id, 
             grid_type='dome'
@@ -1779,9 +1798,12 @@ def domes():
             )
             db.session.add(grid_settings)
             db.session.commit()
+            print("✅ Created default dome grid settings")
         
         # Get all domes for this user
         domes = Dome.query.filter_by(user_id=current_user.id).all()
+        
+        print(f"✅ Found {len(domes)} total domes")
         
         return render_template('dome.html', 
                              domes=domes,
@@ -1793,10 +1815,9 @@ def domes():
                              user=current_user)
                              
     except Exception as e:
-        print(f"Error loading domes: {str(e)}")
+        print(f"❌ Error loading domes: {str(e)}")
         flash('Error loading domes', 'error')
-        return redirect(url_for('index'))
-@app.route('/add_dome', methods=['POST'])
+        return redirect(url_for('index'))@app.route('/add_dome', methods=['POST'])
 @login_required
 def add_dome():
     try:
@@ -1921,8 +1942,11 @@ def delete_dome(dome_id):
         if not dome:
             return jsonify({'success': False, 'error': 'Dome not found'})
         
+        dome_name = dome.name
+        
         # Delete associated trees first
         trees = Tree.query.filter_by(dome_id=dome_id).all()
+        tree_count = len(trees)
         for tree in trees:
             db.session.delete(tree)
         
@@ -1930,53 +1954,16 @@ def delete_dome(dome_id):
         db.session.delete(dome)
         db.session.commit()
         
+        print(f"✅ Dome deleted: {dome_name} (with {tree_count} trees)")
+        
         return jsonify({'success': True, 'message': 'Dome deleted successfully'})
         
     except Exception as e:
         db.session.rollback()
-        print(f"Error deleting dome: {str(e)}")
+        print(f"❌ Error deleting dome: {str(e)}")
         return jsonify({'success': False, 'error': str(e)})
 
-@app.route('/move_dome/<int:dome_id>', methods=['POST'])
-@login_required
-def move_dome(dome_id):
-    try:
-        data = request.get_json()
-        new_row = data.get('grid_row')
-        new_col = data.get('grid_col')
-        
-        # Get the dome to move
-        dome = Dome.query.filter_by(id=dome_id, user_id=current_user.id).first()
-        if not dome:
-            return jsonify({'success': False, 'error': 'Dome not found'})
-        
-        # ✅ FIXED: Check for conflicts within the same farm context
-        existing_dome = Dome.query.filter_by(
-            grid_row=new_row, 
-            grid_col=new_col, 
-            farm_id=dome.farm_id,  # Check within the same farm
-            user_id=current_user.id
-        ).filter(Dome.id != dome_id).first()
-        
-        if existing_dome:
-            # Swap positions
-            old_row, old_col = dome.grid_row, dome.grid_col
-            dome.grid_row, dome.grid_col = new_row, new_col
-            existing_dome.grid_row, existing_dome.grid_col = old_row, old_col
-            
-            db.session.commit()
-            return jsonify({'success': True, 'swapped': True})
-        else:
-            # Simple move
-            dome.grid_row = new_row
-            dome.grid_col = new_col
-            db.session.commit()
-            return jsonify({'success': True, 'swapped': False})
-            
-    except Exception as e:
-        db.session.rollback()
-        print(f"Error moving dome: {str(e)}")
-        return jsonify({'success': False, 'error': str(e)})
+
 
 # ============= DOME IMAGE MANAGEMENT =============
 
