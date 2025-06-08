@@ -1295,60 +1295,63 @@
                 }
 
                 // Grid size modal functions
-                function showGridSizeModal() {
-                    if (!isGlobalContext) {
-                        alert('Farm-specific domes use a fixed 5x5 grid.\n\nGrid resizing is only available for global domes.\n\nTo access global domes, go to the main domes page.');
-                        return;
-                    }
-                    document.getElementById('gridModal').style.display = 'flex';
-                }
-
+function showGridSizeModal() {
+    // Remove the blocking condition - allow all contexts
+    document.getElementById('gridModal').style.display = 'flex';
+}
+ 
                 function closeGridModal() {
                     document.getElementById('gridModal').style.display = 'none';
                 }
 
                 // ✅ ENHANCED: Grid size update with context awareness
-                async function updateGridSize() {
-                    if (!isGlobalContext) {
-                        alert('Farm-specific domes use a fixed 5x5 grid. Grid resizing is only available for global domes.');
-                        closeGridModal();
-                        return;
-                    }
-                    
-                    const rows = parseInt(document.getElementById('gridRows').value);
-                    const cols = parseInt(document.getElementById('gridCols').value);
-                    
-                    if (rows < 1 || rows > 100 || cols < 1 || cols > 100) {
-                        alert('Grid size must be between 1 and 100 for both rows and columns');
-                        return;
-                    }
-                    
-                    try {
-                        const response = await fetch('/update_grid_settings', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                            },
-                            body: JSON.stringify({
-                                grid_type: 'dome',
-                                rows: rows,
-                                cols: cols
-                            })
-                        });
-                        
-                        const result = await response.json();
-                        
-                        if (result.success) {
-                            closeGridModal();
-                            window.location.reload();
-                        } else {
-                            alert('Failed to update grid size: ' + (result.error || 'Unknown error'));
-                        }
-                    } catch (error) {
-                        console.error('Error updating grid size:', error);
-                        alert('Error updating grid size. Please try again.');
-                    }
-                }
+async function updateGridSize() {
+    // Remove the blocking condition - allow all contexts
+    
+    const rows = parseInt(document.getElementById('gridRows').value);
+    const cols = parseInt(document.getElementById('gridCols').value);
+    
+    if (rows < 1 || rows > 100 || cols < 1 || cols > 100) {
+        alert('Grid size must be between 1 and 100 for both rows and columns');
+        return;
+    }
+    
+    try {
+        // Include farm_id in the request so backend knows the context
+        const requestBody = {
+            grid_type: 'dome',
+            rows: rows,
+            cols: cols
+        };
+        
+        // Add farm_id if we're in farm context
+        if (farmId) {
+            requestBody.farm_id = farmId;
+        }
+        
+        const response = await fetch('/update_grid_settings', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(requestBody)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            const contextName = farmId ? `Farm ${farmId}` : 'Global';
+            alert(`${contextName} grid size updated to ${rows}×${cols}!`);
+            closeGridModal();
+            window.location.reload();
+        } else {
+            alert('Failed to update grid size: ' + (result.error || 'Unknown error'));
+        }
+    } catch (error) {
+        console.error('Error updating grid size:', error);
+        alert('Error updating grid size. Please try again.');
+    }
+}
 
                 // Grid display and navigation functions
                 function updateGridDisplay() {
