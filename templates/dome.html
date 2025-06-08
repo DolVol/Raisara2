@@ -675,25 +675,45 @@ async function handleDomeClick(event, domeId) {
     event.stopPropagation();
     if (isDragging) return;
     
-    console.log('Navigating to dome info for dome ID:', domeId);
+    console.log('Dome clicked, ID:', domeId);
+    
+    // Show loading indicator on the dome
+    const domeElement = event.target.closest('.dome, .dome-placeholder');
+    if (domeElement) {
+        domeElement.style.opacity = '0.7';
+        domeElement.style.transform = 'scale(0.95)';
+    }
     
     try {
-        // Try the dome info route
-        window.location.href = `/dome_info/${domeId}`;
-    } catch (error) {
-        console.error('Error accessing dome:', error);
+        // ✅ FIXED: Try grid route first (this is more likely to work)
+        console.log('Navigating to grid for dome:', domeId);
+        window.location.href = `/grid/${domeId}`;
         
-        // Fallback to grid route
+    } catch (error) {
+        console.error('Error accessing dome grid:', error);
+        
+        // Reset dome appearance
+        if (domeElement) {
+            domeElement.style.opacity = '';
+            domeElement.style.transform = '';
+        }
+        
+        // Show user-friendly error
         const userChoice = confirm(
-            `Unable to access dome information.\n\n` +
-            `Would you like to view the dome grid instead?`
+            `Unable to access dome grid.\n\n` +
+            `This might be a temporary issue. Would you like to:\n` +
+            `• OK - Try refreshing the page\n` +
+            `• Cancel - Stay here`
         );
         
         if (userChoice) {
-            window.location.href = `/grid/${domeId}`;
+            window.location.reload();
         }
     }
 }
+
+// ✅ ALSO ADD: Variable to track dragging state
+let isDragging = false;
         
         function handleCellClick(row, col) {
             const cell = document.querySelector(`[data-row="${row}"][data-col="${col}"]`);
@@ -783,20 +803,27 @@ async function handleDomeClick(event, domeId) {
         }
 
         // Drag and drop
-        function dragDome(event) {
-            draggedDome = event.target;
-            event.dataTransfer.setData('text/plain', '');
-            event.target.style.opacity = '0.5';
-        }
+// ✅ UPDATE: Enhanced drag functions
+function dragDome(event) {
+    isDragging = true;
+    draggedDome = event.target;
+    event.dataTransfer.setData('text/plain', '');
+    event.target.style.opacity = '0.5';
+    
+    // Reset dragging state after a delay
+    setTimeout(() => {
+        isDragging = false;
+    }, 100);
+}
 
-        function dragEnd(event) {
-            event.target.style.opacity = '1';
-            draggedDome = null;
-            document.querySelectorAll('.grid-cell').forEach(cell => {
-                cell.classList.remove('drag-over');
-            });
-        }
-
+function dragEnd(event) {
+    event.target.style.opacity = '1';
+    draggedDome = null;
+    isDragging = false;
+    document.querySelectorAll('.grid-cell').forEach(cell => {
+        cell.classList.remove('drag-over');
+    });
+}
         function allowDrop(event) {
             event.preventDefault();
             event.currentTarget.classList.add('drag-over');
