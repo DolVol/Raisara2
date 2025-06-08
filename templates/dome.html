@@ -671,16 +671,28 @@ function goBackToFarm() {
     console.log('Going back to farm info');
     window.location.href = `/farm_info/{{ farm_id }}`;
 }
-function handleDomeClick(domeId) {
-    console.log('Going to dome info');
-    window.location.href = `/dome_info/${domeId}`;
-}
-        
-        // Dome interaction
- function handleDomeClick(event, domeId) {
+async function handleDomeClick(event, domeId) {
     event.stopPropagation();
-    console.log('Going to dome info for dome:', domeId);
-    window.location.href = `/dome_info/${domeId}`;
+    if (isDragging) return;
+    
+    console.log('Navigating to dome info for dome ID:', domeId);
+    
+    try {
+        // Try the dome info route
+        window.location.href = `/dome_info/${domeId}`;
+    } catch (error) {
+        console.error('Error accessing dome:', error);
+        
+        // Fallback to grid route
+        const userChoice = confirm(
+            `Unable to access dome information.\n\n` +
+            `Would you like to view the dome grid instead?`
+        );
+        
+        if (userChoice) {
+            window.location.href = `/grid/${domeId}`;
+        }
+    }
 }
         
         function handleCellClick(row, col) {

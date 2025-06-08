@@ -613,8 +613,12 @@ def register():
         return render_template('auth/register.html')
         
     except Exception as e:
-        print(f"Register route error: {e}")
-        return jsonify({'success': False, 'error': 'Registration page error'}), 500
+        print(f"❌ Register error: {e}")
+        if request.method == 'POST':
+            return jsonify({'success': False, 'message': f'Registration failed: {str(e)}'})
+        else:
+            flash('Registration system temporarily unavailable', 'error')
+            return redirect(url_for('login'))
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -3187,6 +3191,69 @@ def fix_dome_columns():
         <p>This might be a permissions issue or the columns might already exist.</p>
         <p><a href="/farms">Try Farms Page</a></p>
         """
+@app.route('/fix_all_tables')
+def fix_all_tables():
+    """Fix missing columns in all tables"""
+    try:
+        with db.engine.connect() as conn:
+            print("🔧 Fixing all database tables...")
+            
+            is_postgresql = 'postgresql' in str(db.engine.url)
+            fixes_applied = []
+            
+            # Fix user table
+            try:
+                if is_postgresql:
+                    conn.execute(text('ALTER TABLE "user" ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP'))
+                    conn.execute(text('ALTER TABLE "user" ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP'))
+                else:
+                    conn.execute(text("ALTER TABLE user ADD COLUMN created_at TIMESTAMP"))
+                    conn.execute(text("ALTER TABLE user ADD COLUMN updated_at TIMESTAMP"))
+                fixes_applied.append("✅ Fixed user table")
+            except:
+                fixes_applied.append("ℹ️ User table already fixed")
+            
+            # Fix farm table
+            try:
+                if is_postgresql:
+                    conn.execute(text("ALTER TABLE farm ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"))
+                    conn.execute(text("ALTER TABLE farm ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"))
+                else:
+                    conn.execute(text("ALTER TABLE farm ADD COLUMN created_at TIMESTAMP"))
+                    conn.execute(text("ALTER TABLE farm ADD COLUMN updated_at TIMESTAMP"))
+                fixes_applied.append("✅ Fixed farm table")
+            except:
+                fixes_applied.append("ℹ️ Farm table already fixed")
+            
+            # Fix tree table
+            try:
+                if is_postgresql:
+                    conn.execute(text("ALTER TABLE tree ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"))
+                    conn.execute(text("ALTER TABLE tree ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"))
+                else:
+                    conn.execute(text("ALTER TABLE tree ADD COLUMN created_at TIMESTAMP"))
+                    conn.execute(text("ALTER TABLE tree ADD COLUMN updated_at TIMESTAMP"))
+                fixes_applied.append("✅ Fixed tree table")
+            except:
+                fixes_applied.append("ℹ️ Tree table already fixed")
+            
+            conn.commit()
+            
+            # Clear cache
+            db.metadata.clear()
+            db.metadata.reflect(bind=db.engine)
+            
+            return f"""
+            <h2>✅ All Tables Fixed!</h2>
+            <ul>
+                {''.join([f'<li>{fix}</li>' for fix in fixes_applied])}
+            </ul>
+            <p><a href="/register">🔐 Test Register</a></p>
+            <p><a href="/farms">🚜 Test Farms</a></p>
+            """
+            
+    except Exception as e:
+        return f"❌ Error: {e}"
 if __name__ == '__main__':
     # Create upload directories
     os.makedirs(os.path.join(UPLOAD_FOLDER, 'trees'), exist_ok=True)
