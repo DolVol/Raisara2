@@ -3089,7 +3089,104 @@ def too_large(error):
     return jsonify({'success': False, 'error': 'File too large. Maximum size is 16MB.'}), 413
 
 # ============= MAIN APPLICATION ENTRY POINT =============
-
+@app.route('/fix_dome_columns')
+def fix_dome_columns():
+    """Fix missing created_at and updated_at columns in dome table"""
+    try:
+        with db.engine.connect() as conn:
+            print("🔧 Fixing dome table columns...")
+            
+            # Check if we're on PostgreSQL (Render) or SQLite (local)
+            is_postgresql = 'postgresql' in str(db.engine.url)
+            
+            if is_postgresql:
+                # PostgreSQL version (for Render)
+                try:
+                    # Add created_at column
+                    conn.execute(text("ALTER TABLE dome ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"))
+                    print("✅ Added created_at column")
+                except Exception as e:
+                    if "already exists" in str(e):
+                        print("ℹ️ created_at column already exists")
+                    else:
+                        print(f"⚠️ Error adding created_at: {e}")
+                
+                try:
+                    # Add updated_at column
+                    conn.execute(text("ALTER TABLE dome ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"))
+                    print("✅ Added updated_at column")
+                except Exception as e:
+                    if "already exists" in str(e):
+                        print("ℹ️ updated_at column already exists")
+                    else:
+                        print(f"⚠️ Error adding updated_at: {e}")
+            else:
+                # SQLite version (for local development)
+                try:
+                    conn.execute(text("ALTER TABLE dome ADD COLUMN created_at TIMESTAMP"))
+                    conn.execute(text("ALTER TABLE dome ADD COLUMN updated_at TIMESTAMP"))
+                    print("✅ Added timestamp columns (SQLite)")
+                except Exception as e:
+                    print(f"ℹ️ Columns might already exist: {e}")
+            
+            # Commit the changes
+            conn.commit()
+            
+            # Update existing records with current timestamp
+            from datetime import datetime
+            current_time = datetime.utcnow()
+            try:
+                conn.execute(text("UPDATE dome SET created_at = :time WHERE created_at IS NULL"), {"time": current_time})
+                conn.execute(text("UPDATE dome SET updated_at = :time WHERE updated_at IS NULL"), {"time": current_time})
+                conn.commit()
+                print("✅ Updated existing records with timestamps")
+            except Exception as e:
+                print(f"⚠️ Error updating existing records: {e}")
+            
+            # Clear SQLAlchemy metadata cache to recognize new columns
+            db.metadata.clear()
+            db.metadata.reflect(bind=db.engine)
+            print("✅ Cleared SQLAlchemy metadata cache")
+            
+            # Test the fix by trying a simple query
+            try:
+                result = conn.execute(text("SELECT COUNT(*) FROM dome WHERE created_at IS NOT NULL"))
+                count = result.fetchone()[0]
+                print(f"✅ Test query successful: {count} domes have timestamps")
+                
+                return f"""
+                <h2>✅ Database Fix Completed!</h2>
+                <p><strong>Successfully added missing columns to dome table:</strong></p>
+                <ul>
+                    <li>✅ created_at column added</li>
+                    <li>✅ updated_at column added</li>
+                    <li>✅ {count} existing records updated</li>
+                    <li>✅ SQLAlchemy cache cleared</li>
+                </ul>
+                
+                <h3>🎉 Your farm system should now work!</h3>
+                <p><a href="/farms" style="background: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">🚜 Test Farms Page</a></p>
+                
+                <hr>
+                <p><small>Database: {'PostgreSQL (Render)' if is_postgresql else 'SQLite (Local)'}</small></p>
+                <p><small>You can remove this route after confirming everything works.</small></p>
+                """
+                
+            except Exception as test_error:
+                return f"""
+                <h2>⚠️ Partial Fix Applied</h2>
+                <p>Columns were added but test query failed: {test_error}</p>
+                <p><a href="/farms">Try Farms Page Anyway</a></p>
+                """
+                
+    except Exception as e:
+        print(f"❌ Database fix failed: {e}")
+        return f"""
+        <h2>❌ Database Fix Failed</h2>
+        <p><strong>Error:</strong> {str(e)}</p>
+        <p>This might be a permissions issue or the columns might already exist.</p>
+        <p><a href="/farms">Try Farms Page</a></p>
+        """
 if __name__ == '__main__':
     # Create upload directories
     os.makedirs(os.path.join(UPLOAD_FOLDER, 'trees'), exist_ok=True)
