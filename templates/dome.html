@@ -1307,30 +1307,35 @@ async function updateGridSize() {
     try {
         showLoadingState(true);
         
-        const endpoint = farmId ? `/update_farm_grid_settings/${farmId}` : '/update_grid_settings';
-        
-        const response = await fetch(endpoint, {
+        // Use the correct endpoint that exists in your backend
+        const response = await fetch('/update_grid_settings', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
+                grid_type: 'dome',
                 rows: rows,
                 cols: cols,
-                farm_id: farmId
+                farm_id: farmId  // Include farm_id so backend knows the context
             })
         });
+        
+        if (!response.ok) {
+            throw new Error(`Server error: ${response.status}`);
+        }
         
         const result = await response.json();
         
         if (result.success) {
             showSuccessMessage(`Grid updated to ${rows}×${cols}!`);
-            setTimeout(() => window.location.reload(), 1000);
+            setTimeout(() => window.location.reload(), 1500);
         } else {
             alert('Failed to update: ' + (result.error || 'Unknown error'));
         }
     } catch (error) {
-        alert('Error updating grid size: ' + error.message);
+        console.error('Update error:', error);
+        alert('Error updating grid size. Please try again.');
     } finally {
         showLoadingState(false);
         closeGridModal();
