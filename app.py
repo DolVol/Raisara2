@@ -282,8 +282,8 @@ def force_schema_refresh():
         
         # Method 3: Direct SQL check to verify column exists
         with db.engine.connect() as conn:
-            if 'postgresql' in DATABASE_URL or os.getenv('RENDER'):
-                # PostgreSQL version
+            if is_postgresql():
+                # ✅ FIXED: PostgreSQL version
                 result = conn.execute(text("""
                     SELECT column_name 
                     FROM information_schema.columns 
@@ -302,10 +302,7 @@ def force_schema_refresh():
                 
                 # Test actual query
                 try:
-                    if 'postgresql' in DATABASE_URL or os.getenv('RENDER'):
-                        test_result = conn.execute(text('SELECT farm_id FROM dome LIMIT 1'))
-                    else:
-                        test_result = conn.execute(text("SELECT farm_id FROM dome LIMIT 1"))
+                    test_result = conn.execute(text('SELECT farm_id FROM dome LIMIT 1'))
                     print("✅ farm_id column is queryable")
                     return True
                     
@@ -381,11 +378,11 @@ def create_app():
             # Create all tables
             db.create_all()
             
-            # ✅ NEW: Add missing columns to existing tables
+            # ✅ FIXED: Add missing columns to existing tables
             try:
                 with db.engine.connect() as conn:
                     # ✅ FIXED: Add farm_id column to dome table if it doesn't exist
-                    if 'postgresql' in DATABASE_URL or os.getenv('RENDER'):
+                    if is_postgresql():
                         # PostgreSQL version
                         result = conn.execute(text("""
                             SELECT column_name 
@@ -403,8 +400,14 @@ def create_app():
                     # Add farm_id column if it doesn't exist
                     if 'farm_id' not in dome_columns:
                         print("🔧 Adding farm_id column to dome table...")
-                        if 'postgresql' in DATABASE_URL or os.getenv('RENDER'):
-                            conn.execute(text("ALTER TABLE dome ADD COLUMN farm_id INTEGER REFERENCES farm(id)"))
+                        if is_postgresql():
+                            # ✅ FIXED: PostgreSQL syntax with proper table reference
+                            conn.execute(text('ALTER TABLE dome ADD COLUMN farm_id INTEGER'))
+                            # Add foreign key constraint separately for PostgreSQL
+                            try:
+                                conn.execute(text('ALTER TABLE dome ADD CONSTRAINT fk_dome_farm FOREIGN KEY (farm_id) REFERENCES farm(id)'))
+                            except Exception as fk_error:
+                                print(f"⚠️ Could not add foreign key constraint: {fk_error}")
                         else:
                             conn.execute(text("ALTER TABLE dome ADD COLUMN farm_id INTEGER"))
                         conn.commit()
@@ -413,7 +416,7 @@ def create_app():
                         print("✅ farm_id column already exists in dome table")
                     
                     # ✅ FIXED: Check and add grid_settings columns
-                    if 'postgresql' in DATABASE_URL or os.getenv('RENDER'):
+                    if is_postgresql():
                         # PostgreSQL version
                         result = conn.execute(text("""
                             SELECT column_name 
@@ -428,8 +431,12 @@ def create_app():
                     
                     print(f"📋 Grid settings columns: {grid_columns}")
                     
+                    # Add missing columns with PostgreSQL-compatible syntax
                     if 'grid_type' not in grid_columns:
-                        conn.execute(text("ALTER TABLE grid_settings ADD COLUMN grid_type VARCHAR(20) DEFAULT 'dome'"))
+                        if is_postgresql():
+                            conn.execute(text("ALTER TABLE grid_settings ADD COLUMN grid_type VARCHAR(20) DEFAULT 'dome'"))
+                        else:
+                            conn.execute(text("ALTER TABLE grid_settings ADD COLUMN grid_type VARCHAR(20) DEFAULT 'dome'"))
                         print("✅ Added grid_type column")
                     
                     if 'user_id' not in grid_columns:
@@ -437,11 +444,17 @@ def create_app():
                         print("✅ Added user_id column")
                     
                     if 'created_at' not in grid_columns:
-                        conn.execute(text("ALTER TABLE grid_settings ADD COLUMN created_at TIMESTAMP"))
+                        if is_postgresql():
+                            conn.execute(text("ALTER TABLE grid_settings ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"))
+                        else:
+                            conn.execute(text("ALTER TABLE grid_settings ADD COLUMN created_at TIMESTAMP"))
                         print("✅ Added created_at column")
                     
                     if 'updated_at' not in grid_columns:
-                        conn.execute(text("ALTER TABLE grid_settings ADD COLUMN updated_at TIMESTAMP"))
+                        if is_postgresql():
+                            conn.execute(text("ALTER TABLE grid_settings ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"))
+                        else:
+                            conn.execute(text("ALTER TABLE grid_settings ADD COLUMN updated_at TIMESTAMP"))
                         print("✅ Added updated_at column")
                     
                     conn.commit()
@@ -450,7 +463,8 @@ def create_app():
                     conn.execute(text("UPDATE grid_settings SET grid_type = 'dome' WHERE grid_type IS NULL"))
                     
                     # Get the first user ID to assign to existing settings
-                    if 'postgresql' in DATABASE_URL or os.getenv('RENDER'):
+                    if is_postgresql():
+                        # ✅ FIXED: PostgreSQL table name with quotes
                         result = conn.execute(text('SELECT id FROM "user" LIMIT 1'))
                     else:
                         result = conn.execute(text("SELECT id FROM user LIMIT 1"))
@@ -1127,8 +1141,18 @@ def farm_info(farm_id):
     try:
         # First, check if farm_id column exists
         with db.engine.connect() as conn:
-            result = conn.execute(db.text("PRAGMA table_info(dome)"))
-            columns = [row[1] for row in result.fetchall()]
+            if is_postgresql():
+                # ✅ FIXED: PostgreSQL version
+                result = conn.execute(text("""
+                    SELECT column_name 
+                    FROM information_schema.columns 
+                    WHERE table_name = 'dome' AND column_name = 'farm_id'
+                """))
+                columns = [row[0] for row in result.fetchall()]
+            else:
+                # SQLite version
+                result = conn.execute(text("PRAGMA table_info(dome)"))
+                columns = [row[1] for row in result.fetchall()]
             
             if 'farm_id' not in columns:
                 print("❌ farm_id column missing - showing all user domes instead")
@@ -1150,7 +1174,7 @@ def farm_info(farm_id):
                     try:
                         # Fallback to raw SQL
                         result = conn.execute(
-                            db.text("SELECT * FROM dome WHERE farm_id = :farm_id AND user_id = :user_id ORDER BY grid_row, grid_col"),
+                            text("SELECT * FROM dome WHERE farm_id = :farm_id AND user_id = :user_id ORDER BY grid_row, grid_col"),
                             {"farm_id": farm_id, "user_id": current_user.id}
                         )
                         
@@ -1193,7 +1217,7 @@ def farm_info(farm_id):
             try:
                 with db.engine.connect() as conn:
                     result = conn.execute(
-                        db.text("SELECT COUNT(*) as count FROM tree WHERE dome_id = :dome_id AND user_id = :user_id"),
+                        text("SELECT COUNT(*) as count FROM tree WHERE dome_id = :dome_id AND user_id = :user_id"),
                         {"dome_id": dome.id, "user_id": current_user.id}
                     )
                     tree_count = result.fetchone().count
@@ -2812,19 +2836,31 @@ def migrate_database():
         
         # Check current table structure
         with db.engine.connect() as conn:
-            result = conn.execute(db.text("PRAGMA table_info(tree)"))
-            columns = [row[1] for row in result.fetchall()]
+            if is_postgresql():
+                # ✅ FIXED: PostgreSQL version
+                result = conn.execute(text("""
+                    SELECT column_name 
+                    FROM information_schema.columns 
+                    WHERE table_name = 'tree'
+                    ORDER BY ordinal_position
+                """))
+                columns = [row[0] for row in result.fetchall()]
+            else:
+                # SQLite version
+                result = conn.execute(text("PRAGMA table_info(tree)"))
+                columns = [row[1] for row in result.fetchall()]
+                
             print(f"Current tree table columns: {columns}")
             
             if 'internal_row' not in columns and 'row' in columns:
                 print("✅ Migration needed - adding new columns...")
                 
                 # Add new columns
-                conn.execute(db.text('ALTER TABLE tree ADD COLUMN internal_row INTEGER DEFAULT 0'))
-                conn.execute(db.text('ALTER TABLE tree ADD COLUMN internal_col INTEGER DEFAULT 0'))
+                conn.execute(text('ALTER TABLE tree ADD COLUMN internal_row INTEGER DEFAULT 0'))
+                conn.execute(text('ALTER TABLE tree ADD COLUMN internal_col INTEGER DEFAULT 0'))
                 
                 # Copy data from old columns to new columns
-                conn.execute(db.text('UPDATE tree SET internal_row = row, internal_col = col'))
+                conn.execute(text('UPDATE tree SET internal_row = row, internal_col = col'))
                 
                 # Commit the changes
                 conn.commit()
@@ -2844,7 +2880,148 @@ def migrate_database():
         print(f"❌ Migration failed: {e}")
         return f"Migration failed: {str(e)}"
 # ============= ERROR HANDLERS =============
-
+@app.route('/fix_database_for_render')
+def fix_database_for_render():
+    """Comprehensive database fix for Render deployment - REMOVE AFTER USE"""
+    try:
+        print("🔧 Starting comprehensive database fix for Render...")
+        
+        with db.engine.connect() as conn:
+            fixes_applied = []
+            
+            # 1. Check and fix dome table
+            if is_postgresql():
+                result = conn.execute(text("""
+                    SELECT column_name 
+                    FROM information_schema.columns 
+                    WHERE table_name = 'dome'
+                """))
+                dome_columns = [row[0] for row in result.fetchall()]
+            else:
+                result = conn.execute(text("PRAGMA table_info(dome)"))
+                dome_columns = [row[1] for row in result.fetchall()]
+            
+            if 'farm_id' not in dome_columns:
+                conn.execute(text('ALTER TABLE dome ADD COLUMN farm_id INTEGER'))
+                if is_postgresql():
+                    try:
+                        conn.execute(text('ALTER TABLE dome ADD CONSTRAINT fk_dome_farm FOREIGN KEY (farm_id) REFERENCES farm(id)'))
+                    except:
+                        pass  # Constraint might already exist
+                fixes_applied.append("Added farm_id column to dome table")
+            
+            # 2. Check and fix tree table
+            if is_postgresql():
+                result = conn.execute(text("""
+                    SELECT column_name 
+                    FROM information_schema.columns 
+                    WHERE table_name = 'tree'
+                """))
+                tree_columns = [row[0] for row in result.fetchall()]
+            else:
+                result = conn.execute(text("PRAGMA table_info(tree)"))
+                tree_columns = [row[1] for row in result.fetchall()]
+            
+            if 'internal_row' not in tree_columns:
+                conn.execute(text('ALTER TABLE tree ADD COLUMN internal_row INTEGER DEFAULT 0'))
+                conn.execute(text('ALTER TABLE tree ADD COLUMN internal_col INTEGER DEFAULT 0'))
+                
+                # Copy data if old columns exist
+                if 'row' in tree_columns:
+                    conn.execute(text('UPDATE tree SET internal_row = row, internal_col = col'))
+                
+                fixes_applied.append("Added internal_row/internal_col columns to tree table")
+            
+            # 3. Check and fix grid_settings table
+            if is_postgresql():
+                result = conn.execute(text("""
+                    SELECT column_name 
+                    FROM information_schema.columns 
+                    WHERE table_name = 'grid_settings'
+                """))
+                grid_columns = [row[0] for row in result.fetchall()]
+            else:
+                result = conn.execute(text("PRAGMA table_info(grid_settings)"))
+                grid_columns = [row[1] for row in result.fetchall()]
+            
+            missing_grid_columns = []
+            if 'grid_type' not in grid_columns:
+                conn.execute(text("ALTER TABLE grid_settings ADD COLUMN grid_type VARCHAR(20) DEFAULT 'dome'"))
+                missing_grid_columns.append("grid_type")
+            
+            if 'user_id' not in grid_columns:
+                conn.execute(text("ALTER TABLE grid_settings ADD COLUMN user_id INTEGER"))
+                missing_grid_columns.append("user_id")
+            
+            if 'created_at' not in grid_columns:
+                if is_postgresql():
+                    conn.execute(text("ALTER TABLE grid_settings ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"))
+                else:
+                    conn.execute(text("ALTER TABLE grid_settings ADD COLUMN created_at TIMESTAMP"))
+                missing_grid_columns.append("created_at")
+            
+            if 'updated_at' not in grid_columns:
+                if is_postgresql():
+                    conn.execute(text("ALTER TABLE grid_settings ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"))
+                else:
+                    conn.execute(text("ALTER TABLE grid_settings ADD COLUMN updated_at TIMESTAMP"))
+                missing_grid_columns.append("updated_at")
+            
+            if missing_grid_columns:
+                fixes_applied.append(f"Added columns to grid_settings: {', '.join(missing_grid_columns)}")
+            
+            # Commit all changes
+            conn.commit()
+            
+            # 4. Test queries
+            test_results = []
+            try:
+                result = conn.execute(text("SELECT COUNT(*) FROM dome WHERE farm_id IS NULL OR farm_id IS NOT NULL"))
+                count = result.fetchone()[0]
+                test_results.append(f"✅ Dome farm_id query works: {count} domes")
+            except Exception as e:
+                test_results.append(f"❌ Dome farm_id query failed: {e}")
+            
+            try:
+                result = conn.execute(text("SELECT COUNT(*) FROM tree WHERE internal_row IS NOT NULL"))
+                count = result.fetchone()[0]
+                test_results.append(f"✅ Tree internal_row query works: {count} trees")
+            except Exception as e:
+                test_results.append(f"❌ Tree internal_row query failed: {e}")
+            
+            # Clear SQLAlchemy cache
+            db.metadata.clear()
+            db.metadata.reflect(bind=db.engine)
+            
+            return f"""
+            <h2>🔧 Database Fix Results</h2>
+            <h3>Fixes Applied:</h3>
+            <ul>
+                {''.join([f'<li>✅ {fix}</li>' for fix in fixes_applied]) if fixes_applied else '<li>No fixes needed</li>'}
+            </ul>
+            
+            <h3>Test Results:</h3>
+            <ul>
+                {''.join([f'<li>{result}</li>' for result in test_results])}
+            </ul>
+            
+            <hr>
+            <p><strong>Database Type:</strong> {'PostgreSQL' if is_postgresql() else 'SQLite'}</p>
+            <p><a href="/farms">🚜 Test Farms Page</a></p>
+            <p><a href="/">🏠 Go Home</a></p>
+            <hr>
+            <p><strong>Note:</strong> Remove this route after the fix works.</p>
+            """
+                
+    except Exception as e:
+        print(f"❌ Database fix failed: {e}")
+        import traceback
+        return f"""
+        <h2>❌ Database Fix Failed</h2>
+        <p>Error: {str(e)}</p>
+        <pre>{traceback.format_exc()}</pre>
+        <p><a href="/farms">Try Farms Anyway</a></p>
+        """
 @app.errorhandler(404)
 def not_found_error(error):
     return render_template('errors/404.html'), 404
