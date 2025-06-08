@@ -277,10 +277,46 @@
             background: #e8f5e8;
         }
         
+        /* ✅ ENHANCED: Drag and drop visual feedback */
         .grid-cell.drag-over {
-            border: 2px solid #ff9800 !important;
-            background: #fff3e0 !important;
+            border: 3px solid #2196F3 !important;
+            background: rgba(33, 150, 243, 0.2) !important;
             transform: scale(1.05);
+        }
+
+        .grid-cell.swap-target {
+            border: 3px solid #ff9800 !important;
+            background: rgba(255, 152, 0, 0.2) !important;
+            transform: scale(1.05);
+        }
+
+        .grid-cell.valid-drop-zone {
+            border-color: #4CAF50 !important;
+            background: rgba(76, 175, 80, 0.1) !important;
+        }
+
+        .grid-cell.drag-over::after {
+            content: '📍';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 24px;
+            pointer-events: none;
+            opacity: 0.8;
+            z-index: 10;
+        }
+
+        .grid-cell.swap-target::after {
+            content: '🔄';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 24px;
+            pointer-events: none;
+            opacity: 0.8;
+            z-index: 10;
         }
 
         /* Farm styling */
@@ -299,7 +335,7 @@
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
             border: 3px solid #654321;
             transition: all 0.3s ease;
-            cursor: pointer;
+            cursor: grab;
             flex-direction: column;
             padding: 8px;
             box-sizing: border-box;
@@ -309,6 +345,17 @@
             transform: scale(1.1);
             box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
             border-color: #4CAF50;
+        }
+
+        .farm:active {
+            cursor: grabbing;
+        }
+
+        .farm.dragging {
+            opacity: 0.6;
+            transform: rotate(5deg) scale(0.95);
+            z-index: 1000;
+            cursor: grabbing;
         }
 
         /* Farm placeholder */
@@ -324,7 +371,7 @@
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
             border: 3px solid #654321;
             transition: all 0.3s ease;
-            cursor: pointer;
+            cursor: grab;
             color: white;
             font-size: calc(var(--cell-size, 100px) * 0.3);
             flex-direction: column;
@@ -336,6 +383,17 @@
             transform: scale(1.1);
             box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
             border-color: #4CAF50;
+        }
+
+        .farm-placeholder:active {
+            cursor: grabbing;
+        }
+
+        .farm-placeholder.dragging {
+            opacity: 0.6;
+            transform: rotate(5deg) scale(0.95);
+            z-index: 1000;
+            cursor: grabbing;
         }
 
         /* Enhanced overlay for better text contrast */
@@ -544,6 +602,58 @@
             text-align: center;
         }
 
+        /* ✅ NEW: Loading overlay */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            font-size: 18px;
+            color: white;
+            font-weight: bold;
+        }
+
+        /* ✅ NEW: Status messages */
+        .status-message {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            border-radius: 8px;
+            color: white;
+            font-weight: bold;
+            z-index: 10000;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            max-width: 300px;
+            word-wrap: break-word;
+        }
+
+        .status-success {
+            background: #28a745;
+        }
+
+        .status-error {
+            background: #dc3545;
+        }
+
+        /* Drag instructions */
+        .drag-instructions {
+            background: #e8f5e9;
+            color: #2e7d32;
+            padding: 10px 15px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            font-size: 12px;
+            text-align: center;
+            border-left: 4px solid #4caf50;
+        }
+
         /* Dynamic responsive breakpoints */
         @media (max-width: 1400px) {
             :root {
@@ -656,6 +766,11 @@
     </style>
 </head>
 <body>
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="loading-overlay">
+        🔄 Processing...
+    </div>
+
     <!-- Fixed Navigation Bar -->
     <div class="fixed-nav">
         <div class="nav-title">🚜 Farm Management</div>
@@ -700,6 +815,11 @@
             <div class="keyboard-info">
                 ⌨️ <strong>Keyboard:</strong> ← → for horizontal scroll | ↑ ↓ for vertical scroll | Space to center | Home/End for edges
             </div>
+
+            <!-- Drag Instructions -->
+            <div class="drag-instructions">
+                🎯 <strong>Drag & Drop:</strong> Drag farms to empty spaces to move them, or drop on another farm to swap positions. Click on a farm to view details.
+            </div>
             
             <div class="grid-controls">
                 <button class="btn" onclick="showGridSizeModal()">
@@ -735,7 +855,8 @@
                                  data-col="{{ col }}"
                                  onclick="handleCellClick({{ row }}, {{ col }})"
                                  ondragover="allowDrop(event)"
-                                 ondrop="dropFarm(event)">
+                                 ondrop="dropFarm(event)"
+                                 ondragleave="dragLeave(event)">
                                 
                                 {% if farm %}
                                     <!-- Add coordinate label -->
@@ -753,7 +874,7 @@
                                             <img src="{{ farm.image_url }}" alt="Farm Image" class="farm-background-img">
                                             <span class="farm-name" data-name="{{ farm.name }}">{{ farm.name }}</span>
                                         </div>
-                                    {% elif farm.image_url and not farm.image_url.startswith('data:image/') %}
+{% elif farm.image_url and not farm.image_url.startswith('data:image/') %}
                                         <!-- Farm with old file URL (fallback) -->
                                         <div class="farm" 
                                              data-farm-id="{{ farm.id }}"
@@ -807,50 +928,356 @@
     </div>
 
     <script>
-        // Variables
+        // ✅ FIXED: Global variables with proper initialization
         let currentFarmId = null;
         let draggedFarm = null;
         let isDragging = false;
+        let dragStartTime = 0;
         let currentGridRows = {{ grid_rows }};
         let currentGridCols = {{ grid_cols }};
-      
-        // Initialize on page load
-        document.addEventListener('DOMContentLoaded', function() {
-            updateGridDisplay();
-            addKeyboardNavigation();
-            addTouchNavigation();
-            
-            // Check for farm image updates
-            checkForFarmImageUpdates();
-        });
 
-        // Check for farm image updates and refresh if needed
-        function checkForFarmImageUpdates() {
-            if (localStorage.getItem('farmImageUpdated') === 'true') {
-                console.log('Farm image was updated, refreshing page...');
-                localStorage.removeItem('farmImageUpdated');
-                setTimeout(() => window.location.reload(), 100);
+        // ✅ FIXED: Proper drag start function
+        function dragFarm(event) {
+            console.log('🚀 Drag started');
+            
+            // Set drag state
+            isDragging = true;
+            dragStartTime = Date.now();
+            draggedFarm = event.target.closest('.farm, .farm-placeholder, .farm-with-image');
+            
+            if (!draggedFarm) {
+                console.error('❌ Could not find farm element');
+                return;
+            }
+            
+            // Visual feedback
+            draggedFarm.classList.add('dragging');
+            
+            // Set drag data
+            event.dataTransfer.effectAllowed = 'move';
+            event.dataTransfer.setData('text/plain', draggedFarm.dataset.farmId);
+            
+            console.log('✅ Dragging farm ID:', draggedFarm.dataset.farmId);
+            
+            // Add visual indicators to valid drop zones
+            setTimeout(() => {
+                document.querySelectorAll('.grid-cell').forEach(cell => {
+                    if (!cell.classList.contains('occupied') || cell.contains(draggedFarm)) {
+                        cell.classList.add('valid-drop-zone');
+                    }
+                });
+            }, 50);
+        }
+
+        // ✅ FIXED: Proper drag end function
+        function dragEnd(event) {
+            console.log('🏁 Drag ended');
+            
+            // Reset visual state
+            if (draggedFarm) {
+                draggedFarm.classList.remove('dragging');
+            }
+            
+            // Clean up drag indicators
+            document.querySelectorAll('.grid-cell').forEach(cell => {
+                cell.classList.remove('drag-over', 'swap-target', 'valid-drop-zone');
+            });
+            
+            // Reset drag state after a short delay to prevent click events
+            setTimeout(() => {
+                isDragging = false;
+                draggedFarm = null;
+            }, 100);
+        }
+
+        // ✅ FIXED: Enhanced allow drop function
+        function allowDrop(event) {
+            event.preventDefault();
+            
+            if (!draggedFarm) return;
+            
+            const targetCell = event.currentTarget;
+            const isOccupied = targetCell.classList.contains('occupied');
+            const isDraggedCell = targetCell.contains(draggedFarm);
+            
+            // Remove previous indicators
+            targetCell.classList.remove('drag-over', 'swap-target');
+            
+            if (isDraggedCell) {
+                // Can't drop on itself
+                return;
+            }
+            
+            if (isOccupied) {
+                // Show swap indicator
+                targetCell.classList.add('swap-target');
+                console.log('🔄 Swap target highlighted');
+            } else {
+                // Show move indicator
+                targetCell.classList.add('drag-over');
+                console.log('📍 Move target highlighted');
             }
         }
 
-        // Listen for storage events (cross-tab communication)
-        window.addEventListener('storage', function(e) {
-            if (e.key === 'farmImageUpdated' && e.newValue === 'true') {
-                console.log('Cross-tab farm image update detected, refreshing...');
-                localStorage.removeItem('farmImageUpdated');
-                setTimeout(() => window.location.reload(), 100);
+        // ✅ NEW: Drag leave function
+        function dragLeave(event) {
+            // Only remove classes if we're actually leaving the cell
+            if (!event.currentTarget.contains(event.relatedTarget)) {
+                event.currentTarget.classList.remove('drag-over', 'swap-target');
             }
-        });
+        }
 
-        // Check for updates when page becomes visible
-        document.addEventListener('visibilitychange', function() {
-            if (!document.hidden) {
-                checkForFarmImageUpdates();
+        // ✅ FIXED: Enhanced drop function with swap capability
+        function dropFarm(event) {
+            event.preventDefault();
+            console.log('📍 Drop attempted');
+            
+            if (!draggedFarm) {
+                console.error('❌ No dragged farm found');
+                return;
             }
-        });
+            
+            const targetCell = event.currentTarget;
+            const targetRow = parseInt(targetCell.dataset.row);
+            const targetCol = parseInt(targetCell.dataset.col);
+            const draggedFarmId = draggedFarm.dataset.farmId;
+            
+            // Clean up visual indicators
+            targetCell.classList.remove('drag-over', 'swap-target');
+            
+            // Get source position
+            const sourceCell = draggedFarm.closest('.grid-cell');
+            const sourceRow = parseInt(sourceCell.dataset.row);
+            const sourceCol = parseInt(sourceCell.dataset.col);
+            
+            // Check if dropping on the same position
+            if (sourceRow === targetRow && sourceCol === targetCol) {
+                console.log('⚠️ Dropped on same position, ignoring');
+                return;
+            }
+            
+            // Check if target cell is occupied
+            const targetFarm = targetCell.querySelector('.farm, .farm-placeholder, .farm-with-image');
+            
+            if (targetFarm && targetFarm !== draggedFarm) {
+                // Swap farms
+                const targetFarmId = targetFarm.dataset.farmId;
+                console.log(`🔄 Swapping farms: ${draggedFarmId} ↔ ${targetFarmId}`);
+                swapFarms(draggedFarmId, targetFarmId, sourceRow, sourceCol, targetRow, targetCol);
+            } else {
+                // Move to empty position
+                console.log(`📍 Moving farm ${draggedFarmId} to (${targetRow}, ${targetCol})`);
+                moveFarm(draggedFarmId, targetRow, targetCol);
+            }
+        }
 
-        // Logout function
-async function logout() {
+        // ✅ NEW: Swap farms function
+        async function swapFarms(farmId1, farmId2, row1, col1, row2, col2) {
+            try {
+                console.log(`🔄 Swapping farms ${farmId1} and ${farmId2}`);
+                
+                // Show loading state
+                showLoadingState(true);
+                
+                const response = await fetch('/swap_farms', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        farm1_id: farmId1,
+                        farm2_id: farmId2,
+                        farm1_new_row: row2,
+                        farm1_new_col: col2,
+                        farm2_new_row: row1,
+                        farm2_new_col: col1
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    console.log('✅ Farms swapped successfully');
+                    showSuccessMessage('Farms swapped successfully!');
+                    
+                    // Reload page to reflect changes
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1000);
+                } else {
+                    console.error('❌ Failed to swap farms:', result.error);
+                    showErrorMessage('Failed to swap farms: ' + (result.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('❌ Error swapping farms:', error);
+                showErrorMessage('Error swapping farms. Please try again.');
+            } finally {
+                showLoadingState(false);
+            }
+        }
+
+        // ✅ ENHANCED: Move farm function
+        async function moveFarm(farmId, newRow, newCol) {
+            try {
+                console.log(`📍 Moving farm ${farmId} to (${newRow}, ${newCol})`);
+                
+                // Show loading state
+                showLoadingState(true);
+                
+                const response = await fetch(`/move_farm/${farmId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        grid_row: newRow,
+                        grid_col: newCol
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    console.log('✅ Farm moved successfully');
+                    showSuccessMessage('Farm moved successfully!');
+                    
+                    // Reload page to reflect changes
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1000);
+                } else {
+                    console.error('❌ Failed to move farm:', result.error);
+                    showErrorMessage('Failed to move farm: ' + (result.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('❌ Error moving farm:', error);
+                showErrorMessage('Error moving farm. Please try again.');
+            } finally {
+                showLoadingState(false);
+            }
+        }
+
+        // ✅ FIXED: Enhanced farm click handler with drag detection
+        async function handleFarmClick(event, farmId) {
+            event.stopPropagation();
+            
+            // Check if this was a drag operation
+            const timeSinceDragStart = Date.now() - dragStartTime;
+            if (isDragging || timeSinceDragStart < 300) {
+                console.log('⚠️ Click ignored - was drag operation');
+                return;
+            }
+            
+            console.log('🖱️ Farm clicked:', farmId);
+            
+            try {
+                window.location.href = `/farm_info/${farmId}`;
+            } catch (error) {
+                console.error('❌ Error accessing farm:', error);
+                showErrorMessage('Unable to access farm information. Please try again.');
+            }
+        }
+
+        // ✅ FIXED: Enhanced cell click handler
+        function handleCellClick(row, col) {
+            // Don't create farm if we're in the middle of a drag operation
+            if (isDragging) {
+                console.log('⚠️ Cell click ignored - drag in progress');
+                return;
+            }
+            
+            console.log(`🖱️ Empty cell clicked: (${row}, ${col})`);
+            
+            const farmName = prompt(`Create new farm at position (${row}, ${col})?\n\nEnter farm name:`);
+            if (farmName && farmName.trim()) {
+                createFarm(farmName.trim(), row, col);
+            }
+        }
+
+        // ✅ ENHANCED: Create farm function
+        async function createFarm(name, row, col) {
+            try {
+                console.log(`🌱 Creating farm "${name}" at (${row}, ${col})`);
+                
+                showLoadingState(true);
+                
+                const response = await fetch('/create_farm', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        name: name,
+                        grid_row: row,
+                        grid_col: col
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    console.log('✅ Farm created successfully');
+                    showSuccessMessage('Farm created successfully!');
+                    
+                    // Reload page to show new farm
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1000);
+                } else {
+                    console.error('❌ Failed to create farm:', result.error);
+                    showErrorMessage('Failed to create farm: ' + (result.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('❌ Error creating farm:', error);
+                showErrorMessage('Error creating farm. Please try again.');
+            } finally {
+                showLoadingState(false);
+            }
+        }
+
+        // ✅ NEW: UI feedback functions
+        function showLoadingState(isLoading) {
+            const overlay = document.getElementById('loadingOverlay');
+            if (isLoading) {
+                overlay.style.display = 'flex';
+                document.body.style.pointerEvents = 'none';
+                overlay.style.pointerEvents = 'auto';
+            } else {
+                overlay.style.display = 'none';
+                document.body.style.pointerEvents = '';
+            }
+        }
+
+        function showSuccessMessage(message) {
+            showMessage(message, 'success');
+        }
+
+        function showErrorMessage(message) {
+            showMessage(message, 'error');
+        }
+
+        function showMessage(message, type) {
+            // Remove existing messages
+            const existingMessages = document.querySelectorAll('.status-message');
+            existingMessages.forEach(msg => msg.remove());
+            
+            // Create new message
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `status-message status-${type}`;
+            messageDiv.textContent = message;
+            
+            document.body.appendChild(messageDiv);
+            
+            // Auto-remove after 3 seconds
+            setTimeout(() => {
+                if (messageDiv.parentNode) {
+                    messageDiv.remove();
+                }
+            }, 3000);
+        }
+
+        // ✅ FIXED: Logout function
+        async function logout() {
             if (confirm('Are you sure you want to logout?')) {
                 try {
                     const response = await fetch('/logout', {
@@ -1039,7 +1466,6 @@ async function logout() {
                 behavior: 'smooth'
             });
         }
-        // Add these missing functions after line 1040:
 
         // Keyboard navigation
         function addKeyboardNavigation() {
@@ -1108,132 +1534,42 @@ async function logout() {
             });
         }
 
-        // ✅ CRITICAL: Farm click handler
-        async function handleFarmClick(event, farmId) {
-            event.stopPropagation();
-            if (isDragging) return;
-            
-            console.log('Navigating to farm info for farm ID:', farmId);
-            
-            try {
-                window.location.href = `/farm_info/${farmId}`;
-            } catch (error) {
-                console.error('Error accessing farm:', error);
-                alert('Unable to access farm information. Please try again.');
+        // Check for farm image updates
+        function checkForFarmImageUpdates() {
+            if (localStorage.getItem('farmImageUpdated') === 'true') {
+                console.log('Farm image was updated, refreshing page...');
+                localStorage.removeItem('farmImageUpdated');
+                setTimeout(() => window.location.reload(), 100);
             }
         }
 
-        // ✅ CRITICAL: Cell click handler
-        function handleCellClick(row, col) {
-            if (isDragging) return;
-            
-            const farmName = prompt(`Create new farm at position (${row}, ${col})?\n\nEnter farm name:`);
-            if (farmName && farmName.trim()) {
-                createFarm(farmName.trim(), row, col);
+        // Listen for storage events (cross-tab communication)
+        window.addEventListener('storage', function(e) {
+            if (e.key === 'farmImageUpdated' && e.newValue === 'true') {
+                console.log('Cross-tab farm image update detected, refreshing...');
+                localStorage.removeItem('farmImageUpdated');
+                setTimeout(() => window.location.reload(), 100);
             }
-        }
+        });
 
-        // ✅ CRITICAL: Create farm function
-        async function createFarm(name, row, col) {
-            try {
-                const response = await fetch('/create_farm', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        name: name,
-                        grid_row: row,
-                        grid_col: col
-                    })
-                });
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    console.log('Farm created successfully');
-                    window.location.reload();
-                } else {
-                    alert('Failed to create farm: ' + (result.error || 'Unknown error'));
-                }
-            } catch (error) {
-                console.error('Error creating farm:', error);
-                alert('Error creating farm. Please try again.');
+        // Check for updates when page becomes visible
+        document.addEventListener('visibilitychange', function() {
+            if (!document.hidden) {
+                checkForFarmImageUpdates();
             }
-        }
+        });
 
-        // ✅ CRITICAL: Drag and drop functions
-        function dragFarm(event) {
-            isDragging = true;
-            draggedFarm = event.target;
-            event.dataTransfer.setData('text/plain', '');
-            event.target.style.opacity = '0.5';
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            updateGridDisplay();
+            addKeyboardNavigation();
+            addTouchNavigation();
             
-            setTimeout(() => {
-                isDragging = false;
-            }, 100);
-        }
-
-        function dragEnd(event) {
-            event.target.style.opacity = '1';
-            draggedFarm = null;
-            isDragging = false;
-            document.querySelectorAll('.grid-cell').forEach(cell => {
-                cell.classList.remove('drag-over');
-            });
-        }
-
-        function allowDrop(event) {
-            event.preventDefault();
-            event.currentTarget.classList.add('drag-over');
-        }
-
-        function dropFarm(event) {
-            event.preventDefault();
-            event.currentTarget.classList.remove('drag-over');
+            // Check for farm image updates
+            checkForFarmImageUpdates();
             
-            if (!draggedFarm) return;
-            
-            const targetCell = event.currentTarget;
-            const targetRow = parseInt(targetCell.dataset.row);
-            const targetCol = parseInt(targetCell.dataset.col);
-            const farmId = draggedFarm.dataset.farmId;
-            
-            if (targetCell.classList.contains('occupied')) {
-                alert('Position already occupied!');
-                return;
-            }
-            
-            moveFarm(farmId, targetRow, targetCol);
-        }
-
-        // ✅ CRITICAL: Move farm function
-        async function moveFarm(farmId, newRow, newCol) {
-            try {
-                const response = await fetch(`/move_farm/${farmId}`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        grid_row: newRow,
-                        grid_col: newCol
-                    })
-                });
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    console.log('Farm moved successfully');
-                    window.location.reload();
-                } else {
-                    alert('Failed to move farm: ' + (result.error || 'Unknown error'));
-                }
-            } catch (error) {
-                console.error('Error moving farm:', error);
-                alert('Error moving farm. Please try again.');
-            }
-        }
+            console.log('🚀 Farm drag and drop system initialized');
+        });
 
         // Close modal when clicking outside
         window.onclick = function(event) {

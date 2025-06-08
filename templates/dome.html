@@ -211,6 +211,18 @@
             z-index: 100;
         }
 
+        /* Drag instructions */
+        .drag-instructions {
+            background: #e8f5e9;
+            color: #2e7d32;
+            padding: 10px 15px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            font-size: 12px;
+            text-align: center;
+            border-left: 4px solid #4caf50;
+        }
+
         /* Grid container */
         .grid-container {
             width: 100%;
@@ -274,10 +286,46 @@
             background: #e8f5e8;
         }
         
+        /* ✅ ENHANCED: Drag and drop visual feedback */
         .grid-cell.drag-over {
-            border: 2px solid #ff9800 !important;
-            background: #fff3e0 !important;
+            border: 3px solid #2196F3 !important;
+            background: rgba(33, 150, 243, 0.2) !important;
             transform: scale(1.05);
+        }
+
+        .grid-cell.swap-target {
+            border: 3px solid #ff9800 !important;
+            background: rgba(255, 152, 0, 0.2) !important;
+            transform: scale(1.05);
+        }
+
+        .grid-cell.valid-drop-zone {
+            border-color: #4CAF50 !important;
+            background: rgba(76, 175, 80, 0.1) !important;
+        }
+
+        .grid-cell.drag-over::after {
+            content: '📍';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 24px;
+            pointer-events: none;
+            opacity: 0.8;
+            z-index: 10;
+        }
+
+        .grid-cell.swap-target::after {
+            content: '🔄';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 24px;
+            pointer-events: none;
+            opacity: 0.8;
+            z-index: 10;
         }
 
         /* Dome styling */
@@ -296,7 +344,7 @@
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
             border: 3px solid #4CAF50;
             transition: all 0.3s ease;
-            cursor: pointer;
+            cursor: grab;
             flex-direction: column;
             padding: 8px;
             box-sizing: border-box;
@@ -306,44 +354,57 @@
             transform: scale(1.1);
             box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
         }
-/* ✅ NEW: Dome image display for base64 data */
-.dome-with-image {
-    position: relative;
-    overflow: hidden;
-}
 
-.dome-background-img {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    border-radius: 50%;
-    z-index: 1;
-}
+        .dome:active {
+            cursor: grabbing;
+        }
 
-.dome-with-image .dome-name {
-    position: relative;
-    z-index: 3;
-    background: rgba(0, 0, 0, 0.8);
-    padding: 2px 6px;
-    border-radius: 4px;
-    margin-top: auto;
-}
+        .dome.dragging {
+            opacity: 0.6;
+            transform: rotate(5deg) scale(0.95);
+            z-index: 1000;
+            cursor: grabbing;
+        }
 
-/* Ensure the overlay still works for base64 images */
-.dome-with-image::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.2);
-    border-radius: 50%;
-    z-index: 2;
-}
+        /* ✅ NEW: Dome image display for base64 data */
+        .dome-with-image {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .dome-background-img {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 50%;
+            z-index: 1;
+        }
+
+        .dome-with-image .dome-name {
+            position: relative;
+            z-index: 3;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-top: auto;
+        }
+
+        /* Ensure the overlay still works for base64 images */
+        .dome-with-image::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 50%;
+            z-index: 2;
+        }
+
         .dome-placeholder {
             width: calc(var(--cell-size, 100px) * 0.8);
             height: calc(var(--cell-size, 100px) * 0.8);
@@ -356,7 +417,7 @@
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
             border: 3px solid #4CAF50;
             transition: all 0.3s ease;
-            cursor: pointer;
+            cursor: grab;
             color: white;
             font-size: calc(var(--cell-size, 100px) * 0.3);
             flex-direction: column;
@@ -367,6 +428,17 @@
         .dome-placeholder:hover {
             transform: scale(1.1);
             box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+        }
+
+        .dome-placeholder:active {
+            cursor: grabbing;
+        }
+
+        .dome-placeholder.dragging {
+            opacity: 0.6;
+            transform: rotate(5deg) scale(0.95);
+            z-index: 1000;
+            cursor: grabbing;
         }
 
         .dome::before,
@@ -493,6 +565,46 @@
             margin-top: 20px;
         }
 
+        /* ✅ NEW: Loading overlay */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            font-size: 18px;
+            color: white;
+            font-weight: bold;
+        }
+
+        /* ✅ NEW: Status messages */
+        .status-message {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            border-radius: 8px;
+            color: white;
+            font-weight: bold;
+            z-index: 10000;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            max-width: 300px;
+            word-wrap: break-word;
+        }
+
+        .status-success {
+            background: #28a745;
+        }
+
+        .status-error {
+            background: #dc3545;
+        }
+
         /* Responsive design */
         @media (max-width: 1400px) {
             :root { --cell-size: 90px; --grid-gap: 6px; }
@@ -541,6 +653,11 @@
     </style>
 </head>
 <body>
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="loading-overlay">
+        🔄 Processing...
+    </div>
+
     <!-- Fixed Navigation Bar -->
     <div class="fixed-nav">
         <div class="nav-title">🍃 Raisara Farm</div>
@@ -613,6 +730,11 @@
                     | <strong>Total Domes:</strong> {{ domes|length }}
                 {% endif %}
             </div>
+
+            <!-- Drag Instructions -->
+            <div class="drag-instructions">
+                🎯 <strong>Drag & Drop:</strong> Drag domes to empty spaces to move them, or drop on another dome to swap positions. Click on a dome to view details.
+            </div>
             
             <!-- Grid Controls -->
             <div class="grid-controls">
@@ -631,51 +753,52 @@
                 <div class="farm-grid" id="farmGrid" style="grid-template-columns: repeat({{ grid_cols }}, 1fr)">
                     {% for row in range(grid_rows) %}
                         {% for col in range(grid_cols) %}
-                            {% set dome = domes|selectattr('grid_row', 'equalto', row)|selectattr('grid_col', 'equalto', col)|first %}
+                            {% set dome = domes|selectattr('grid_row', 'equalto', row)|selectattr('grid_col', 'equalto', col)|list|first|default(none) %}
                             <div class="grid-cell{% if dome %} occupied{% endif %}" 
                                  data-row="{{ row }}" 
                                  data-col="{{ col }}"
                                  onclick="handleCellClick({{ row }}, {{ col }})"
                                  ondragover="allowDrop(event)"
-                                 ondrop="dropDome(event)">
+                                 ondrop="dropDome(event)"
+                                 ondragleave="dragLeave(event)">
                                 
                                 <div class="coordinate-label">{{ row }},{{ col }}</div>
                                 
                                 {% if dome %}
                                     {% if dome.image_url and dome.image_url.startswith('data:image/') %}
-    <!-- Dome with base64 image -->
-    <div class="dome dome-with-image" 
-         data-dome-id="{{ dome.id }}"
-         draggable="true"
-         ondragstart="dragDome(event)"
-         ondragend="dragEnd(event)"
-         onclick="handleDomeClick(event, {{ dome.id }})">
-        <img src="{{ dome.image_url }}" alt="Dome Image" class="dome-background-img">
-        <span class="dome-name">{{ dome.name }}</span>
-    </div>
-{% elif dome.image_url and not dome.image_url.startswith('data:image/') %}
-    <!-- Dome with old file URL (fallback) -->
-    <div class="dome" 
-         data-dome-id="{{ dome.id }}"
-         draggable="true"
-         ondragstart="dragDome(event)"
-         ondragend="dragEnd(event)"
-         onclick="handleDomeClick(event, {{ dome.id }})"
-         style="background-image: url('{{ dome.image_url }}?t={{ timestamp }}');">
-        <span class="dome-name">{{ dome.name }}</span>
-    </div>
-{% else %}
-    <!-- Dome placeholder (no image) -->
-    <div class="dome-placeholder" 
-         data-dome-id="{{ dome.id }}"
-         draggable="true"
-         ondragstart="dragDome(event)"
-         ondragend="dragEnd(event)"
-         onclick="handleDomeClick(event, {{ dome.id }})">
-        🏠
-        <span class="dome-name">{{ dome.name }}</span>
-    </div>
-{% endif %}
+                                        <!-- Dome with base64 image -->
+                                        <div class="dome dome-with-image" 
+                                             data-dome-id="{{ dome.id }}"
+                                             draggable="true"
+                                             ondragstart="dragDome(event)"
+                                             ondragend="dragEnd(event)"
+                                             onclick="handleDomeClick(event, {{ dome.id }})">
+                                            <img src="{{ dome.image_url }}" alt="Dome Image" class="dome-background-img">
+                                            <span class="dome-name">{{ dome.name }}</span>
+                                        </div>
+                                    {% elif dome.image_url and not dome.image_url.startswith('data:image/') %}
+                                        <!-- Dome with old file URL (fallback) -->
+                                        <div class="dome" 
+                                             data-dome-id="{{ dome.id }}"
+                                             draggable="true"
+                                             ondragstart="dragDome(event)"
+                                             ondragend="dragEnd(event)"
+                                             onclick="handleDomeClick(event, {{ dome.id }})"
+                                             style="background-image: url('{{ dome.image_url }}?t={{ timestamp }}');">
+                                            <span class="dome-name">{{ dome.name }}</span>
+                                        </div>
+                                    {% else %}
+                                        <!-- Dome placeholder (no image) -->
+                                        <div class="dome-placeholder" 
+                                             data-dome-id="{{ dome.id }}"
+                                             draggable="true"
+                                             ondragstart="dragDome(event)"
+                                             ondragend="dragEnd(event)"
+                                             onclick="handleDomeClick(event, {{ dome.id }})">
+                                            🏠
+                                            <span class="dome-name">{{ dome.name }}</span>
+                                        </div>
+                                    {% endif %}
                                 {% endif %}
                             </div>
                         {% endfor %}
@@ -704,220 +827,404 @@
     </div>
 
     <script>
-        // Global variables
+        // ✅ FIXED: Global variables with proper initialization
         let currentDomeId = null;
         let draggedDome = null;
+        let isDragging = false;
+        let dragStartTime = 0;
         let gridRows = {{ grid_rows }};
         let gridCols = {{ grid_cols }};
         let farmId = {% if farm_id %}{{ farm_id }}{% else %}null{% endif %};
         
-        // Navigation functions
+        // ✅ FIXED: Navigation functions
 function goToFarms() {
-    console.log('Going to all farms');
-    window.location.href = '/farms';
-}
-        
-function goBackToFarm() {
-    console.log('Going back to farm info');
-    window.location.href = `/farm_info/{{ farm_id }}`;
-}
-async function handleDomeClick(event, domeId) {
-    event.stopPropagation();
-    if (isDragging) return;
-    
-    console.log('Dome clicked, ID:', domeId);
-    
-    // Show loading indicator on the dome
-    const domeElement = event.target.closest('.dome, .dome-placeholder');
-    if (domeElement) {
-        domeElement.style.opacity = '0.7';
-        domeElement.style.transform = 'scale(0.95)';
-    }
-    
-    try {
-        // ✅ FIXED: Navigate to dome_info instead of grid
-        console.log('Navigating to dome info for dome:', domeId);
-        window.location.href = `/dome_info/${domeId}`;
-        
-    } catch (error) {
-        console.error('Error accessing dome info:', error);
-        
-        // Reset dome appearance
-        if (domeElement) {
-            domeElement.style.opacity = '';
-            domeElement.style.transform = '';
+            console.log('Going to all farms');
+            window.location.href = '/farms';
         }
         
-        // ✅ ENHANCED: Try fallback routes
-        const userChoice = confirm(
-            `Unable to access dome information.\n\n` +
-            `Would you like to:\n` +
-            `• OK - Try dome grid instead\n` +
-            `• Cancel - Stay here`
-        );
-        
-        if (userChoice) {
-            try {
-                // Fallback to grid route
-                window.location.href = `/grid/${domeId}`;
-            } catch (fallbackError) {
-                alert('Unable to access dome. Please refresh the page and try again.');
+        function goBackToFarm() {
+            console.log('Going back to farm info');
+            if (farmId) {
+                window.location.href = `/farm_info/${farmId}`;
+            } else {
+                window.location.href = '/farms';
             }
         }
-    }
-}
 
-// ✅ ALSO ADD: Variable to track dragging state
-let isDragging = false;
-        
-        function handleCellClick(row, col) {
-            const cell = document.querySelector(`[data-row="${row}"][data-col="${col}"]`);
-            if (cell.classList.contains('occupied')) {
-                return;
-            }
-            showAddDomeModal(row, col);
-        }
-        
-        // Modal functions
-        function showAddDomeModal(row, col) {
-            let modal = document.getElementById('addDomeModal');
-            if (!modal) {
-                createAddDomeModal();
-                modal = document.getElementById('addDomeModal');
-            }
+        // ✅ FIXED: Proper drag start function
+        function dragDome(event) {
+            console.log('🚀 Dome drag started');
             
-            document.getElementById('domeRow').value = row;
-            document.getElementById('domeCol').value = col;
-            document.getElementById('domeName').value = '';
-            modal.style.display = 'flex';
-        }
-        
-        function createAddDomeModal() {
-            const modalHTML = `
-                <div id="addDomeModal" class="modal">
-                    <div class="modal-content">
-                        <h3>Add New Dome</h3>
-                        <div class="input-group">
-                            <label>Dome Name:</label>
-                            <input type="text" id="domeName" placeholder="Enter dome name" required>
-                        </div>
-                        <div class="input-group">
-                            <label>Position:</label>
-                            <input type="number" id="domeRow" readonly> x 
-                            <input type="number" id="domeCol" readonly>
-                        </div>
-                        <div class="modal-actions">
-                            <button class="btn" onclick="addNewDome()">Add Dome</button>
-                            <button class="btn cancel" onclick="closeAddDomeModal()">Cancel</button>
-                        </div>
-                    </div>
-                </div>
-            `;
-            document.body.insertAdjacentHTML('beforeend', modalHTML);
-        }
-        
-        function addNewDome() {
-            const name = document.getElementById('domeName').value.trim();
-            const row = parseInt(document.getElementById('domeRow').value);
-            const col = parseInt(document.getElementById('domeCol').value);
+            // Set drag state
+            isDragging = true;
+            dragStartTime = Date.now();
+            draggedDome = event.target.closest('.dome, .dome-placeholder, .dome-with-image');
             
-            if (!name) {
-                alert('Please enter a dome name');
+            if (!draggedDome) {
+                console.error('❌ Could not find dome element');
                 return;
             }
             
-            fetch('/add_dome', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    name: name,
-                    grid_row: row,
-                    grid_col: col,
-                    farm_id: farmId
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    location.reload();
-                } else {
-                    alert('Error: ' + data.error);
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('Failed to add dome');
+            // Visual feedback
+            draggedDome.classList.add('dragging');
+            
+            // Set drag data
+            event.dataTransfer.effectAllowed = 'move';
+            event.dataTransfer.setData('text/plain', draggedDome.dataset.domeId);
+            
+            console.log('✅ Dragging dome ID:', draggedDome.dataset.domeId);
+            
+            // Add visual indicators to valid drop zones
+            setTimeout(() => {
+                document.querySelectorAll('.grid-cell').forEach(cell => {
+                    if (!cell.classList.contains('occupied') || cell.contains(draggedDome)) {
+                        cell.classList.add('valid-drop-zone');
+                    }
+                });
+            }, 50);
+        }
+
+        // ✅ FIXED: Proper drag end function
+        function dragEnd(event) {
+            console.log('🏁 Dome drag ended');
+            
+            // Reset visual state
+            if (draggedDome) {
+                draggedDome.classList.remove('dragging');
+            }
+            
+            // Clean up drag indicators
+            document.querySelectorAll('.grid-cell').forEach(cell => {
+                cell.classList.remove('drag-over', 'swap-target', 'valid-drop-zone');
             });
             
-            closeAddDomeModal();
-        }
-        
-        function closeAddDomeModal() {
-            const modal = document.getElementById('addDomeModal');
-            if (modal) modal.style.display = 'none';
+            // Reset drag state after a short delay to prevent click events
+            setTimeout(() => {
+                isDragging = false;
+                draggedDome = null;
+            }, 100);
         }
 
-        // Drag and drop
-// ✅ UPDATE: Enhanced drag functions
-function dragDome(event) {
-    isDragging = true;
-    draggedDome = event.target;
-    event.dataTransfer.setData('text/plain', '');
-    event.target.style.opacity = '0.5';
-    
-    // Reset dragging state after a delay
-    setTimeout(() => {
-        isDragging = false;
-    }, 100);
-}
-
-function dragEnd(event) {
-    event.target.style.opacity = '1';
-    draggedDome = null;
-    isDragging = false;
-    document.querySelectorAll('.grid-cell').forEach(cell => {
-        cell.classList.remove('drag-over');
-    });
-}
+        // ✅ FIXED: Enhanced allow drop function
         function allowDrop(event) {
             event.preventDefault();
-            event.currentTarget.classList.add('drag-over');
-        }
-
-        function dropDome(event) {
-            event.preventDefault();
-            event.currentTarget.classList.remove('drag-over');
             
             if (!draggedDome) return;
             
             const targetCell = event.currentTarget;
-            const newRow = parseInt(targetCell.dataset.row);
-            const newCol = parseInt(targetCell.dataset.col);
-            const domeId = draggedDome.dataset.domeId;
+            const isOccupied = targetCell.classList.contains('occupied');
+            const isDraggedCell = targetCell.contains(draggedDome);
             
-            fetch(`/move_dome/${domeId}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    grid_row: newRow,
-                    grid_col: newCol
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    location.reload();
-                } else {
-                    alert('Error moving dome: ' + data.error);
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('Failed to move dome');
-            });
+            // Remove previous indicators
+            targetCell.classList.remove('drag-over', 'swap-target');
+            
+            if (isDraggedCell) {
+                // Can't drop on itself
+                return;
+            }
+            
+            if (isOccupied) {
+                // Show swap indicator
+                targetCell.classList.add('swap-target');
+                console.log('🔄 Swap target highlighted');
+            } else {
+                // Show move indicator
+                targetCell.classList.add('drag-over');
+                console.log('📍 Move target highlighted');
+            }
         }
 
-        // Grid size modal
+        // ✅ NEW: Drag leave function
+        function dragLeave(event) {
+            // Only remove classes if we're actually leaving the cell
+            if (!event.currentTarget.contains(event.relatedTarget)) {
+                event.currentTarget.classList.remove('drag-over', 'swap-target');
+            }
+        }
+
+        // ✅ FIXED: Enhanced drop function with swap capability
+        function dropDome(event) {
+            event.preventDefault();
+            console.log('📍 Dome drop attempted');
+            
+            if (!draggedDome) {
+                console.error('❌ No dragged dome found');
+                return;
+            }
+            
+            const targetCell = event.currentTarget;
+            const targetRow = parseInt(targetCell.dataset.row);
+            const targetCol = parseInt(targetCell.dataset.col);
+            const draggedDomeId = draggedDome.dataset.domeId;
+            
+            // Clean up visual indicators
+            targetCell.classList.remove('drag-over', 'swap-target');
+            
+            // Get source position
+            const sourceCell = draggedDome.closest('.grid-cell');
+            const sourceRow = parseInt(sourceCell.dataset.row);
+            const sourceCol = parseInt(sourceCell.dataset.col);
+            
+            // Check if dropping on the same position
+            if (sourceRow === targetRow && sourceCol === targetCol) {
+                console.log('⚠️ Dropped on same position, ignoring');
+                return;
+            }
+            
+            // Check if target cell is occupied
+            const targetDome = targetCell.querySelector('.dome, .dome-placeholder, .dome-with-image');
+            
+            if (targetDome && targetDome !== draggedDome) {
+                // Swap domes
+                const targetDomeId = targetDome.dataset.domeId;
+                console.log(`🔄 Swapping domes: ${draggedDomeId} ↔ ${targetDomeId}`);
+                swapDomes(draggedDomeId, targetDomeId, sourceRow, sourceCol, targetRow, targetCol);
+            } else {
+                // Move to empty position
+                console.log(`📍 Moving dome ${draggedDomeId} to (${targetRow}, ${targetCol})`);
+                moveDome(draggedDomeId, targetRow, targetCol);
+            }
+        }
+
+        // ✅ NEW: Swap domes function
+        async function swapDomes(domeId1, domeId2, row1, col1, row2, col2) {
+            try {
+                console.log(`🔄 Swapping domes ${domeId1} and ${domeId2}`);
+                
+                // Show loading state
+                showLoadingState(true);
+                
+                const response = await fetch('/swap_domes', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        dome1_id: domeId1,
+                        dome2_id: domeId2,
+                        dome1_new_row: row2,
+                        dome1_new_col: col2,
+                        dome2_new_row: row1,
+                        dome2_new_col: col1
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    console.log('✅ Domes swapped successfully');
+                    showSuccessMessage('Domes swapped successfully!');
+                    
+                    // Reload page to reflect changes
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1000);
+                } else {
+                    console.error('❌ Failed to swap domes:', result.error);
+                    showErrorMessage('Failed to swap domes: ' + (result.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('❌ Error swapping domes:', error);
+                showErrorMessage('Error swapping domes. Please try again.');
+            } finally {
+                showLoadingState(false);
+            }
+        }
+
+        // ✅ ENHANCED: Move dome function
+        async function moveDome(domeId, newRow, newCol) {
+            try {
+                console.log(`📍 Moving dome ${domeId} to (${newRow}, ${newCol})`);
+                
+                // Show loading state
+                showLoadingState(true);
+                
+                const response = await fetch(`/move_dome/${domeId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        grid_row: newRow,
+                        grid_col: newCol
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    console.log('✅ Dome moved successfully');
+                    showSuccessMessage('Dome moved successfully!');
+                    
+                    // Reload page to reflect changes
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1000);
+                } else {
+                    console.error('❌ Failed to move dome:', result.error);
+                    showErrorMessage('Failed to move dome: ' + (result.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('❌ Error moving dome:', error);
+                showErrorMessage('Error moving dome. Please try again.');
+            } finally {
+                showLoadingState(false);
+            }
+        }
+
+        // ✅ FIXED: Enhanced dome click handler with drag detection
+        async function handleDomeClick(event, domeId) {
+            event.stopPropagation();
+            
+            // Check if this was a drag operation
+            const timeSinceDragStart = Date.now() - dragStartTime;
+            if (isDragging || timeSinceDragStart < 300) {
+                console.log('⚠️ Click ignored - was drag operation');
+                return;
+            }
+            
+            console.log('🖱️ Dome clicked:', domeId);
+            
+            try {
+                window.location.href = `/dome_info/${domeId}`;
+            } catch (error) {
+                console.error('❌ Error accessing dome:', error);
+                showErrorMessage('Unable to access dome information. Please try again.');
+            }
+        }
+
+        // ✅ FIXED: Enhanced cell click handler
+        function handleCellClick(row, col) {
+            // Don't create dome if we're in the middle of a drag operation
+            if (isDragging) {
+                console.log('⚠️ Cell click ignored - drag in progress');
+                return;
+            }
+            
+            console.log(`🖱️ Empty cell clicked: (${row}, ${col})`);
+            
+            const domeName = prompt(`Create new dome at position (${row}, ${col})?\n\nEnter dome name:`);
+            if (domeName && domeName.trim()) {
+                createDome(domeName.trim(), row, col);
+            }
+        }
+
+        // ✅ ENHANCED: Create dome function
+        async function createDome(name, row, col) {
+            try {
+                console.log(`🏠 Creating dome "${name}" at (${row}, ${col})`);
+                
+                showLoadingState(true);
+                
+                const requestBody = {
+                    name: name,
+                    grid_row: row,
+                    grid_col: col
+                };
+                
+                // Add farm_id if we're in farm context
+                if (farmId) {
+                    requestBody.farm_id = farmId;
+                }
+                
+                const response = await fetch('/create_dome', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(requestBody)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    console.log('✅ Dome created successfully');
+                    showSuccessMessage('Dome created successfully!');
+                    
+                    // Reload page to show new dome
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1000);
+                } else {
+                    console.error('❌ Failed to create dome:', result.error);
+                    showErrorMessage('Failed to create dome: ' + (result.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('❌ Error creating dome:', error);
+                showErrorMessage('Error creating dome. Please try again.');
+            } finally {
+                showLoadingState(false);
+            }
+        }
+
+        // ✅ NEW: UI feedback functions
+        function showLoadingState(isLoading) {
+            const overlay = document.getElementById('loadingOverlay');
+            if (isLoading) {
+                overlay.style.display = 'flex';
+                document.body.style.pointerEvents = 'none';
+                overlay.style.pointerEvents = 'auto';
+            } else {
+                overlay.style.display = 'none';
+                document.body.style.pointerEvents = '';
+            }
+        }
+
+        function showSuccessMessage(message) {
+            showMessage(message, 'success');
+        }
+
+        function showErrorMessage(message) {
+            showMessage(message, 'error');
+        }
+
+        function showMessage(message, type) {
+            // Remove existing messages
+            const existingMessages = document.querySelectorAll('.status-message');
+            existingMessages.forEach(msg => msg.remove());
+            
+            // Create new message
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `status-message status-${type}`;
+            messageDiv.textContent = message;
+            
+            document.body.appendChild(messageDiv);
+            
+            // Auto-remove after 3 seconds
+            setTimeout(() => {
+                if (messageDiv.parentNode) {
+                    messageDiv.remove();
+                }
+            }, 3000);
+        }
+
+        // ✅ FIXED: Logout function
+        async function logout() {
+            if (confirm('Are you sure you want to logout?')) {
+                try {
+                    const response = await fetch('/logout', {
+                        method: 'GET',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        }
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        window.location.href = '/login';
+                    } else {
+                        alert('Logout failed. Please try again.');
+                    }
+                } catch (error) {
+                    console.error('Logout error:', error);
+                    // Force redirect to login even if logout request fails
+                    window.location.href = '/login';
+                }
+            }
+        }
+
+        // Grid size modal functions
         function showGridSizeModal() {
             document.getElementById('gridModal').style.display = 'flex';
         }
@@ -926,206 +1233,53 @@ function dragEnd(event) {
             document.getElementById('gridModal').style.display = 'none';
         }
 
-function updateGridSize() {
-    const rows = parseInt(document.getElementById('gridRows').value);
-    const cols = parseInt(document.getElementById('gridCols').value);
-    
-    console.log('Updating grid size to:', rows, 'x', cols);
-    console.log('Farm ID:', farmId);
-    
-    if (rows < 1 || rows > 100 || cols < 1 || cols > 100) {
-        alert('Grid size must be between 1 and 100');
-        return;
-    }
-    
-    // Show loading indicator
-    const updateBtn = event.target;
-    const originalText = updateBtn.textContent;
-    updateBtn.textContent = 'Updating...';
-    updateBtn.disabled = true;
-    
-    // ✅ ENHANCED: Include farm_id in the request
-    const requestData = {
-        rows: rows,
-        cols: cols
-    };
-    
-    // Add farm_id if we're in a farm context
-    if (farmId) {
-        requestData.farm_id = farmId;
-    }
-    
-    fetch('/update_grid_size', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestData)
-    })
-    .then(response => {
-        console.log('Grid update response status:', response.status);
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-        }
-        return response.json();
-    })
-    .then(data => {
-        console.log('Grid update response:', data);
-        if (data.success) {
-            if (farmId) {
-                console.log(`Farm ${farmId} dome grid size updated successfully, rebuilding grid...`);
-            } else {
-                console.log('Global dome grid size updated successfully, rebuilding grid...');
+        // Update grid size
+        async function updateGridSize() {
+            const rows = parseInt(document.getElementById('gridRows').value);
+            const cols = parseInt(document.getElementById('gridCols').value);
+            
+            if (rows < 1 || rows > 100 || cols < 1 || cols > 100) {
+                alert('Grid size must be between 1 and 100 for both rows and columns');
+                return;
             }
             
-            // ✅ NEW: Update global variables
-            gridRows = rows;
-            gridCols = cols;
-            
-            // ✅ NEW: Update grid info display
-            const gridInfo = document.querySelector('.grid-info');
-            gridInfo.innerHTML = `
-                <strong>Current Grid:</strong> ${rows}×${cols} 
-                (${rows * cols} total cells)
-                ${farmId ? `| <strong>Showing:</strong> ${document.querySelectorAll('.dome, .dome-placeholder').length} domes from this farm` : `| <strong>Total Domes:</strong> ${document.querySelectorAll('.dome, .dome-placeholder').length}`}
-            `;
-            
-            // ✅ NEW: Update grid controls button
-            const gridControlBtn = document.querySelector('.grid-controls .btn');
-            gridControlBtn.textContent = `ปรับขนาด (Current: ${rows}×${cols})`;
-            
-            // ✅ NEW: Rebuild the entire grid
-            rebuildGrid(rows, cols);
-            
-            // Reset button
-            updateBtn.textContent = originalText;
-            updateBtn.disabled = false;
-            closeGridModal();
-            
-            // Center the new grid
-            setTimeout(centerGrid, 100);
-            
-        } else {
-            updateBtn.textContent = originalText;
-            updateBtn.disabled = false;
-            alert('Error updating grid size: ' + (data.error || 'Unknown error'));
+            try {
+                const response = await fetch('/update_grid_settings', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        grid_type: 'dome',
+                        rows: rows,
+                        cols: cols
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    closeGridModal();
+                    window.location.reload();
+                } else {
+                    alert('Failed to update grid size: ' + (result.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error updating grid size:', error);
+                alert('Error updating grid size. Please try again.');
+            }
         }
-    })
-    .catch(error => {
-        console.error('Error updating grid size:', error);
-        updateBtn.textContent = originalText;
-        updateBtn.disabled = false;
-        alert('Failed to update grid size: ' + error.message);
-    });
-}
 
-// ✅ NEW: Function to rebuild the grid dynamically
-function rebuildGrid(rows, cols) {
-    const farmGrid = document.getElementById('farmGrid');
-    
-    // Update grid template columns
-    farmGrid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
-    
-    // Get existing domes data
-const existingDomes = {};
-document.querySelectorAll('.dome, .dome-placeholder').forEach(dome => {
-    const cell = dome.closest('.grid-cell');
-    const row = parseInt(cell.dataset.row);
-    const col = parseInt(cell.dataset.col);
-    const domeId = dome.dataset.domeId;
-    const domeName = dome.querySelector('.dome-name').textContent;
-    
-    // ✅ FIXED: Better image detection
-    let hasImage = false;
-    let imageUrl = null;
-    
-    if (dome.classList.contains('dome-with-image')) {
-        // Base64 image
-        const img = dome.querySelector('.dome-background-img');
-        if (img && img.src) {
-            hasImage = true;
-            imageUrl = img.src;
+        // Grid display and navigation functions
+        function updateGridDisplay() {
+            const totalCells = gridRows * gridCols;
+            const isLargeGrid = totalCells > 400; // 20x20
+            
+            // Center the grid initially for large grids
+            if (isLargeGrid) {
+                setTimeout(centerGrid, 100);
+            }
         }
-    } else if (dome.classList.contains('dome') && dome.style.backgroundImage) {
-        // Old file URL
-        hasImage = true;
-        imageUrl = dome.style.backgroundImage;
-    }
-    
-    existingDomes[`${row}-${col}`] = {
-        id: domeId,
-        name: domeName,
-        hasImage: hasImage,
-        imageUrl: imageUrl
-    };
-});
-    
-    // Clear and rebuild grid
-    farmGrid.innerHTML = '';
-    
-    for (let row = 0; row < rows; row++) {
-        for (let col = 0; col < cols; col++) {
-            const cell = document.createElement('div');
-            cell.className = 'grid-cell';
-            cell.dataset.row = row;
-            cell.dataset.col = col;
-            cell.onclick = () => handleCellClick(row, col);
-            cell.ondragover = allowDrop;
-            cell.ondrop = dropDome;
-            
-            // Add coordinate label
-            const coordLabel = document.createElement('div');
-            coordLabel.className = 'coordinate-label';
-            coordLabel.textContent = `${row},${col}`;
-            cell.appendChild(coordLabel);
-            
-            // Check if there's an existing dome at this position
-const existingDome = existingDomes[`${row}-${col}`];
-if (existingDome) {
-    cell.classList.add('occupied');
-    
-    const domeElement = document.createElement('div');
-    
-    // ✅ FIXED: Handle base64 images properly
-    if (existingDome.hasImage && existingDome.imageUrl && existingDome.imageUrl.includes('data:image/')) {
-        // Base64 image
-        domeElement.className = 'dome dome-with-image';
-        
-        const img = document.createElement('img');
-        img.src = existingDome.imageUrl.replace(/url\(['"]?|['"]?\)/g, ''); // Clean the URL
-        img.alt = 'Dome Image';
-        img.className = 'dome-background-img';
-        domeElement.appendChild(img);
-    } else if (existingDome.hasImage && existingDome.imageUrl) {
-        // Old file URL
-        domeElement.className = 'dome';
-        domeElement.style.backgroundImage = existingDome.imageUrl;
-    } else {
-        // No image
-        domeElement.className = 'dome-placeholder';
-        const icon = document.createElement('span');
-        icon.textContent = '🏠';
-        domeElement.appendChild(icon);
-    }
-    
-    domeElement.dataset.domeId = existingDome.id;
-    domeElement.draggable = true;
-    domeElement.ondragstart = dragDome;
-    domeElement.ondragend = dragEnd;
-    domeElement.onclick = (e) => handleDomeClick(e, existingDome.id);
-    
-    const nameSpan = document.createElement('span');
-    nameSpan.className = 'dome-name';
-    nameSpan.textContent = existingDome.name;
-    domeElement.appendChild(nameSpan);
-    
-    cell.appendChild(domeElement);
-}
-            
-            farmGrid.appendChild(cell);
-        }
-    }
-    
-    console.log(`✅ Grid rebuilt with ${rows}×${cols} cells`);
-}
 
         // Navigation functions
         function centerGrid() {
@@ -1133,97 +1287,132 @@ if (existingDome) {
             const grid = document.getElementById('farmGrid');
             
             if (container && grid) {
-                container.scrollLeft = (grid.scrollWidth - container.clientWidth) / 2;
-                container.scrollTop = (grid.scrollHeight - container.clientHeight) / 2;
+                const containerRect = container.getBoundingClientRect();
+                const gridRect = grid.getBoundingClientRect();
+                
+                const scrollLeft = (gridRect.width - containerRect.width) / 2;
+                const scrollTop = (gridRect.height - containerRect.height) / 2;
+                
+                container.scrollTo({
+                    left: Math.max(0, scrollLeft),
+                    top: Math.max(0, scrollTop),
+                    behavior: 'smooth'
+                });
             }
         }
 
         function fitToScreen() {
             const container = document.getElementById('gridContainer');
-            const availableWidth = window.innerWidth - 100;
-            const availableHeight = window.innerHeight - 300;
+            const grid = document.getElementById('farmGrid');
             
-            const cellWidth = Math.floor(availableWidth / gridCols);
-            const cellHeight = Math.floor(availableHeight / gridRows);
-            const cellSize = Math.min(cellWidth, cellHeight, 150);
-            
-            document.documentElement.style.setProperty('--cell-size', cellSize + 'px');
-            
-            setTimeout(centerGrid, 100);
-        }
-
-        // User functions
-        function logout() {
-            if (confirm('Are you sure you want to logout?')) {
-                window.location.href = '/logout';
+            if (container && grid) {
+                const containerRect = container.getBoundingClientRect();
+                const gridRect = grid.getBoundingClientRect();
+                
+                // Calculate scale to fit
+                const scaleX = containerRect.width / gridRect.width;
+                const scaleY = containerRect.height / gridRect.height;
+                const scale = Math.min(scaleX, scaleY, 1); // Don't scale up
+                
+                if (scale < 1) {
+                    const newCellSize = Math.floor(100 * scale);
+                    document.documentElement.style.setProperty('--cell-size', `${newCellSize}px`);
+                    
+                    setTimeout(() => {
+                        centerGrid();
+                    }, 100);
+                }
             }
         }
 
         // Keyboard navigation
-        document.addEventListener('keydown', function(event) {
+        function addKeyboardNavigation() {
+            document.addEventListener('keydown', function(e) {
+                const container = document.getElementById('gridContainer');
+                if (!container) return;
+                
+                const scrollAmount = 100;
+                
+                switch(e.key) {
+                    case 'ArrowLeft':
+                        e.preventDefault();
+                        container.scrollLeft -= scrollAmount;
+                        break;
+                    case 'ArrowRight':
+                        e.preventDefault();
+                        container.scrollLeft += scrollAmount;
+                        break;
+                    case 'ArrowUp':
+                        e.preventDefault();
+                        container.scrollTop -= scrollAmount;
+                        break;
+                    case 'ArrowDown':
+                        e.preventDefault();
+                        container.scrollTop += scrollAmount;
+                        break;
+                    case ' ':
+                        e.preventDefault();
+                        centerGrid();
+                        break;
+                    case 'Home':
+                        e.preventDefault();
+                        container.scrollTo({ left: 0, top: 0, behavior: 'smooth' });
+                        break;
+                    case 'End':
+                        e.preventDefault();
+                        container.scrollTo({ 
+                            left: container.scrollWidth, 
+                            top: container.scrollHeight, 
+                            behavior: 'smooth' 
+                        });
+                        break;
+                }
+            });
+        }
+
+        // Touch navigation for mobile
+        function addTouchNavigation() {
             const container = document.getElementById('gridContainer');
-            const scrollAmount = 100;
+            if (!container) return;
             
-            switch(event.key) {
-                case 'ArrowLeft':
-                    event.preventDefault();
-                    container.scrollLeft -= scrollAmount;
-                    break;
-                case 'ArrowRight':
-                    event.preventDefault();
-                    container.scrollLeft += scrollAmount;
-                    break;
-                case 'ArrowUp':
-                    event.preventDefault();
-                    container.scrollTop -= scrollAmount;
-                    break;
-                case 'ArrowDown':
-                    event.preventDefault();
-                    container.scrollTop += scrollAmount;
-                    break;
-                case ' ':
-                    event.preventDefault();
-                    centerGrid();
-                    break;
-                case 'Home':
-                    event.preventDefault();
-                    container.scrollLeft = 0;
-                    container.scrollTop = 0;
-                    break;
-                case 'End':
-                    event.preventDefault();
-                    container.scrollLeft = container.scrollWidth;
-                    container.scrollTop = container.scrollHeight;
-                    break;
-            }
-        });
+            let startX, startY;
+            
+            container.addEventListener('touchstart', function(e) {
+                startX = e.touches[0].clientX;
+                startY = e.touches[0].clientY;
+            });
+            
+            container.addEventListener('touchmove', function(e) {
+                if (!startX || !startY) return;
+                
+                const deltaX = startX - e.touches[0].clientX;
+                const deltaY = startY - e.touches[0].clientY;
+                
+                container.scrollLeft += deltaX;
+                container.scrollTop += deltaY;
+                
+                startX = e.touches[0].clientX;
+                startY = e.touches[0].clientY;
+            });
+        }
 
-        // Initialize page
+        // Initialize on page load
         document.addEventListener('DOMContentLoaded', function() {
-            // Center grid on load
-            setTimeout(centerGrid, 500);
+            updateGridDisplay();
+            addKeyboardNavigation();
+            addTouchNavigation();
             
-            // Close modals when clicking outside
-            document.addEventListener('click', function(event) {
-                if (event.target.classList.contains('modal')) {
-                    event.target.style.display = 'none';
-                }
-            });
-            
-            // Remove drag over effect when dragging leaves cell
-            document.addEventListener('dragleave', function(event) {
-                if (event.target.classList.contains('grid-cell')) {
-                    event.target.classList.remove('drag-over');
-                }
-            });
+            console.log('🚀 Dome drag and drop system initialized');
+            console.log('Farm context:', farmId ? `Farm ID ${farmId}` : 'All domes');
         });
 
-        // Remove drag over effect when dragging leaves cell
-        document.addEventListener('dragleave', function(event) {
-            if (event.target.classList.contains('grid-cell')) {
-                event.target.classList.remove('drag-over');
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('gridModal');
+            if (event.target === modal) {
+                closeGridModal();
             }
-        });
+        }
     </script>
 </body>
 </html>
