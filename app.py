@@ -202,8 +202,8 @@ def save_image_to_database(image_file, entity_type, entity_id):
         # Open with PIL for processing
         img = Image.open(io.BytesIO(image_data))
         
-        # ✅ COMPRESS: Resize if too large
-        max_size = (800, 600)  # Maximum dimensions
+        # ✅ AGGRESSIVE COMPRESSION: Smaller max size for database storage
+        max_size = (600, 400)  # Reduced from 800x600
         if img.size[0] > max_size[0] or img.size[1] > max_size[1]:
             img.thumbnail(max_size, Image.Resampling.LANCZOS)
             print(f"🔄 Resized image from original to {img.size}")
@@ -215,9 +215,9 @@ def save_image_to_database(image_file, entity_type, entity_id):
             rgb_img.paste(img, mask=img.split()[-1] if img.mode == 'RGBA' else None)
             img = rgb_img
         
-        # Save to bytes with compression
+        # Save to bytes with aggressive compression
         img_byte_arr = io.BytesIO()
-        img.save(img_byte_arr, format='JPEG', quality=85, optimize=True)
+        img.save(img_byte_arr, format='JPEG', quality=75, optimize=True)  # Reduced quality from 85 to 75
         compressed_data = img_byte_arr.getvalue()
         
         # Convert to base64
@@ -226,9 +226,13 @@ def save_image_to_database(image_file, entity_type, entity_id):
         # Create data URL
         data_url = f'data:image/jpeg;base64,{image_base64}'
         
-        # ✅ CHECK: Warn if still too large
-        if len(data_url) > 100000:  # 100KB warning
-            print(f"⚠️ Large image: {len(data_url)} characters")
+        # ✅ CHECK: Size validation
+        size_kb = len(data_url) / 1024
+        print(f"📊 Image size: {size_kb:.1f}KB ({len(data_url)} chars)")
+        
+        if len(data_url) > 500000:  # 500KB limit
+            print(f"⚠️ Image too large: {size_kb:.1f}KB - consider reducing quality further")
+            return None
         
         return data_url
         
@@ -1391,6 +1395,8 @@ def upload_farm_image(farm_id):
             farm.image_url = image_url
             db.session.commit()
             
+            print(f"✅ Farm {farm_id} image uploaded successfully, size: {len(image_url)} chars")
+            
             return jsonify({
                 'success': True, 
                 'message': 'Image uploaded successfully',
@@ -1401,6 +1407,7 @@ def upload_farm_image(farm_id):
             
     except Exception as e:
         print(f"❌ Farm image upload error: {e}")
+        db.session.rollback()
         return jsonify({'success': False, 'error': str(e)})
 @app.route('/')
 @login_required
@@ -1714,6 +1721,8 @@ def upload_dome_image(dome_id):
             dome.image_url = image_url
             db.session.commit()
             
+            print(f"✅ Dome {dome_id} image uploaded successfully, size: {len(image_url)} chars")
+            
             return jsonify({
                 'success': True, 
                 'message': 'Image uploaded successfully',
@@ -1724,6 +1733,7 @@ def upload_dome_image(dome_id):
             
     except Exception as e:
         print(f"❌ Dome image upload error: {e}")
+        db.session.rollback()
         return jsonify({'success': False, 'error': str(e)})
 
 # ============= TREE MANAGEMENT =============
@@ -2252,6 +2262,8 @@ def upload_tree_image(tree_id):
             tree.image_url = image_url
             db.session.commit()
             
+            print(f"✅ Tree {tree_id} image uploaded successfully, size: {len(image_url)} chars")
+            
             return jsonify({
                 'success': True, 
                 'message': 'Image uploaded successfully',
@@ -2262,6 +2274,7 @@ def upload_tree_image(tree_id):
             
     except Exception as e:
         print(f"❌ Tree image upload error: {e}")
+        db.session.rollback()
         return jsonify({'success': False, 'error': str(e)})
 @app.route('/migrate_images_to_database')
 @login_required
@@ -2653,7 +2666,6 @@ def fix_image_columns():
                         
             else:
                 # SQLite doesn't support ALTER COLUMN TYPE directly
-                # We'd need to recreate tables, but for now just note it
                 fixes_applied.append("ℹ️ SQLite detected - column types are flexible")
             
             conn.commit()
@@ -2668,21 +2680,69 @@ def fix_image_columns():
                 {''.join([f'<li>{fix}</li>' for fix in fixes_applied])}
             </ul>
             
-            <h3>🎉 You can now upload images!</h3>
-            <p>The image_url columns have been changed from VARCHAR(255) to TEXT to handle base64 data.</p>
-            
-            <p><a href="/farms" style="background: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">🚜 Test Image Upload</a></p>
+            <p><a href="/clean_old_images" style="background: #ff9800; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">🧹 Next: Clean Old Images</a></p>
             
             <hr>
-            <p><small>Database: {'PostgreSQL (Render)' if is_postgresql else 'SQLite (Local)'}</small></p>
-            <p><small>You can remove this route after confirming image uploads work.</small></p>
+            <p><small>Step 1 of 2 complete</small></p>
             """
             
     except Exception as e:
         return f"""
         <h2>❌ Image Column Fix Failed</h2>
         <p><strong>Error:</strong> {str(e)}</p>
-        <p>This might be a permissions issue.</p>
+        <p><a href="/farms">Back to Farms</a></p>
+        """
+@app.route('/clean_old_images')
+def clean_old_images():
+    """Clean up old file-based image URLs"""
+    try:
+        cleaned = 0
+        
+        # Clean farm images
+        farms_with_old_images = Farm.query.filter(
+            Farm.image_url.like('/static/uploads/%')
+        ).all()
+        
+        for farm in farms_with_old_images:
+            farm.image_url = None
+            cleaned += 1
+        
+        # Clean dome images
+        domes_with_old_images = Dome.query.filter(
+            Dome.image_url.like('/static/uploads/%')
+        ).all()
+        
+        for dome in domes_with_old_images:
+            dome.image_url = None
+            cleaned += 1
+        
+        # Clean tree images
+        trees_with_old_images = Tree.query.filter(
+            Tree.image_url.like('/static/uploads/%')
+        ).all()
+        
+        for tree in trees_with_old_images:
+            tree.image_url = None
+            cleaned += 1
+        
+        db.session.commit()
+        
+        return f"""
+        <h2>✅ Old Images Cleaned!</h2>
+        <p>Removed {cleaned} old file references.</p>
+        <p>All future uploads will be stored as base64 in the database.</p>
+        
+        <h3>🎉 Image Upload System Ready!</h3>
+        <p><a href="/farms" style="background: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">🚜 Test Image Upload</a></p>
+        
+        <hr>
+        <p><small>Setup complete - images will now persist through deployments!</small></p>
+        """
+        
+    except Exception as e:
+        return f"""
+        <h2>❌ Image Cleanup Failed</h2>
+        <p><strong>Error:</strong> {str(e)}</p>
         <p><a href="/farms">Back to Farms</a></p>
         """
 @app.route('/forgot_password', methods=['GET', 'POST'])
