@@ -9,6 +9,7 @@ from PIL import Image
 from sqlalchemy import text
 import time
 import requests
+
 # Load environment variables from .env file
 load_dotenv()
 
@@ -25,72 +26,7 @@ from services.life_updater import TreeLifeUpdater
 from flask_mail import Mail, Message
 
 mail = Mail()
-# Add these helper functions to your app.py file (after the imports section)
-def is_postgresql():
-    """Check if we're using PostgreSQL"""
-    return 'postgresql' in DATABASE_URL or os.getenv('RENDER') or os.getenv('DATABASE_URL', '').startswith('postgres')
 
-def is_sqlite():
-    """Check if we're using SQLite"""
-    return 'sqlite' in DATABASE_URL and not os.getenv('RENDER')
-def get_grid_settings(grid_type='dome', user_id=None):
-    """Get grid settings for specific type and user"""
-    try:
-        settings = GridSettings.query.filter_by(
-            grid_type=grid_type,
-            user_id=user_id
-        ).first()
-        
-        if not settings:
-            # Create default settings
-            default_rows = 10 if grid_type == 'farm' else 5
-            default_cols = 10 if grid_type == 'farm' else 5
-            
-            settings = GridSettings(
-                rows=default_rows,
-                cols=default_cols,
-                grid_type=grid_type,
-                user_id=user_id
-            )
-            db.session.add(settings)
-            db.session.commit()
-            print(f"✅ Created default {grid_type} settings: {default_rows}x{default_cols}")
-            
-        return settings
-    except Exception as e:
-        print(f"Error getting grid settings: {e}")
-        # Return default object
-        return type('obj', (object,), {
-            'rows': 10 if grid_type == 'farm' else 5,
-            'cols': 10 if grid_type == 'farm' else 5,
-            'grid_type': grid_type
-        })
-
-def update_grid_settings(grid_type, rows, cols, user_id=None):
-    """Update grid settings for specific type and user"""
-    try:
-        settings = GridSettings.query.filter_by(
-            grid_type=grid_type,
-            user_id=user_id
-        ).first()
-        
-        if not settings:
-            settings = GridSettings(
-                grid_type=grid_type,
-                user_id=user_id
-            )
-            db.session.add(settings)
-        
-        settings.rows = rows
-        settings.cols = cols
-        db.session.commit()
-        
-        print(f"✅ Updated {grid_type} grid settings to {rows}x{cols} for user {user_id}")
-        return True
-    except Exception as e:
-        print(f"Error updating grid settings: {e}")
-        db.session.rollback()
-        return False
 # Configuration constants
 UPLOAD_FOLDER = 'uploads'
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
@@ -142,6 +78,16 @@ except Exception as e:
 
 # Initialize Flask-Login
 login_manager = LoginManager()
+
+# Add these helper functions
+def is_postgresql():
+    """Check if we're using PostgreSQL"""
+    return 'postgresql' in DATABASE_URL or os.getenv('RENDER') or os.getenv('DATABASE_URL', '').startswith('postgres')
+
+def is_sqlite():
+    """Check if we're using SQLite"""
+    return 'sqlite' in DATABASE_URL and not os.getenv('RENDER')
+
 def get_grid_settings(grid_type='dome', user_id=None, farm_id=None):
     """Get grid settings for specific type, user, and optionally farm"""
     try:
@@ -234,6 +180,7 @@ def update_grid_settings(grid_type, rows, cols, user_id=None, farm_id=None):
         print(f"Error updating grid settings: {e}")
         db.session.rollback()
         return False
+
 def initialize_defaults():
     """Initialize default grid settings with error handling"""
     try:
@@ -245,30 +192,33 @@ def initialize_defaults():
     except Exception as e:
         print(f"⚠️ Could not initialize grid settings: {e}")
         # Don't crash - the app can work without this
-def migrate_tree_columns():
-    """Migrate tree table from row/col to internal_row/internal_col"""
+
+def save_image_to_database(image_file, entity_type, entity_id):
+    """Save image as base64 in database instead of filesystem"""
     try:
-        # Check if old columns exist
-        inspector = db.inspect(db.engine)
-        columns = [col['name'] for col in inspector.get_columns('tree')]
+        # Read and process the image
+        image_data = image_file.read()
         
-        if 'row' in columns and 'internal_row' not in columns:
-            print("Migrating tree columns...")
-            
-            # Add new columns
-            db.engine.execute('ALTER TABLE tree ADD COLUMN internal_row INTEGER DEFAULT 0')
-            db.engine.execute('ALTER TABLE tree ADD COLUMN internal_col INTEGER DEFAULT 0')
-            
-            # Copy data from old columns to new columns
-            db.engine.execute('UPDATE tree SET internal_row = row, internal_col = col')
-            
-            # Note: SQLite doesn't support DROP COLUMN, so we'll leave the old columns
-            # In production, you might want to create a new table and copy data
-            
-            print("Tree column migration completed!")
-            
+        # Convert to base64
+        image_base64 = base64.b64encode(image_data).decode('utf-8')
+        
+        # Get file extension
+        filename = image_file.filename.lower()
+        if filename.endswith(('.png', '.jpg', '.jpeg', '.gif', '.webp')):
+            ext = filename.split('.')[-1]
+        else:
+            ext = 'jpg'
+        
+        # Create data URL
+        mime_type = f'image/{ext}' if ext != 'jpg' else 'image/jpeg'
+        data_url = f'data:{mime_type};base64,{image_base64}'
+        
+        return data_url
+        
     except Exception as e:
-        print(f"Migration error: {str(e)}")
+        print(f"❌ Error saving image: {e}")
+        return None
+
 def force_schema_refresh():
     """Force SQLAlchemy to refresh its schema cache"""
     try:
