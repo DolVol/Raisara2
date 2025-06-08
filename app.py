@@ -381,78 +381,104 @@ def create_app():
             # Create all tables
             db.create_all()
             
+            # ✅ NEW: Add missing columns to existing tables
+            try:
+                with db.engine.connect() as conn:
+                    # ✅ FIXED: Add farm_id column to dome table if it doesn't exist
+                    if 'postgresql' in DATABASE_URL or os.getenv('RENDER'):
+                        # PostgreSQL version
+                        result = conn.execute(text("""
+                            SELECT column_name 
+                            FROM information_schema.columns 
+                            WHERE table_name = 'dome'
+                        """))
+                        dome_columns = [row[0] for row in result.fetchall()]
+                    else:
+                        # SQLite version (for local development)
+                        result = conn.execute(text("PRAGMA table_info(dome)"))
+                        dome_columns = [row[1] for row in result.fetchall()]
+                    
+                    print(f"📋 Dome table columns: {dome_columns}")
+                    
+                    # Add farm_id column if it doesn't exist
+                    if 'farm_id' not in dome_columns:
+                        print("🔧 Adding farm_id column to dome table...")
+                        if 'postgresql' in DATABASE_URL or os.getenv('RENDER'):
+                            conn.execute(text("ALTER TABLE dome ADD COLUMN farm_id INTEGER REFERENCES farm(id)"))
+                        else:
+                            conn.execute(text("ALTER TABLE dome ADD COLUMN farm_id INTEGER"))
+                        conn.commit()
+                        print("✅ Added farm_id column to dome table")
+                    else:
+                        print("✅ farm_id column already exists in dome table")
+                    
+                    # ✅ FIXED: Check and add grid_settings columns
+                    if 'postgresql' in DATABASE_URL or os.getenv('RENDER'):
+                        # PostgreSQL version
+                        result = conn.execute(text("""
+                            SELECT column_name 
+                            FROM information_schema.columns 
+                            WHERE table_name = 'grid_settings'
+                        """))
+                        grid_columns = [row[0] for row in result.fetchall()]
+                    else:
+                        # SQLite version (for local development)
+                        result = conn.execute(text("PRAGMA table_info(grid_settings)"))
+                        grid_columns = [row[1] for row in result.fetchall()]
+                    
+                    print(f"📋 Grid settings columns: {grid_columns}")
+                    
+                    if 'grid_type' not in grid_columns:
+                        conn.execute(text("ALTER TABLE grid_settings ADD COLUMN grid_type VARCHAR(20) DEFAULT 'dome'"))
+                        print("✅ Added grid_type column")
+                    
+                    if 'user_id' not in grid_columns:
+                        conn.execute(text("ALTER TABLE grid_settings ADD COLUMN user_id INTEGER"))
+                        print("✅ Added user_id column")
+                    
+                    if 'created_at' not in grid_columns:
+                        conn.execute(text("ALTER TABLE grid_settings ADD COLUMN created_at TIMESTAMP"))
+                        print("✅ Added created_at column")
+                    
+                    if 'updated_at' not in grid_columns:
+                        conn.execute(text("ALTER TABLE grid_settings ADD COLUMN updated_at TIMESTAMP"))
+                        print("✅ Added updated_at column")
+                    
+                    conn.commit()
+                    
+                    # Update existing records
+                    conn.execute(text("UPDATE grid_settings SET grid_type = 'dome' WHERE grid_type IS NULL"))
+                    
+                    # Get the first user ID to assign to existing settings
+                    if 'postgresql' in DATABASE_URL or os.getenv('RENDER'):
+                        result = conn.execute(text('SELECT id FROM "user" LIMIT 1'))
+                    else:
+                        result = conn.execute(text("SELECT id FROM user LIMIT 1"))
+                    first_user = result.fetchone()
+                    
+                    if first_user:
+                        user_id = first_user[0]
+                        conn.execute(text("UPDATE grid_settings SET user_id = :user_id WHERE user_id IS NULL"), 
+                                   {"user_id": user_id})
+                        print(f"✅ Assigned existing settings to user {user_id}")
+                    
+                    # Set timestamps for existing records
+                    from datetime import datetime
+                    current_time = datetime.utcnow()
+                    conn.execute(text("UPDATE grid_settings SET created_at = :time WHERE created_at IS NULL"), {"time": current_time})
+                    conn.execute(text("UPDATE grid_settings SET updated_at = :time WHERE updated_at IS NULL"), {"time": current_time})
+                    
+                    conn.commit()
+                    print("✅ Database migration completed successfully")
+                    
+            except Exception as e:
+                print(f"⚠️ Database migration warning: {e}")
+            
             # Force schema refresh to recognize new columns
             if force_schema_refresh():
                 print("✅ Database schema refreshed successfully")
             else:
                 print("⚠️ Schema refresh had issues, but continuing...")
-            
-            # ✅ FIXED: PostgreSQL-compatible column addition
-            try:
-                # Add new columns if they don't exist
-                with db.engine.connect() as conn:
-                    try:
-                        # ✅ FIXED: Use PostgreSQL-compatible table info query
-                        if 'postgresql' in DATABASE_URL or os.getenv('RENDER'):
-                            # PostgreSQL version
-                            result = conn.execute(text("""
-                                SELECT column_name 
-                                FROM information_schema.columns 
-                                WHERE table_name = 'grid_settings'
-                            """))
-                            columns = [row[0] for row in result.fetchall()]
-                        else:
-                            # SQLite version (for local development)
-                            result = conn.execute(text("PRAGMA table_info(grid_settings)"))
-                            columns = [row[1] for row in result.fetchall()]
-                        
-                        print(f"📋 Grid settings columns: {columns}")
-                        
-                        if 'grid_type' not in columns:
-                            conn.execute(text("ALTER TABLE grid_settings ADD COLUMN grid_type VARCHAR(20) DEFAULT 'dome'"))
-                            print("✅ Added grid_type column")
-                        
-                        if 'user_id' not in columns:
-                            conn.execute(text("ALTER TABLE grid_settings ADD COLUMN user_id INTEGER"))
-                            print("✅ Added user_id column")
-                        
-                        if 'created_at' not in columns:
-                            conn.execute(text("ALTER TABLE grid_settings ADD COLUMN created_at TIMESTAMP"))
-                            print("✅ Added created_at column")
-                        
-                        if 'updated_at' not in columns:
-                            conn.execute(text("ALTER TABLE grid_settings ADD COLUMN updated_at TIMESTAMP"))
-                            print("✅ Added updated_at column")
-                        
-                        conn.commit()
-                        
-                        # Update existing records
-                        conn.execute(text("UPDATE grid_settings SET grid_type = 'dome' WHERE grid_type IS NULL"))
-                        
-                        # Get the first user ID to assign to existing settings
-                        result = conn.execute(text("SELECT id FROM \"user\" LIMIT 1"))  # Note: "user" is quoted for PostgreSQL
-                        first_user = result.fetchone()
-                        
-                        if first_user:
-                            user_id = first_user[0]
-                            conn.execute(text("UPDATE grid_settings SET user_id = :user_id WHERE user_id IS NULL"), 
-                                       {"user_id": user_id})
-                            print(f"✅ Assigned existing settings to user {user_id}")
-                        
-                        # Set timestamps for existing records
-                        from datetime import datetime
-                        current_time = datetime.utcnow()
-                        conn.execute(text("UPDATE grid_settings SET created_at = :time WHERE created_at IS NULL"), {"time": current_time})
-                        conn.execute(text("UPDATE grid_settings SET updated_at = :time WHERE updated_at IS NULL"), {"time": current_time})
-                        
-                        conn.commit()
-                        print("✅ Grid settings migration completed successfully")
-                        
-                    except Exception as e:
-                        if "already exists" not in str(e) and "duplicate column" not in str(e):
-                            print(f"⚠️ Column addition warning: {e}")
-            except Exception as e:
-                print(f"⚠️ Grid settings migration warning: {e}")
             
             # Initialize defaults with error handling
             try:
@@ -462,10 +488,10 @@ def create_app():
                 print(f"⚠️ Warning during defaults initialization: {init_error}")
                 # Continue anyway - the app can still work
                 
-        except Exception as e:  # ✅ FIXED: Proper indentation
+        except Exception as e:
             print(f"❌ Database initialization error: {e}")
             # Don't crash the app, just log the error
-            
+    
     return app
 
 @login_manager.user_loader
