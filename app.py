@@ -1282,7 +1282,17 @@ def farm_info_simple(farm_id):
 def farm_redirect():
     """Redirect /farm to /farms for compatibility"""
     return redirect('/farms')
-
+@app.route('/run_quick_fix')
+def run_quick_fix():
+    try:
+        with db.engine.connect() as conn:
+            # Add missing columns
+            conn.execute(text("ALTER TABLE dome ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"))
+            conn.execute(text("ALTER TABLE dome ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"))
+            conn.commit()
+            return "✅ Database fixed! <a href='/farms'>Go to Farms</a>"
+    except Exception as e:
+        return f"Error: {e}"
 @app.route('/update_farm_name/<int:farm_id>', methods=['POST'])
 @login_required
 def update_farm_name(farm_id):
