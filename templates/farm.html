@@ -1039,3 +1039,209 @@ async function logout() {
                 behavior: 'smooth'
             });
         }
+        // Add these missing functions after line 1040:
+
+        // Keyboard navigation
+        function addKeyboardNavigation() {
+            document.addEventListener('keydown', function(e) {
+                const container = document.getElementById('gridContainer');
+                if (!container) return;
+                
+                const scrollAmount = 100;
+                
+                switch(e.key) {
+                    case 'ArrowLeft':
+                        e.preventDefault();
+                        container.scrollLeft -= scrollAmount;
+                        break;
+                    case 'ArrowRight':
+                        e.preventDefault();
+                        container.scrollLeft += scrollAmount;
+                        break;
+                    case 'ArrowUp':
+                        e.preventDefault();
+                        container.scrollTop -= scrollAmount;
+                        break;
+                    case 'ArrowDown':
+                        e.preventDefault();
+                        container.scrollTop += scrollAmount;
+                        break;
+                    case ' ':
+                        e.preventDefault();
+                        centerGrid();
+                        break;
+                    case 'Home':
+                        e.preventDefault();
+                        scrollToPosition('top-left');
+                        break;
+                    case 'End':
+                        e.preventDefault();
+                        scrollToPosition('bottom-right');
+                        break;
+                }
+            });
+        }
+
+        // Touch navigation for mobile
+        function addTouchNavigation() {
+            const container = document.getElementById('gridContainer');
+            if (!container) return;
+            
+            let startX, startY;
+            
+            container.addEventListener('touchstart', function(e) {
+                startX = e.touches[0].clientX;
+                startY = e.touches[0].clientY;
+            });
+            
+            container.addEventListener('touchmove', function(e) {
+                if (!startX || !startY) return;
+                
+                const deltaX = startX - e.touches[0].clientX;
+                const deltaY = startY - e.touches[0].clientY;
+                
+                container.scrollLeft += deltaX;
+                container.scrollTop += deltaY;
+                
+                startX = e.touches[0].clientX;
+                startY = e.touches[0].clientY;
+            });
+        }
+
+        // ✅ CRITICAL: Farm click handler
+        async function handleFarmClick(event, farmId) {
+            event.stopPropagation();
+            if (isDragging) return;
+            
+            console.log('Navigating to farm info for farm ID:', farmId);
+            
+            try {
+                window.location.href = `/farm_info/${farmId}`;
+            } catch (error) {
+                console.error('Error accessing farm:', error);
+                alert('Unable to access farm information. Please try again.');
+            }
+        }
+
+        // ✅ CRITICAL: Cell click handler
+        function handleCellClick(row, col) {
+            if (isDragging) return;
+            
+            const farmName = prompt(`Create new farm at position (${row}, ${col})?\n\nEnter farm name:`);
+            if (farmName && farmName.trim()) {
+                createFarm(farmName.trim(), row, col);
+            }
+        }
+
+        // ✅ CRITICAL: Create farm function
+        async function createFarm(name, row, col) {
+            try {
+                const response = await fetch('/create_farm', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        name: name,
+                        grid_row: row,
+                        grid_col: col
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    console.log('Farm created successfully');
+                    window.location.reload();
+                } else {
+                    alert('Failed to create farm: ' + (result.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error creating farm:', error);
+                alert('Error creating farm. Please try again.');
+            }
+        }
+
+        // ✅ CRITICAL: Drag and drop functions
+        function dragFarm(event) {
+            isDragging = true;
+            draggedFarm = event.target;
+            event.dataTransfer.setData('text/plain', '');
+            event.target.style.opacity = '0.5';
+            
+            setTimeout(() => {
+                isDragging = false;
+            }, 100);
+        }
+
+        function dragEnd(event) {
+            event.target.style.opacity = '1';
+            draggedFarm = null;
+            isDragging = false;
+            document.querySelectorAll('.grid-cell').forEach(cell => {
+                cell.classList.remove('drag-over');
+            });
+        }
+
+        function allowDrop(event) {
+            event.preventDefault();
+            event.currentTarget.classList.add('drag-over');
+        }
+
+        function dropFarm(event) {
+            event.preventDefault();
+            event.currentTarget.classList.remove('drag-over');
+            
+            if (!draggedFarm) return;
+            
+            const targetCell = event.currentTarget;
+            const targetRow = parseInt(targetCell.dataset.row);
+            const targetCol = parseInt(targetCell.dataset.col);
+            const farmId = draggedFarm.dataset.farmId;
+            
+            if (targetCell.classList.contains('occupied')) {
+                alert('Position already occupied!');
+                return;
+            }
+            
+            moveFarm(farmId, targetRow, targetCol);
+        }
+
+        // ✅ CRITICAL: Move farm function
+        async function moveFarm(farmId, newRow, newCol) {
+            try {
+                const response = await fetch(`/move_farm/${farmId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        grid_row: newRow,
+                        grid_col: newCol
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    console.log('Farm moved successfully');
+                    window.location.reload();
+                } else {
+                    alert('Failed to move farm: ' + (result.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error moving farm:', error);
+                alert('Error moving farm. Please try again.');
+            }
+        }
+
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('gridModal');
+            if (event.target === modal) {
+                closeGridModal();
+            }
+        }
+    </script>
+</body>
+</html>
