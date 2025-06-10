@@ -74,6 +74,7 @@ class Farm(db.Model):
     grid_col = db.Column(db.Integer, nullable=False)
     image_url = db.Column(db.String(255), nullable=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    password_hash = db.Column(db.String(255), nullable=True)  # ✅ NEW: Add password protection
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
@@ -86,6 +87,36 @@ class Farm(db.Model):
     def get_dome_count(self):
         """Get the number of domes in this farm"""
         return len(self.domes)
+    
+    # ✅ NEW: Password management methods
+    def set_password(self, password):
+        """Set password hash for the farm"""
+        if password and password.strip():
+            from werkzeug.security import generate_password_hash
+            self.password_hash = generate_password_hash(password)
+        else:
+            self.password_hash = None
+    
+    def check_password(self, password):
+        """Check if provided password matches the farm password"""
+        if not self.password_hash:
+            return True  # No password set, allow access
+        if not password:
+            return False  # Password required but none provided
+        from werkzeug.security import check_password_hash
+        return check_password_hash(self.password_hash, password)
+    
+    def has_password(self):
+        """Check if farm has password protection"""
+        return bool(self.password_hash)
+    
+    def remove_password(self):
+        """Remove password protection from the farm"""
+        self.password_hash = None
+    
+    def get_security_status(self):
+        """Get human-readable security status"""
+        return "🔒 Password Protected" if self.has_password() else "🔓 Open Access"
 
 class Dome(db.Model):
     __tablename__ = 'dome'
