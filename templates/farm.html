@@ -633,25 +633,7 @@
             max-width: 300px;
             word-wrap: break-word;
         }
-                /* ✅ NEW: Password strength indicators */
-        .strength-weak { color: #dc3545; font-weight: bold; }
-        .strength-medium { color: #ffc107; font-weight: bold; }
-        .strength-strong { color: #28a745; font-weight: bold; }
-        
-        /* ✅ NEW: Enhanced modal for password creation */
-        .modal-content h3 {
-            color: #8B4513;
-            margin-bottom: 15px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        
-        .modal-content p {
-            color: #666;
-            margin-bottom: 20px;
-            font-size: 14px;
-        }
+
         .status-success {
             background: #28a745;
         }
@@ -944,54 +926,7 @@
             </div>
         </div>
     </div>
-      <!-- ✅ NEW: Farm Password Creation Modal -->
-        <div id="farmPasswordModal" class="modal">
-            <div class="modal-content">
-                <h3>🔒 Set Farm Password</h3>
-                <p>Set a password to protect access to this farm's domes.</p>
-                
-                <div class="input-group">
-                    <label for="farmNameInput">Farm Name:</label>
-                    <input type="text" id="farmNameInput" placeholder="Enter farm name" readonly>
-                </div>
-                
-                <div class="input-group">
-                    <label for="farmPasswordInput">Password (Optional):</label>
-                    <div style="position: relative;">
-                        <input type="password" id="farmPasswordInput" placeholder="Enter password (leave empty for no protection)">
-                        <button type="button" onclick="togglePasswordVisibility('farmPasswordInput', this)" 
-                                style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer;">
-                            👁️
-                        </button>
-                    </div>
-                    <div id="passwordStrength" style="font-size: 12px; margin-top: 5px;"></div>
-                </div>
-                
-                <div class="input-group">
-                    <label for="confirmPasswordInput">Confirm Password:</label>
-                    <div style="position: relative;">
-                        <input type="password" id="confirmPasswordInput" placeholder="Confirm password">
-                        <button type="button" onclick="togglePasswordVisibility('confirmPasswordInput', this)" 
-                                style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer;">
-                            👁️
-                        </button>
-                    </div>
-                </div>
-                
-                <div style="background: #fff3cd; padding: 10px; border-radius: 6px; margin: 15px 0; font-size: 12px; color: #856404;">
-                    💡 <strong>Password Tips:</strong>
-                    <br>• Leave empty for no password protection
-                    <br>• Use at least 6 characters for security
-                    <br>• You can change or remove the password later
-                </div>
-                
-                <div class="modal-actions">
-                    <button class="btn" onclick="createFarmWithPassword()">🌱 Create Farm</button>
-                    <button class="btn cancel" onclick="closeFarmPasswordModal()">Cancel</button>
-                </div>
-            </div>
-        </div>
-    </div>
+
     <script>
         // ✅ FIXED: Global variables with proper initialization
         let currentFarmId = null;
@@ -1253,19 +1188,51 @@
             
             console.log(`🖱️ Empty cell clicked: (${row}, ${col})`);
             
-            // Store position for farm creation
-            window.pendingFarmPosition = { row, col };
-            
-            // Show farm creation modal with password option
-            showFarmPasswordModal();
+            const farmName = prompt(`Create new farm at position (${row}, ${col})?\n\nEnter farm name:`);
+            if (farmName && farmName.trim()) {
+                createFarm(farmName.trim(), row, col);
+            }
         }
+
         // ✅ ENHANCED: Create farm function
-        async function createFarm(name, row, col, password = null) {
-            // This function is now called by createFarmWithPassword
-            // Keep for backward compatibility but redirect to new modal
-            window.pendingFarmPosition = { row, col };
-            document.getElementById('farmNameInput').value = name;
-            showFarmPasswordModal();
+        async function createFarm(name, row, col) {
+            try {
+                console.log(`🌱 Creating farm "${name}" at (${row}, ${col})`);
+                
+                showLoadingState(true);
+                
+                const response = await fetch('/create_farm', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        name: name,
+                        grid_row: row,
+                        grid_col: col
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    console.log('✅ Farm created successfully');
+                    showSuccessMessage('Farm created successfully!');
+                    
+                    // Reload page to show new farm
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1000);
+                } else {
+                    console.error('❌ Failed to create farm:', result.error);
+                    showErrorMessage('Failed to create farm: ' + (result.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('❌ Error creating farm:', error);
+                showErrorMessage('Error creating farm. Please try again.');
+            } finally {
+                showLoadingState(false);
+            }
         }
 
         // ✅ NEW: UI feedback functions
@@ -1280,23 +1247,6 @@
                 document.body.style.pointerEvents = '';
             }
         }
-        document.addEventListener('DOMContentLoaded', function() {
-            // Add event listener for password strength checking
-            const passwordInput = document.getElementById('farmPasswordInput');
-            if (passwordInput) {
-                passwordInput.addEventListener('input', function() {
-                    checkPasswordStrength(this.value);
-                });
-            }
-            
-            // Existing initialization code...
-            updateGridDisplay();
-            addKeyboardNavigation();
-            addTouchNavigation();
-            checkForFarmImageUpdates();
-            
-            console.log('🚀 Farm system with password protection initialized');
-        });
 
         function showSuccessMessage(message) {
             showMessage(message, 'success');
@@ -1626,165 +1576,6 @@
             const modal = document.getElementById('gridModal');
             if (event.target === modal) {
                 closeGridModal();
-            }
-        }
-                // ✅ NEW: Farm Password Modal Functions
-        function showFarmPasswordModal() {
-            const modal = document.getElementById('farmPasswordModal');
-            const nameInput = document.getElementById('farmNameInput');
-            const passwordInput = document.getElementById('farmPasswordInput');
-            const confirmInput = document.getElementById('confirmPasswordInput');
-            
-            // Clear previous values
-            nameInput.value = '';
-            passwordInput.value = '';
-            confirmInput.value = '';
-            document.getElementById('passwordStrength').innerHTML = '';
-            
-            // Show modal
-            modal.style.display = 'flex';
-            nameInput.focus();
-            nameInput.removeAttribute('readonly');
-        }
-        
-        function closeFarmPasswordModal() {
-            document.getElementById('farmPasswordModal').style.display = 'none';
-            window.pendingFarmPosition = null;
-        }
-        
-        function togglePasswordVisibility(inputId, button) {
-            const input = document.getElementById(inputId);
-            if (input.type === 'password') {
-                input.type = 'text';
-                button.textContent = '🙈';
-            } else {
-                input.type = 'password';
-                button.textContent = '👁️';
-            }
-        }
-        
-        function checkPasswordStrength(password) {
-            const strengthDiv = document.getElementById('passwordStrength');
-            
-            if (!password) {
-                strengthDiv.innerHTML = '';
-                return;
-            }
-            
-            let strength = 0;
-            let feedback = [];
-            
-            if (password.length >= 6) strength++;
-            else feedback.push('at least 6 characters');
-            
-            if (/[A-Z]/.test(password)) strength++;
-            else feedback.push('uppercase letter');
-            
-            if (/[a-z]/.test(password)) strength++;
-            else feedback.push('lowercase letter');
-            
-            if (/[0-9]/.test(password)) strength++;
-            else feedback.push('number');
-            
-            if (/[^A-Za-z0-9]/.test(password)) strength++;
-            else feedback.push('special character');
-            
-            let strengthText = '';
-            let strengthClass = '';
-            
-            if (strength < 2) {
-                strengthText = '🔴 Weak';
-                strengthClass = 'strength-weak';
-            } else if (strength < 4) {
-                strengthText = '🟡 Medium';
-                strengthClass = 'strength-medium';
-            } else {
-                strengthText = '🟢 Strong';
-                strengthClass = 'strength-strong';
-            }
-            
-            strengthDiv.innerHTML = `<span class="${strengthClass}">${strengthText}</span>`;
-            
-            if (feedback.length > 0 && strength < 3) {
-                strengthDiv.innerHTML += `<br><small>Add: ${feedback.slice(0, 2).join(', ')}</small>`;
-            }
-        }
-        
-        // ✅ NEW: Enhanced farm creation with password
-        async function createFarmWithPassword() {
-            const name = document.getElementById('farmNameInput').value.trim();
-            const password = document.getElementById('farmPasswordInput').value;
-            const confirmPassword = document.getElementById('confirmPasswordInput').value;
-            
-            if (!name) {
-                alert('Please enter a farm name');
-                return;
-            }
-            
-            if (!window.pendingFarmPosition) {
-                alert('Error: No position selected');
-                return;
-            }
-            
-            // Validate password if provided
-            if (password) {
-                if (password.length < 6) {
-                    alert('Password must be at least 6 characters long');
-                    return;
-                }
-                
-                if (password !== confirmPassword) {
-                    alert('Passwords do not match');
-                    return;
-                }
-            }
-            
-            try {
-                console.log(`🌱 Creating farm "${name}" with ${password ? 'password protection' : 'no password'}`);
-                
-                showLoadingState(true);
-                
-                const requestBody = {
-                    name: name,
-                    grid_row: window.pendingFarmPosition.row,
-                    grid_col: window.pendingFarmPosition.col
-                };
-                
-                // Add password if provided
-                if (password) {
-                    requestBody.password = password;
-                }
-                
-                const response = await fetch('/create_farm', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(requestBody)
-                });
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    console.log('✅ Farm created successfully');
-                    const protectionStatus = password ? ' with password protection' : ' without password protection';
-                    showSuccessMessage(`Farm "${name}" created successfully${protectionStatus}!`);
-                    
-                    closeFarmPasswordModal();
-                    
-                    // Reload page to show new farm
-                    setTimeout(() => {
-                        window.location.reload();
-                    }, 1500);
-                } else {
-                    console.error('❌ Failed to create farm:', result.error);
-                    showErrorMessage('Failed to create farm: ' + (result.error || 'Unknown error'));
-                }
-            } catch (error) {
-                console.error('❌ Error creating farm:', error);
-                showErrorMessage('Error creating farm. Please try again.');
-            } finally {
-                showLoadingState(false);
             }
         }
     </script>

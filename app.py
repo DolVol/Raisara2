@@ -532,182 +532,6 @@ def save_image_to_database(image_file, entity_type, entity_id):
     except Exception as e:
         print(f"❌ Error saving image: {e}")
         return None
-def ensure_farm_password_column():
-    """
-    Automatically add password_hash column to farm table on app startup
-    This runs every time the app starts on Render to ensure schema is up to date
-    """
-    try:
-        with app.app_context():
-            from sqlalchemy import text
-            
-            print("🔍 Checking farm table schema on startup...")
-            
-            # Detect database type
-            database_url = os.environ.get('DATABASE_URL', '')
-            is_postgresql = 'postgresql' in database_url or 'postgres' in database_url
-            
-            if is_postgresql:
-                print("🐘 Detected PostgreSQL database (Render)")
-                
-                # Check if password_hash column exists in PostgreSQL
-                try:
-                    result = db.session.execute(text("""
-                        SELECT column_name 
-                        FROM information_schema.columns 
-                        WHERE table_name = 'farm' AND column_name = 'password_hash'
-                    """))
-                    
-                    if result.fetchone():
-                        print("✅ password_hash column already exists")
-                        return True
-                    
-                    print("📝 Adding password_hash column to PostgreSQL...")
-                    
-                    # Add password_hash column for PostgreSQL
-                    db.session.execute(text("""
-                        ALTER TABLE farm 
-                        ADD COLUMN password_hash VARCHAR(255)
-                    """))
-                    
-                    # Also add updated_at if it doesn't exist
-                    result = db.session.execute(text("""
-                        SELECT column_name 
-                        FROM information_schema.columns 
-                        WHERE table_name = 'farm' AND column_name = 'updated_at'
-                    """))
-                    
-                    if not result.fetchone():
-                        print("📝 Adding updated_at column to PostgreSQL...")
-                        db.session.execute(text("""
-                            ALTER TABLE farm 
-                            ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                        """))
-                        
-                        # Update existing records
-                        db.session.execute(text("""
-                            UPDATE farm 
-                            SET updated_at = CURRENT_TIMESTAMP 
-                            WHERE updated_at IS NULL
-                        """))
-                        print("✅ Added updated_at column and updated existing records")
-                    
-                    db.session.commit()
-                    print("✅ PostgreSQL farm table schema updated successfully")
-                    
-                    # Verify the migration
-                    result = db.session.execute(text("""
-                        SELECT id, name, password_hash, updated_at 
-                        FROM farm 
-                        LIMIT 1
-                    """))
-                    print("✅ Schema migration verified - columns are accessible")
-                    
-                    return True
-                    
-                except Exception as pg_error:
-                    db.session.rollback()
-                    if "already exists" in str(pg_error).lower() or "duplicate column" in str(pg_error).lower():
-                        print("✅ password_hash column already exists (caught duplicate error)")
-                        return True
-                    else:
-                        print(f"❌ PostgreSQL migration error: {str(pg_error)}")
-                        return False
-            
-            else:
-                print("🗄️ Detected SQLite database (Local)")
-                
-                # SQLite approach
-                try:
-                    result = db.session.execute(text("PRAGMA table_info(farm)"))
-                    columns = [row[1] for row in result.fetchall()]
-                    
-                    if 'password_hash' not in columns:
-                        print("📝 Adding password_hash column to SQLite...")
-                        db.session.execute(text("""
-                            ALTER TABLE farm 
-                            ADD COLUMN password_hash TEXT
-                        """))
-                        db.session.commit()
-                        print("✅ SQLite farm table schema updated successfully")
-                    else:
-                        print("✅ password_hash column already exists in SQLite")
-                    
-                    return True
-                    
-                except Exception as sqlite_error:
-                    db.session.rollback()
-                    if "duplicate column" in str(sqlite_error).lower():
-                        print("✅ password_hash column already exists (caught duplicate error)")
-                        return True
-                    else:
-                        print(f"❌ SQLite migration error: {str(sqlite_error)}")
-                        return False
-            
-    except Exception as e:
-        print(f"❌ Schema migration error: {str(e)}")
-        return False
-def safe_query_farms(user_id):
-    """
-    Safely query farms with fallback for missing password_hash column
-    This provides backward compatibility during migration
-    """
-    try:
-        # Try normal query first (with password_hash column)
-        farms = Farm.query.filter_by(user_id=user_id).order_by(Farm.created_at.desc()).all()
-        return farms, True  # True indicates password_hash column exists
-        
-    except Exception as e:
-        if "password_hash does not exist" in str(e) or "UndefinedColumn" in str(e):
-            print("⚠️ password_hash column missing, using fallback query...")
-            
-            # Fallback query without password_hash column
-            try:
-                from sqlalchemy import text
-                result = db.session.execute(text("""
-                    SELECT id, name, grid_row, grid_col, image_url, user_id, created_at, updated_at
-                    FROM farm 
-                    WHERE user_id = :user_id
-                    ORDER BY created_at DESC
-                """), {"user_id": user_id})
-                
-                # Convert results to Farm-like objects
-                farms = []
-                for row in result:
-                    farm = Farm()
-                    farm.id = row[0]
-                    farm.name = row[1]
-                    farm.grid_row = row[2]
-                    farm.grid_col = row[3]
-                    farm.image_url = row[4]
-                    farm.user_id = row[5]
-                    farm.created_at = row[6]
-                    farm.updated_at = row[7] if len(row) > 7 else None
-                    # Set password_hash to None since column doesn't exist
-                    farm.password_hash = None
-                    farms.append(farm)
-                
-                return farms, False  # False indicates password_hash column doesn't exist
-                
-            except Exception as fallback_error:
-                print(f"❌ Fallback query also failed: {str(fallback_error)}")
-                return [], False
-        else:
-            # Re-raise other errors
-            raise e
-def quick_render_migration():
-    try:
-        with app.app_context():
-            from sqlalchemy import text
-            db.session.execute(text("ALTER TABLE farm ADD COLUMN IF NOT EXISTS password_hash VARCHAR(255)"))
-            db.session.execute(text("ALTER TABLE farm ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"))
-            db.session.commit()
-            print("✅ Quick migration completed")
-    except Exception as e:
-        print(f"⚠️ Quick migration: {str(e)}")
-
-# Run quick migration
-quick_render_migration()
 def initialize_scheduler():
     """Initialize the daily life updater when the app starts"""
     global life_updater
@@ -1013,45 +837,38 @@ def debug_routes():
 @login_required
 def farms():
     try:
-        print(f"🚜 Loading farms for user {current_user.id}")
+        # Get grid settings for farms
+        grid_settings = GridSettings.query.filter_by(
+            user_id=current_user.id, 
+            grid_type='farm'
+        ).first()
         
-        # Use safe query function
-        user_farms, has_password_column = safe_query_farms(current_user.id)
+        if not grid_settings:
+            grid_settings = GridSettings(
+                user_id=current_user.id,
+                grid_type='farm',
+                rows=10,
+                cols=10
+            )
+            db.session.add(grid_settings)
+            db.session.commit()
+            print("✅ Created default farm grid settings")
         
-        # Add password status to each farm (if column exists)
-        farms_with_status = []
-        for farm in user_farms:
-            farm_dict = {
-                'id': farm.id,
-                'name': farm.name,
-                'grid_row': farm.grid_row,
-                'grid_col': farm.grid_col,
-                'image_url': farm.image_url,
-                'has_password': bool(getattr(farm, 'password_hash', None)) if has_password_column else False,
-                'security_status': '🔒 Password Protected' if (has_password_column and getattr(farm, 'password_hash', None)) else '🔓 Open Access',
-                'dome_count': len(getattr(farm, 'domes', [])),
-                'created_at': farm.created_at.isoformat() if farm.created_at else None,
-                'password_column_exists': has_password_column
-            }
-            farms_with_status.append(farm_dict)
+        # Get all farms for this user
+        farms = Farm.query.filter_by(user_id=current_user.id).all()
         
-        # Get grid settings
-        grid_settings = get_grid_settings('farm', current_user.id)
+        print(f"✅ Found {len(farms)} farms")
         
-        print(f"✅ Loaded {len(user_farms)} farms successfully (password column: {'exists' if has_password_column else 'missing'})")
-        
-        return render_template('farms.html', 
-                             farms=user_farms,
-                             farms_with_status=farms_with_status,
+        return render_template('farm.html', 
+                             farms=farms,
                              grid_rows=grid_settings.rows,
                              grid_cols=grid_settings.cols,
                              timestamp=int(time.time()),
-                             user=current_user,
-                             password_column_exists=has_password_column)
+                             user=current_user)
                              
     except Exception as e:
         print(f"❌ Error loading farms: {str(e)}")
-        flash('Error loading farms. Please try again.', 'error')
+        flash('Error loading farms', 'error')
         return redirect(url_for('index'))
 @app.errorhandler(500)
 def internal_error(error):
@@ -2048,217 +1865,52 @@ def add_dome():
 def create_farm():
     try:
         data = request.get_json()
-        name = data.get('name', '').strip()
+        name = data.get('name')
         grid_row = data.get('grid_row')
         grid_col = data.get('grid_col')
-        password = data.get('password', '').strip()
         
-        # ✅ ENHANCED: Better input validation
-        if not name:
-            return jsonify({'success': False, 'error': 'Farm name is required'})
+        if not name or grid_row is None or grid_col is None:
+            return jsonify({'success': False, 'error': 'Missing required fields'})
         
-        if grid_row is None or grid_col is None:
-            return jsonify({'success': False, 'error': 'Grid position is required'})
+        # Check if position is already occupied
+        existing_farm = Farm.query.filter_by(
+            grid_row=grid_row, 
+            grid_col=grid_col,
+            user_id=current_user.id
+        ).first()
         
-        try:
-            grid_row = int(grid_row)
-            grid_col = int(grid_col)
-        except (ValueError, TypeError):
-            return jsonify({'success': False, 'error': 'Invalid grid position values'})
+        if existing_farm:
+            return jsonify({'success': False, 'error': 'Position already occupied'})
         
-        if len(name) > 100:
-            return jsonify({'success': False, 'error': 'Farm name too long (max 100 characters)'})
-        
-        # ✅ OPTIMIZED: Direct SQL query for better performance on Render
-        print(f"🔍 Checking position ({grid_row}, {grid_col}) for user {current_user.id}")
-        
-        # Check if position is occupied using raw SQL (more reliable for Render)
-        position_check = db.session.execute(
-            text("""
-                SELECT id, name 
-                FROM farm 
-                WHERE grid_row = :row AND grid_col = :col AND user_id = :user_id 
-                LIMIT 1
-            """),
-            {
-                "row": grid_row, 
-                "col": grid_col, 
-                "user_id": current_user.id
-            }
-        ).fetchone()
-        
-        if position_check:
-            existing_farm_name = position_check[1] if len(position_check) > 1 else "Unknown"
-            return jsonify({
-                'success': False, 
-                'error': f'Position ({grid_row}, {grid_col}) is already occupied by farm "{existing_farm_name}"'
-            })
-        
-        # ✅ ENHANCED: Validate grid bounds (optional - adjust based on your grid size)
-        max_grid_size = 50  # Adjust based on your farm grid settings
-        if grid_row < 0 or grid_col < 0 or grid_row >= max_grid_size or grid_col >= max_grid_size:
-            return jsonify({
-                'success': False, 
-                'error': f'Grid position must be between 0 and {max_grid_size-1}'
-            })
-        
-        # ✅ OPTIMIZED: Create farm using direct SQL insert for Render compatibility
-        print(f"🌱 Creating farm '{name}' at ({grid_row}, {grid_col})")
-        
-        # Hash password if provided
-        password_hash = None
-        if password:
-            from werkzeug.security import generate_password_hash
-            password_hash = generate_password_hash(password)
-            print(f"🔒 Farm will be password protected")
-        
-        # Insert new farm using SQL (more reliable on Render)
-        result = db.session.execute(
-            text("""
-                INSERT INTO farm (name, grid_row, grid_col, user_id, password_hash, created_at)
-                VALUES (:name, :grid_row, :grid_col, :user_id, :password_hash, :created_at)
-                RETURNING id, name, grid_row, grid_col
-            """),
-            {
-                "name": name,
-                "grid_row": grid_row,
-                "grid_col": grid_col,
-                "user_id": current_user.id,
-                "password_hash": password_hash,
-                "created_at": datetime.utcnow()
-            }
+        # Create new farm
+        new_farm = Farm(
+            name=name,
+            grid_row=grid_row,
+            grid_col=grid_col,
+            user_id=current_user.id
         )
         
-        # Get the created farm data
-        new_farm_data = result.fetchone()
-        
-        if not new_farm_data:
-            raise Exception("Failed to create farm - no data returned")
-        
+        db.session.add(new_farm)
         db.session.commit()
         
-        # ✅ ENHANCED: Detailed success response
-        farm_id = new_farm_data[0]
-        protection_status = "with password protection" if password_hash else "without password protection"
-        
-        print(f"✅ Farm created successfully: ID {farm_id}, Name '{name}' {protection_status}")
+        print(f"✅ Farm created: {new_farm.name} at ({grid_row}, {grid_col})")
         
         return jsonify({
-            'success': True,
-            'message': f'Farm "{name}" created successfully {protection_status}',
+            'success': True, 
+            'message': 'Farm created successfully',
             'farm': {
-                'id': farm_id,
-                'name': name,
-                'grid_row': grid_row,
-                'grid_col': grid_col,
-                'has_password': bool(password_hash),
-                'protection_status': protection_status,
-                'created_at': datetime.utcnow().isoformat()
+                'id': new_farm.id,
+                'name': new_farm.name,
+                'grid_row': new_farm.grid_row,
+                'grid_col': new_farm.grid_col
             }
         })
         
     except Exception as e:
         db.session.rollback()
-        error_msg = str(e)
-        print(f"❌ Error creating farm: {error_msg}")
-        
-        # ✅ ENHANCED: Better error messages for common issues
-        if "duplicate key" in error_msg.lower() or "unique constraint" in error_msg.lower():
-            return jsonify({
-                'success': False, 
-                'error': 'A farm already exists at this position'
-            })
-        elif "foreign key" in error_msg.lower():
-            return jsonify({
-                'success': False, 
-                'error': 'Invalid user reference'
-            })
-        elif "not null" in error_msg.lower():
-            return jsonify({
-                'success': False, 
-                'error': 'Missing required farm information'
-            })
-        else:
-            return jsonify({
-                'success': False, 
-                'error': 'Failed to create farm. Please try again.'
-            })
-@app.route('/verify_farm_password/<int:farm_id>', methods=['POST'])
-@login_required
-def verify_farm_password(farm_id):
-    try:
-        data = request.get_json()
-        password = data.get('password', '')
-        
-        print(f"🔐 Verifying password for farm {farm_id}")
-        
-        # Get farm with password hash using SQL
-        farm_data = db.session.execute(
-            text("""
-                SELECT id, name, password_hash 
-                FROM farm 
-                WHERE id = :farm_id AND user_id = :user_id
-            """),
-            {"farm_id": farm_id, "user_id": current_user.id}
-        ).fetchone()
-        
-        if not farm_data:
-            return jsonify({'success': False, 'error': 'Farm not found or access denied'})
-        
-        farm_password_hash = farm_data[2]  # password_hash column
-        farm_name = farm_data[1]  # name column
-        
-        # Check password
-        if not farm_password_hash:
-            # No password set, allow access
-            print(f"✅ Farm '{farm_name}' has no password protection")
-            return jsonify({'success': True, 'message': 'Access granted (no password required)'})
-        
-        if not password:
-            return jsonify({'success': False, 'error': 'Password required for this farm'})
-        
-        # Verify password
-        from werkzeug.security import check_password_hash
-        if check_password_hash(farm_password_hash, password):
-            print(f"✅ Correct password for farm '{farm_name}'")
-            return jsonify({'success': True, 'message': 'Password correct'})
-        else:
-            print(f"❌ Incorrect password for farm '{farm_name}'")
-            return jsonify({'success': False, 'error': 'Incorrect password'})
-            
-    except Exception as e:
-        print(f"❌ Error verifying farm password: {str(e)}")
-        return jsonify({'success': False, 'error': 'Password verification failed'})
-@app.route('/farm_password_status/<int:farm_id>')
-@login_required
-def farm_password_status(farm_id):
-    try:
-        # Get farm password status
-        farm_data = db.session.execute(
-            text("""
-                SELECT id, name, password_hash 
-                FROM farm 
-                WHERE id = :farm_id AND user_id = :user_id
-            """),
-            {"farm_id": farm_id, "user_id": current_user.id}
-        ).fetchone()
-        
-        if not farm_data:
-            return jsonify({'success': False, 'error': 'Farm not found'})
-        
-        has_password = bool(farm_data[2])  # password_hash column
-        farm_name = farm_data[1]  # name column
-        
-        return jsonify({
-            'success': True,
-            'farm_name': farm_name,
-            'has_password': has_password,
-            'status': '🔒 Password Protected' if has_password else '🔓 Open Access'
-        })
-        
-    except Exception as e:
-        print(f"❌ Error checking farm password status: {str(e)}")
-        return jsonify({'success': False, 'error': 'Failed to check password status'})
+        print(f"❌ Error creating farm: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)})
+@app.route('/update_grid_settings', methods=['POST'])
 @login_required
 def update_grid_settings():
     """Update grid settings for dome grids (farm-specific or global)"""
