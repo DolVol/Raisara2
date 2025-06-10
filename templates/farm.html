@@ -1312,41 +1312,30 @@
         }
 
         // Update grid size
-        async function updateGridSize() {
-            const rows = parseInt(document.getElementById('gridRows').value);
-            const cols = parseInt(document.getElementById('gridCols').value);
-            
-            if (rows < 1 || rows > 100 || cols < 1 || cols > 100) {
-                alert('Grid size must be between 1 and 100 for both rows and columns');
-                return;
-            }
-            
-            try {
-                const response = await fetch('/update_grid_settings', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        grid_type: 'farm',
-                        rows: rows,
-                        cols: cols
-                    })
-                });
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    closeGridModal();
-                    window.location.reload();
-                } else {
-                    alert('Failed to update grid size: ' + (result.error || 'Unknown error'));
-                }
-            } catch (error) {
-                console.error('Error updating grid size:', error);
-                alert('Error updating grid size. Please try again.');
-            }
+function updateGridSize() {
+    const rows = document.getElementById('gridRows').value;
+    const cols = document.getElementById('gridCols').value;
+    
+    fetch('/update_grid_settings', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            grid_type: 'farm',  // ✅ FIXED: Use 'farm' not 'dome'
+            rows: parseInt(rows),
+            cols: parseInt(cols)
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload(); // Reload to show new grid
+        } else {
+            alert('Error: ' + data.error);
         }
+    });
+}
 
         // Grid display and navigation functions
         function updateGridDisplay() {

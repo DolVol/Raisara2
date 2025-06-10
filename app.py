@@ -837,32 +837,19 @@ def debug_routes():
 @login_required
 def farms():
     try:
-        # Get grid settings for farms
-        grid_settings = GridSettings.query.filter_by(
-            user_id=current_user.id, 
-            grid_type='farm'
-        ).first()
-        
-        if not grid_settings:
-            grid_settings = GridSettings(
-                user_id=current_user.id,
-                grid_type='farm',
-                rows=10,
-                cols=10
-            )
-            db.session.add(grid_settings)
-            db.session.commit()
-            print("✅ Created default farm grid settings")
+        # ✅ FIXED: Get FARM-specific grid settings (not dome settings)
+        farm_grid_settings = get_grid_settings('farm', current_user.id)
         
         # Get all farms for this user
         farms = Farm.query.filter_by(user_id=current_user.id).all()
         
         print(f"✅ Found {len(farms)} farms")
+        print(f"🔧 Farm grid settings: {farm_grid_settings.rows}x{farm_grid_settings.cols}")
         
         return render_template('farm.html', 
                              farms=farms,
-                             grid_rows=grid_settings.rows,
-                             grid_cols=grid_settings.cols,
+                             grid_rows=farm_grid_settings.rows,
+                             grid_cols=farm_grid_settings.cols,
                              timestamp=int(time.time()),
                              user=current_user)
                              
@@ -870,6 +857,7 @@ def farms():
         print(f"❌ Error loading farms: {str(e)}")
         flash('Error loading farms', 'error')
         return redirect(url_for('index'))
+
 @app.errorhandler(500)
 def internal_error(error):
     """Simple error handler that doesn't require templates"""
@@ -1668,7 +1656,7 @@ def domes():
 def get_grid_settings(grid_type='dome', user_id=None, farm_id=None):
     """Get grid settings for specific type, user, and optionally farm"""
     try:
-        # For farm-specific dome settings
+        # If it's a farm dome view, use farm-specific dome settings
         if grid_type == 'dome' and farm_id:
             grid_type_key = f'farm_{farm_id}_dome'
         else:
@@ -1680,13 +1668,13 @@ def get_grid_settings(grid_type='dome', user_id=None, farm_id=None):
         ).first()
         
         if not settings:
-            # Create default settings with 5x5 for farm domes
+            # ✅ FIXED: Better defaults for different grid types
             if grid_type == 'farm':
-                default_rows, default_cols = 10, 10
+                default_rows, default_cols = 10, 10  # Farm layout grid
             elif farm_id:  # Farm-specific dome settings
-                default_rows, default_cols = 5, 5  # Default 5x5 for farm domes
-            else:  # Fallback
-                default_rows, default_cols = 5, 5
+                default_rows, default_cols = 5, 5   # Fixed 5x5 for farm domes
+            else:  # Global dome settings
+                default_rows, default_cols = 10, 10  # Larger default for global domes
             
             settings = GridSettings(
                 rows=default_rows,
@@ -1712,13 +1700,13 @@ def get_grid_settings(grid_type='dome', user_id=None, farm_id=None):
         return settings
     except Exception as e:
         print(f"Error getting grid settings: {e}")
-        # Return default object with 5x5 for farm domes
+        # Return default object
         if grid_type == 'farm':
             default_rows, default_cols = 10, 10
         elif farm_id:
             default_rows, default_cols = 5, 5
         else:
-            default_rows, default_cols = 5, 5
+            default_rows, default_cols = 10, 10
             
         return type('obj', (object,), {
             'rows': default_rows,
@@ -1912,96 +1900,57 @@ def create_farm():
         return jsonify({'success': False, 'error': str(e)})
 @app.route('/update_grid_settings', methods=['POST'])
 @login_required
-def update_grid_settings():
-    """Update grid settings for dome grids (farm-specific or global)"""
+def update_grid_settings_route():
+    """Update grid settings - handles both farm and dome grids"""
     try:
         data = request.get_json()
-        grid_type = data.get('grid_type', 'dome')
-        rows = data.get('rows')
-        cols = data.get('cols')
-        farm_id = data.get('farm_id')  # Get farm_id from request
+        grid_type = data.get('grid_type', 'dome')  # Default to dome
+        rows = data.get('rows', 10)
+        cols = data.get('cols', 10)
+        farm_id = data.get('farm_id')  # Optional farm context
         
         print(f"🔧 Updating {grid_type} grid size to {rows}x{cols} (farm_id: {farm_id})")
         
-        if not rows or not cols:
-            return jsonify({'success': False, 'error': 'Rows and columns are required'})
+        # Validate input
+        if not isinstance(rows, int) or not isinstance(cols, int):
+            return jsonify({'success': False, 'error': 'Invalid grid size values'}), 400
         
-        try:
-            rows = int(rows)
-            cols = int(cols)
-        except (ValueError, TypeError):
-            return jsonify({'success': False, 'error': 'Invalid grid size values'})
+        if rows < 1 or cols < 1 or rows > 100 or cols > 100:
+            return jsonify({'success': False, 'error': 'Grid size must be between 1x1 and 100x100'}), 400
         
-        if rows < 1 or rows > 100 or cols < 1 or cols > 100:
-            return jsonify({'success': False, 'error': 'Grid size must be between 1x1 and 100x100'})
-        
-        # ✅ FIXED: Handle farm-specific vs global dome grids
-        if farm_id:
-            # Farm-specific dome grid
-            grid_type_key = f'farm_{farm_id}_dome'
-            
-            # Verify farm ownership
-            farm = Farm.query.filter_by(id=farm_id, user_id=current_user.id).first()
-            if not farm:
-                return jsonify({'success': False, 'error': 'Farm not found or access denied'})
-            
-            # Check if shrinking would affect existing domes in this farm
-            affected_domes = Dome.query.filter(
-                Dome.farm_id == farm_id,
-                Dome.user_id == current_user.id,
-                (Dome.grid_row >= rows) | (Dome.grid_col >= cols)
-            ).all()
+        # ✅ FIXED: Properly handle farm vs dome grid types
+        if grid_type == 'farm':
+            # Update FARM grid settings (for farm layout)
+            success = update_grid_settings('farm', rows, cols, current_user.id, None)
+            if success:
+                print(f"✅ FARM grid size updated to {rows}x{cols}")
+                return jsonify({'success': True, 'message': f'Farm grid updated to {rows}x{cols}'})
+            else:
+                return jsonify({'success': False, 'error': 'Failed to update farm grid settings'}), 500
+                
+        elif grid_type == 'dome':
+            if farm_id:
+                # Update farm-specific dome grid settings
+                success = update_grid_settings('dome', rows, cols, current_user.id, farm_id)
+                if success:
+                    print(f"✅ Farm {farm_id} dome grid size updated to {rows}x{cols}")
+                    return jsonify({'success': True, 'message': f'Farm dome grid updated to {rows}x{cols}'})
+                else:
+                    return jsonify({'success': False, 'error': 'Failed to update farm dome grid settings'}), 500
+            else:
+                # Update global dome grid settings
+                success = update_grid_settings('dome', rows, cols, current_user.id, None)
+                if success:
+                    print(f"✅ Global dome grid size updated to {rows}x{cols}")
+                    return jsonify({'success': True, 'message': f'Global dome grid updated to {rows}x{cols}'})
+                else:
+                    return jsonify({'success': False, 'error': 'Failed to update global dome grid settings'}), 500
         else:
-            # Global dome grid
-            grid_type_key = 'dome'
+            return jsonify({'success': False, 'error': 'Invalid grid type'}), 400
             
-            # Check if shrinking would affect existing global domes
-            affected_domes = Dome.query.filter(
-                Dome.farm_id.is_(None),
-                Dome.user_id == current_user.id,
-                (Dome.grid_row >= rows) | (Dome.grid_col >= cols)
-            ).all()
-        
-        if affected_domes:
-            dome_names = [dome.name for dome in affected_domes]
-            return jsonify({
-                'success': False, 
-                'error': f'Cannot shrink grid. Domes would be affected: {", ".join(dome_names)}'
-            })
-        
-        # Update or create grid settings
-        settings = GridSettings.query.filter_by(
-            grid_type=grid_type_key,
-            user_id=current_user.id
-        ).first()
-        
-        if settings:
-            settings.rows = rows
-            settings.cols = cols
-        else:
-            settings = GridSettings(
-                rows=rows,
-                cols=cols,
-                grid_type=grid_type_key,
-                user_id=current_user.id
-            )
-            db.session.add(settings)
-        
-        db.session.commit()
-        
-        context = f"farm {farm_id}" if farm_id else "global"
-        print(f"✅ {context} dome grid size updated to {rows}x{cols}")
-        
-        return jsonify({
-            'success': True, 
-            'message': f'Dome grid updated to {rows}x{cols}',
-            'context': context
-        })
-        
     except Exception as e:
-        db.session.rollback()
         print(f"❌ Error updating grid settings: {str(e)}")
-        return jsonify({'success': False, 'error': str(e)})
+        return jsonify({'success': False, 'error': str(e)}), 500
 @app.route('/update_dome_name/<int:dome_id>', methods=['POST'])
 @login_required
 def update_dome_name(dome_id):
