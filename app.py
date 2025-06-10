@@ -1865,58 +1865,217 @@ def add_dome():
 def create_farm():
     try:
         data = request.get_json()
-        name = data.get('name')
+        name = data.get('name', '').strip()
         grid_row = data.get('grid_row')
         grid_col = data.get('grid_col')
-        password = data.get('password')
+        password = data.get('password', '').strip()
         
-        if not name or grid_row is None or grid_col is None:
-            return jsonify({'success': False, 'error': 'Missing required fields'})
+        # ✅ ENHANCED: Better input validation
+        if not name:
+            return jsonify({'success': False, 'error': 'Farm name is required'})
         
-        # Check if position is occupied
-        existing_farm = Farm.query.filter_by(
-            grid_row=grid_row, 
-            grid_col=grid_col,
-            user_id=current_user.id
-        ).first()
+        if grid_row is None or grid_col is None:
+            return jsonify({'success': False, 'error': 'Grid position is required'})
         
-        if existing_farm:
-            return jsonify({'success': False, 'error': 'Position already occupied'})
+        try:
+            grid_row = int(grid_row)
+            grid_col = int(grid_col)
+        except (ValueError, TypeError):
+            return jsonify({'success': False, 'error': 'Invalid grid position values'})
         
-        # Create new farm
-        new_farm = Farm(
-            name=name,
-            grid_row=grid_row,
-            grid_col=grid_col,
-            user_id=current_user.id
+        if len(name) > 100:
+            return jsonify({'success': False, 'error': 'Farm name too long (max 100 characters)'})
+        
+        # ✅ OPTIMIZED: Direct SQL query for better performance on Render
+        print(f"🔍 Checking position ({grid_row}, {grid_col}) for user {current_user.id}")
+        
+        # Check if position is occupied using raw SQL (more reliable for Render)
+        position_check = db.session.execute(
+            text("""
+                SELECT id, name 
+                FROM farm 
+                WHERE grid_row = :row AND grid_col = :col AND user_id = :user_id 
+                LIMIT 1
+            """),
+            {
+                "row": grid_row, 
+                "col": grid_col, 
+                "user_id": current_user.id
+            }
+        ).fetchone()
+        
+        if position_check:
+            existing_farm_name = position_check[1] if len(position_check) > 1 else "Unknown"
+            return jsonify({
+                'success': False, 
+                'error': f'Position ({grid_row}, {grid_col}) is already occupied by farm "{existing_farm_name}"'
+            })
+        
+        # ✅ ENHANCED: Validate grid bounds (optional - adjust based on your grid size)
+        max_grid_size = 50  # Adjust based on your farm grid settings
+        if grid_row < 0 or grid_col < 0 or grid_row >= max_grid_size or grid_col >= max_grid_size:
+            return jsonify({
+                'success': False, 
+                'error': f'Grid position must be between 0 and {max_grid_size-1}'
+            })
+        
+        # ✅ OPTIMIZED: Create farm using direct SQL insert for Render compatibility
+        print(f"🌱 Creating farm '{name}' at ({grid_row}, {grid_col})")
+        
+        # Hash password if provided
+        password_hash = None
+        if password:
+            from werkzeug.security import generate_password_hash
+            password_hash = generate_password_hash(password)
+            print(f"🔒 Farm will be password protected")
+        
+        # Insert new farm using SQL (more reliable on Render)
+        result = db.session.execute(
+            text("""
+                INSERT INTO farm (name, grid_row, grid_col, user_id, password_hash, created_at)
+                VALUES (:name, :grid_row, :grid_col, :user_id, :password_hash, :created_at)
+                RETURNING id, name, grid_row, grid_col
+            """),
+            {
+                "name": name,
+                "grid_row": grid_row,
+                "grid_col": grid_col,
+                "user_id": current_user.id,
+                "password_hash": password_hash,
+                "created_at": datetime.utcnow()
+            }
         )
         
-        # Set password if provided
-        if password:
-            new_farm.set_password(password)
+        # Get the created farm data
+        new_farm_data = result.fetchone()
         
-        db.session.add(new_farm)
+        if not new_farm_data:
+            raise Exception("Failed to create farm - no data returned")
+        
         db.session.commit()
         
-        protection_status = "with password protection" if new_farm.has_password() else "without password protection"
-        print(f"✅ Farm created: {new_farm.name} {protection_status}")
+        # ✅ ENHANCED: Detailed success response
+        farm_id = new_farm_data[0]
+        protection_status = "with password protection" if password_hash else "without password protection"
+        
+        print(f"✅ Farm created successfully: ID {farm_id}, Name '{name}' {protection_status}")
         
         return jsonify({
-            'success': True, 
-            'message': f'Farm created successfully {protection_status}',
+            'success': True,
+            'message': f'Farm "{name}" created successfully {protection_status}',
             'farm': {
-                'id': new_farm.id,
-                'name': new_farm.name,
-                'grid_row': new_farm.grid_row,
-                'grid_col': new_farm.grid_col,
-                'has_password': new_farm.has_password()
+                'id': farm_id,
+                'name': name,
+                'grid_row': grid_row,
+                'grid_col': grid_col,
+                'has_password': bool(password_hash),
+                'protection_status': protection_status,
+                'created_at': datetime.utcnow().isoformat()
             }
         })
         
     except Exception as e:
         db.session.rollback()
-        print(f"❌ Error creating farm: {str(e)}")
-        return jsonify({'success': False, 'error': str(e)})@app.route('/update_grid_settings', methods=['POST'])
+        error_msg = str(e)
+        print(f"❌ Error creating farm: {error_msg}")
+        
+        # ✅ ENHANCED: Better error messages for common issues
+        if "duplicate key" in error_msg.lower() or "unique constraint" in error_msg.lower():
+            return jsonify({
+                'success': False, 
+                'error': 'A farm already exists at this position'
+            })
+        elif "foreign key" in error_msg.lower():
+            return jsonify({
+                'success': False, 
+                'error': 'Invalid user reference'
+            })
+        elif "not null" in error_msg.lower():
+            return jsonify({
+                'success': False, 
+                'error': 'Missing required farm information'
+            })
+        else:
+            return jsonify({
+                'success': False, 
+                'error': 'Failed to create farm. Please try again.'
+            })
+@app.route('/verify_farm_password/<int:farm_id>', methods=['POST'])
+@login_required
+def verify_farm_password(farm_id):
+    try:
+        data = request.get_json()
+        password = data.get('password', '')
+        
+        print(f"🔐 Verifying password for farm {farm_id}")
+        
+        # Get farm with password hash using SQL
+        farm_data = db.session.execute(
+            text("""
+                SELECT id, name, password_hash 
+                FROM farm 
+                WHERE id = :farm_id AND user_id = :user_id
+            """),
+            {"farm_id": farm_id, "user_id": current_user.id}
+        ).fetchone()
+        
+        if not farm_data:
+            return jsonify({'success': False, 'error': 'Farm not found or access denied'})
+        
+        farm_password_hash = farm_data[2]  # password_hash column
+        farm_name = farm_data[1]  # name column
+        
+        # Check password
+        if not farm_password_hash:
+            # No password set, allow access
+            print(f"✅ Farm '{farm_name}' has no password protection")
+            return jsonify({'success': True, 'message': 'Access granted (no password required)'})
+        
+        if not password:
+            return jsonify({'success': False, 'error': 'Password required for this farm'})
+        
+        # Verify password
+        from werkzeug.security import check_password_hash
+        if check_password_hash(farm_password_hash, password):
+            print(f"✅ Correct password for farm '{farm_name}'")
+            return jsonify({'success': True, 'message': 'Password correct'})
+        else:
+            print(f"❌ Incorrect password for farm '{farm_name}'")
+            return jsonify({'success': False, 'error': 'Incorrect password'})
+            
+    except Exception as e:
+        print(f"❌ Error verifying farm password: {str(e)}")
+        return jsonify({'success': False, 'error': 'Password verification failed'})
+@app.route('/farm_password_status/<int:farm_id>')
+@login_required
+def farm_password_status(farm_id):
+    try:
+        # Get farm password status
+        farm_data = db.session.execute(
+            text("""
+                SELECT id, name, password_hash 
+                FROM farm 
+                WHERE id = :farm_id AND user_id = :user_id
+            """),
+            {"farm_id": farm_id, "user_id": current_user.id}
+        ).fetchone()
+        
+        if not farm_data:
+            return jsonify({'success': False, 'error': 'Farm not found'})
+        
+        has_password = bool(farm_data[2])  # password_hash column
+        farm_name = farm_data[1]  # name column
+        
+        return jsonify({
+            'success': True,
+            'farm_name': farm_name,
+            'has_password': has_password,
+            'status': '🔒 Password Protected' if has_password else '🔓 Open Access'
+        })
+        
+    except Exception as e:
+        print(f"❌ Error checking farm password status: {str(e)}")
+        return jsonify({'success': False, 'error': 'Failed to check password status'})
 @login_required
 def update_grid_settings():
     """Update grid settings for dome grids (farm-specific or global)"""
