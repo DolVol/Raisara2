@@ -1868,11 +1868,12 @@ def create_farm():
         name = data.get('name')
         grid_row = data.get('grid_row')
         grid_col = data.get('grid_col')
+        password = data.get('password')  # ✅ NEW: Get password from request
         
         if not name or grid_row is None or grid_col is None:
             return jsonify({'success': False, 'error': 'Missing required fields'})
         
-        # Check if position is already occupied
+        # Check if position is occupied
         existing_farm = Farm.query.filter_by(
             grid_row=grid_row, 
             grid_col=grid_col,
@@ -1882,27 +1883,36 @@ def create_farm():
         if existing_farm:
             return jsonify({'success': False, 'error': 'Position already occupied'})
         
+        # ✅ NEW: Hash password if provided
+        password_hash = None
+        if password:
+            from werkzeug.security import generate_password_hash
+            password_hash = generate_password_hash(password)
+        
         # Create new farm
         new_farm = Farm(
             name=name,
             grid_row=grid_row,
             grid_col=grid_col,
-            user_id=current_user.id
+            user_id=current_user.id,
+            password_hash=password_hash  # ✅ NEW: Store password hash
         )
         
         db.session.add(new_farm)
         db.session.commit()
         
-        print(f"✅ Farm created: {new_farm.name} at ({grid_row}, {grid_col})")
+        protection_status = "with password protection" if password else "without password protection"
+        print(f"✅ Farm created: {new_farm.name} {protection_status}")
         
         return jsonify({
             'success': True, 
-            'message': 'Farm created successfully',
+            'message': f'Farm created successfully {protection_status}',
             'farm': {
                 'id': new_farm.id,
                 'name': new_farm.name,
                 'grid_row': new_farm.grid_row,
-                'grid_col': new_farm.grid_col
+                'grid_col': new_farm.grid_col,
+                'has_password': bool(password_hash)
             }
         })
         
