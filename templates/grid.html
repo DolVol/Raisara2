@@ -13355,28 +13355,97 @@ disableDragMode() {
     }
     
     handleMouseMove(e) {
-        if (!this.isSelecting || !this.isDragMode) return;
-        
-        e.preventDefault();
-        
-        const rect = this.gridContainer.getBoundingClientRect();
-        const currentX = e.clientX - rect.left;
-        const currentY = e.clientY - rect.top;
-        
-        // Calculate selection box dimensions
-        const left = Math.min(this.startX, currentX);
-        const top = Math.min(this.startY, currentY);
-        const width = Math.abs(currentX - this.startX);
-        const height = Math.abs(currentY - this.startY);
-        
-        // Update selection box
-        this.selectionBox.style.left = left + 'px';
-        this.selectionBox.style.top = top + 'px';
-        this.selectionBox.style.width = width + 'px';
-        this.selectionBox.style.height = height + 'px';
-        
-        // ✅ UPDATED: Use new method name
-        this.updateCellSelection(left, top, width, height);
+    if (!this.isSelecting || !this.isDragMode) return;
+    
+    e.preventDefault();
+    
+    // ✅ NEW: Auto-scroll functionality when dragging near screen edges
+    this.handleAutoScroll(e);
+    
+    const rect = this.gridContainer.getBoundingClientRect();
+    const currentX = e.clientX - rect.left;
+    const currentY = e.clientY - rect.top;
+    
+    // Calculate selection box dimensions
+    const left = Math.min(this.startX, currentX);
+    const top = Math.min(this.startY, currentY);
+    const width = Math.abs(currentX - this.startX);
+    const height = Math.abs(currentY - this.startY);
+    
+    // Update selection box
+    this.selectionBox.style.left = left + 'px';
+    this.selectionBox.style.top = top + 'px';
+    this.selectionBox.style.width = width + 'px';
+    this.selectionBox.style.height = height + 'px';
+    
+    // ✅ UPDATED: Use new method name
+    this.updateCellSelection(left, top, width, height);
+    }
+    
+    // ✅ NEW: Auto-scroll functionality for drag operations
+    handleAutoScroll(e) {
+    const scrollThreshold = 50; // Distance from edge to trigger scroll
+    const scrollSpeed = 10; // Pixels to scroll per frame
+    const viewportHeight = window.innerHeight;
+    const viewportWidth = window.innerWidth;
+    
+    // Get current mouse position relative to viewport
+    const mouseX = e.clientX;
+    const mouseY = e.clientY;
+    
+    // Check if we need to scroll vertically
+    let scrollY = 0;
+    if (mouseY < scrollThreshold) {
+    // Near top edge - scroll up
+    scrollY = -scrollSpeed;
+    } else if (mouseY > viewportHeight - scrollThreshold) {
+    // Near bottom edge - scroll down
+    scrollY = scrollSpeed;
+    }
+    
+    // Check if we need to scroll horizontally
+    let scrollX = 0;
+    if (mouseX < scrollThreshold) {
+    // Near left edge - scroll left
+    scrollX = -scrollSpeed;
+    } else if (mouseX > viewportWidth - scrollThreshold) {
+    // Near right edge - scroll right
+    scrollX = scrollSpeed;
+    }
+    
+    // Perform the scroll if needed
+    if (scrollX !== 0 || scrollY !== 0) {
+    // Scroll the window
+    window.scrollBy(scrollX, scrollY);
+    
+    // Also scroll the grid container if it has its own scroll
+    const gridContainer = document.getElementById('gridContainer');
+    if (gridContainer) {
+    gridContainer.scrollBy(scrollX, scrollY);
+    }
+    
+    // Update start position to maintain selection box accuracy after scrolling
+    this.startX += scrollX;
+    this.startY += scrollY;
+    
+    // Show scroll hint
+    this.showScrollHint();
+    }
+    }
+    
+    // ✅ NEW: Show scroll hint when auto-scrolling
+    showScrollHint() {
+    const hint = document.getElementById('scrollHint');
+    if (hint) {
+    hint.classList.add('show');
+    hint.textContent = '🔄 Auto-scrolling while dragging...';
+    
+    // Hide hint after a short delay
+    clearTimeout(this.scrollHintTimeout);
+    this.scrollHintTimeout = setTimeout(() => {
+    hint.classList.remove('show');
+    }, 2000);
+    }
     }
     
     handleMouseUp(e) {
