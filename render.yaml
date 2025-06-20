@@ -13,8 +13,8 @@ services:
     env: python
     region: oregon
     plan: free
-    buildCommand: "pip install -r requirements.txt && flask db upgrade"
-    startCommand: "gunicorn app:app"
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "python run_migration_on_startup.py && gunicorn app:app"
     healthCheckPath: "/"
     envVars:
       - key: PYTHON_VERSION
