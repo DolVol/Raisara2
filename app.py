@@ -13138,10 +13138,18 @@ def paste_drag_area_from_backend(dome_id):
 
         print(f"✅ Created new drag area: {new_area.name} (ID: {new_area.id})")
 
-        # Create trees if requested
+        # Initialize statistics variables
         new_trees = []
         old_to_new_tree_mapping = {}
-        
+        mother_trees_pasted = []
+        cutting_trees_pasted = []
+        relationships_created = 0
+        independent_cuttings = 0
+        orphaned_cuttings_handled = 0
+        linked_to_existing_mothers = 0
+        transferred_cuttings = 0  # ✅ FIX: This will now count new cutting trees created
+
+        # Create trees if requested
         if create_trees and clipboard_data.get('trees'):
             trees_data = clipboard_data['trees']
             
@@ -13150,11 +13158,18 @@ def paste_drag_area_from_backend(dome_id):
             original_min_col = clipboard_data.get('min_col', 0)
             row_offset = paste_row - original_min_row
             col_offset = paste_col - original_min_col
-
-            print(f"🌳 Creating {len(trees_data)} trees with offset ({row_offset}, {col_offset})")
-
-            # First pass: Create all trees without relationships
-            for tree_data in trees_data:
+            
+            print(f"🌳 Processing {len(trees_data)} trees with offset ({row_offset}, {col_offset})")
+            
+            # Separate mother trees and cutting trees
+            mother_trees_data = [t for t in trees_data if t.get('plant_type', 'mother') == 'mother']
+            cutting_trees_data = [t for t in trees_data if t.get('plant_type') == 'cutting']
+            
+            print(f"📊 Found {len(mother_trees_data)} mother trees and {len(cutting_trees_data)} cutting trees")
+            print(f"🔄 Strategy: Create new mother trees, update existing cutting relationships")
+            
+            # First pass: Create only mother trees (not cutting trees)
+            for tree_data in mother_trees_data:
                 new_row = tree_data['internal_row'] + row_offset
                 new_col = tree_data['internal_col'] + col_offset
                 
@@ -13166,31 +13181,44 @@ def paste_drag_area_from_backend(dome_id):
                 ).first()
                 
                 if existing_tree:
-                    print(f"⚠️ Position ({new_row}, {new_col}) occupied, skipping tree '{tree_data['name']}'")
+                    print(f"⚠️ Position ({new_row}, {new_col}) occupied, skipping mother tree '{tree_data['name']}'")
                     continue
+                
+                # ✅ FIX 1: Preserve life_days and plant_day (created_at) from original tree
+                original_created_at = tree_data.get('created_at')
+                if original_created_at:
+                    try:
+                        # Parse the ISO format datetime string
+                        if isinstance(original_created_at, str):
+                            created_at = datetime.fromisoformat(original_created_at.replace('Z', '+00:00'))
+                        else:
+                            created_at = original_created_at
+                    except (ValueError, TypeError):
+                        created_at = datetime.utcnow()
+                else:
+                    created_at = datetime.utcnow()
 
                 new_tree = Tree(
                     name=tree_data['name'],
                     breed=tree_data.get('breed', ''),
                     internal_row=new_row,
                     internal_col=new_col,
-                    life_days=tree_data.get('life_days', 0),
+                    life_days=tree_data.get('life_days', 0),  # ✅ FIX 1: Preserve life_days
                     info=tree_data.get('info', ''),
                     image_url=tree_data.get('image_url', ''),
                     dome_id=dome_id,
                     user_id=current_user.id,
-                    plant_type=tree_data.get('plant_type', 'mother'),
-                    cutting_notes=tree_data.get('cutting_notes', ''),
-                    created_at=datetime.utcnow()
+                    plant_type='mother',  # Always mother for new trees
+                    created_at=created_at  # ✅ FIX 1: Preserve original plant_day
                 )
-
+                
                 db.session.add(new_tree)
                 db.session.flush()  # Get the new tree ID
                 
                 # Map old ID to new ID for relationship restoration
                 old_to_new_tree_mapping[tree_data['id']] = new_tree.id
                 new_trees.append(new_tree)
-
+                
                 # Create drag area tree association
                 relative_row = tree_data.get('relative_row', new_row - paste_row)
                 relative_col = tree_data.get('relative_col', new_col - paste_col)
@@ -13203,108 +13231,219 @@ def paste_drag_area_from_backend(dome_id):
                     created_at=datetime.utcnow()
                 )
                 db.session.add(drag_area_tree)
-
-                print(f"🌳 Created tree '{new_tree.name}' at ({new_row}, {new_col})")
-
-            # Second pass: Handle relationships based on orphan handling mode
-            relationships_created = 0
-            independent_cuttings = 0
-            orphaned_cuttings_handled = 0
-            linked_to_existing_mothers = 0
-            transferred_cuttings = 0
+                
+                print(f"🌳 Created mother tree '{new_tree.name}' at ({new_row}, {new_col})")
             
-            # Find all mother trees that were pasted
-            mother_trees_pasted = []
-            cutting_trees_pasted = []
-            
-            for tree_data in trees_data:
-                if tree_data.get('plant_type') == 'mother' and tree_data['id'] in old_to_new_tree_mapping:
+            # Track mother trees that were pasted for statistics
+            for tree_data in mother_trees_data:
+                if tree_data['id'] in old_to_new_tree_mapping:
                     mother_trees_pasted.append({
                         'old_id': tree_data['id'],
                         'new_id': old_to_new_tree_mapping[tree_data['id']],
                         'name': tree_data['name']
                     })
-                elif tree_data.get('plant_type') == 'cutting' and tree_data['id'] in old_to_new_tree_mapping:
-                    cutting_trees_pasted.append({
-                        'old_id': tree_data['id'],
-                        'new_id': old_to_new_tree_mapping[tree_data['id']],
-                        'name': tree_data['name'],
-                        'original_mother_id': tree_data.get('mother_plant_id')
-                    })
+
+            print(f"📊 Created {len(mother_trees_pasted)} mother trees")
+
+            # ✅ NEW: Handle cutting trees that are copied independently (without their mother)
+            cutting_trees_without_mother = []
+            cutting_trees_with_mother = []
             
-            # ✅ NEW: Handle cutting tree transfers when mother trees are pasted
-            if mother_trees_pasted and cutting_trees_pasted:
-                print(f"🔄 Processing cutting tree transfers for {len(mother_trees_pasted)} mother trees...")
+            for cutting_data in cutting_trees_data:
+                original_mother_id = cutting_data.get('mother_plant_id')
+                # Check if the mother was also copied
+                mother_was_copied = original_mother_id and original_mother_id in old_to_new_tree_mapping
                 
-                for mother in mother_trees_pasted:
-                    # Find all cutting trees that belong to this mother
-                    mother_cuttings = [c for c in cutting_trees_pasted if c['original_mother_id'] == mother['old_id']]
+                if mother_was_copied:
+                    cutting_trees_with_mother.append(cutting_data)
+                else:
+                    cutting_trees_without_mother.append(cutting_data)
+            
+            print(f"🔗 Found {len(cutting_trees_with_mother)} cutting trees with copied mothers")
+            print(f"🌱 Found {len(cutting_trees_without_mother)} cutting trees without copied mothers (will create new ones)")
+
+            # ✅ NEW: Create new cutting trees for those copied independently
+            if cutting_trees_without_mother:
+                print(f"🌱 Creating {len(cutting_trees_without_mother)} new cutting trees...")
+                
+                for cutting_data in cutting_trees_without_mother:
+                    new_row = cutting_data['internal_row'] + row_offset
+                    new_col = cutting_data['internal_col'] + col_offset
                     
-                    if mother_cuttings:
-                        print(f"🔄 Transferring {len(mother_cuttings)} cutting trees from old mother {mother['old_id']} to new mother {mother['new_id']}")
-                        
-                        for cutting in mother_cuttings:
-                            cutting_tree = Tree.query.get(cutting['new_id'])
-                            if cutting_tree:
-                                # Update cutting to point to new mother
-                                cutting_tree.mother_plant_id = mother['new_id']
-                                cutting_tree.plant_type = 'cutting'
-                                relationships_created += 1
-                                transferred_cuttings += 1
-                                print(f"✅ Transferred cutting '{cutting['name']}' to new mother '{mother['name']}'")
-                        
-                        # ✅ CRITICAL: Remove cutting trees from old mother (always, regardless of dome)
-                        old_mother_id = mother['old_id']
-                        print(f"🔄 COMPLETE TRANSFER: Moving ALL cutting trees from old mother {old_mother_id} to new mother {mother['new_id']}")
-                        
-                        # Find ALL cutting trees that belong to the old mother (anywhere in the system)
-                        all_old_cuttings = Tree.query.filter_by(
-                            mother_plant_id=old_mother_id,
-                            plant_type='cutting',
-                            user_id=current_user.id
-                        ).all()
-                        
-                        print(f"🔍 Found {len(all_old_cuttings)} total cutting trees linked to old mother {old_mother_id}")
-                        
-                        # ✅ FIXED: Only transfer cutting trees that were NOT copied (to avoid duplicates)
-                        for old_cutting in all_old_cuttings:
-                            # Check if this cutting was copied (by checking if its ID is in the copied list)
-                            cutting_was_copied = any(c['old_id'] == old_cutting.id for c in cutting_trees_pasted)
-                            
-                            if not cutting_was_copied:
-                                # Transfer the cutting tree to the new mother (only if it wasn't copied)
-                                old_cutting.mother_plant_id = mother['new_id']
-                                old_cutting.plant_type = 'cutting'
-                                transferred_cuttings += 1
-                                print(f"🔄 Transferred non-copied cutting '{old_cutting.name}' (ID: {old_cutting.id}) from old mother {old_mother_id} to new mother {mother['new_id']}")
+                    # Skip if position is occupied
+                    existing_tree = Tree.query.filter_by(
+                        dome_id=dome_id,
+                        internal_row=new_row,
+                        internal_col=new_col
+                    ).first()
+                    
+                    if existing_tree:
+                        print(f"⚠️ Position ({new_row}, {new_col}) occupied, skipping cutting tree '{cutting_data['name']}'")
+                        continue
+                    
+                    # ✅ FIX 1: Preserve life_days and plant_day (created_at) from original cutting tree
+                    original_created_at = cutting_data.get('created_at')
+                    if original_created_at:
+                        try:
+                            # Parse the ISO format datetime string
+                            if isinstance(original_created_at, str):
+                                created_at = datetime.fromisoformat(original_created_at.replace('Z', '+00:00'))
                             else:
-                                # Remove the original cutting since it was copied
-                                old_cutting.mother_plant_id = None
-                                old_cutting.plant_type = 'mother'  # Convert to independent
-                                print(f"🗑️ Removed copied cutting '{old_cutting.name}' (ID: {old_cutting.id}) from old mother (copy exists)")
-                        
-                        # ✅ VERIFICATION: Check that old mother has no cutting trees left
-                        remaining_cuttings_check = Tree.query.filter_by(
+                                created_at = original_created_at
+                        except (ValueError, TypeError):
+                            created_at = datetime.utcnow()
+                    else:
+                        created_at = datetime.utcnow()
+                    
+                    # Keep original mother relationship for independently copied cutting trees
+                    original_mother_id = cutting_data.get('mother_plant_id')
+                    
+                    new_cutting_tree = Tree(
+                        name=cutting_data['name'],
+                        breed=cutting_data.get('breed', ''),
+                        internal_row=new_row,
+                        internal_col=new_col,
+                        life_days=cutting_data.get('life_days', 0),  # ✅ FIX 1: Preserve life_days
+                        info=cutting_data.get('info', ''),
+                        image_url=cutting_data.get('image_url', ''),
+                        dome_id=dome_id,
+                        user_id=current_user.id,
+                        plant_type='cutting',  # Keep as cutting
+                        mother_plant_id=original_mother_id,  # Keep original mother relationship
+                        created_at=created_at  # ✅ FIX 1: Preserve original plant_day
+                    )
+                    
+                    db.session.add(new_cutting_tree)
+                    db.session.flush()  # Get the new tree ID
+                    
+                    # Map old ID to new ID for relationship tracking
+                    old_to_new_tree_mapping[cutting_data['id']] = new_cutting_tree.id
+                    new_trees.append(new_cutting_tree)
+                    
+                    # Track cutting trees that were successfully created
+                    cutting_trees_pasted.append({
+                        'old_id': cutting_data['id'],
+                        'new_id': new_cutting_tree.id,
+                        'name': cutting_data['name'],
+                        'original_mother_id': original_mother_id,
+                        'new_mother_id': original_mother_id  # Same as original since mother wasn't copied
+                    })
+                    
+                    # Create drag area tree association
+                    relative_row = cutting_data.get('relative_row', new_row - paste_row)
+                    relative_col = cutting_data.get('relative_col', new_col - paste_col)
+                    
+                    drag_area_tree = DragAreaTree(
+                        drag_area_id=new_area.id,
+                        tree_id=new_cutting_tree.id,
+                        relative_row=relative_row,
+                        relative_col=relative_col,
+                        created_at=datetime.utcnow()
+                    )
+                    db.session.add(drag_area_tree)
+                    
+                    if original_mother_id:
+                        relationships_created += 1
+                    
+                    print(f"🌱 Created cutting tree '{new_cutting_tree.name}' at ({new_row}, {new_col}) with original mother ID: {original_mother_id}")
+
+            # ✅ FIX 2: Update existing cutting tree relationships for those with copied mothers (don't create new cutting trees)
+            if cutting_trees_with_mother:
+                print(f"🔗 Updating {len(cutting_trees_with_mother)} existing cutting trees to link to new mothers...")
+            
+            # ✅ FIX 2: Process cutting trees - update existing ones to link to new mothers (only for those with copied mothers)
+            for cutting_data in cutting_trees_with_mother:
+                original_cutting_id = cutting_data['id']
+                original_mother_id = cutting_data.get('mother_plant_id')
+                
+                # Find the existing cutting tree
+                existing_cutting = Tree.query.filter_by(
+                    id=original_cutting_id,
+                    user_id=current_user.id,
+                    plant_type='cutting'
+                ).first()
+                
+                if not existing_cutting:
+                    print(f"⚠️ Cutting tree with ID {original_cutting_id} not found, skipping")
+                    continue
+                
+                # Check if the original mother was pasted (has a new ID)
+                if original_mother_id and original_mother_id in old_to_new_tree_mapping:
+                    new_mother_id = old_to_new_tree_mapping[original_mother_id]
+                    
+                    # Update the cutting to point to the new mother
+                    existing_cutting.mother_plant_id = new_mother_id
+                    existing_cutting.plant_type = 'cutting'  # Ensure it stays as cutting
+                    
+                    relationships_created += 1
+                    transferred_cuttings += 1
+                    
+                    # ✅ FIX: Track cutting trees that were successfully updated (but don't add to new area)
+                    cutting_trees_pasted.append({
+                        'old_id': cutting_data['id'],
+                        'new_id': existing_cutting.id,  # Same ID since we're updating existing
+                        'name': cutting_data['name'],
+                        'original_mother_id': original_mother_id,
+                        'new_mother_id': new_mother_id
+                    })
+                    
+                    print(f"✅ Updated cutting '{existing_cutting.name}' (ID: {existing_cutting.id}) to point to new mother (ID: {new_mother_id})")
+                else:
+                    print(f"⚠️ Original mother (ID: {original_mother_id}) was not pasted, cutting '{existing_cutting.name}' relationship unchanged")
+
+            # Handle transfer of all cutting trees from old mothers to new mothers
+            for mother in mother_trees_pasted:
+                old_mother_id = mother['old_id']
+                
+                # Find ALL cutting trees that belong to the old mother (anywhere in the system)
+                all_old_cuttings = Tree.query.filter_by(
+                    mother_plant_id=old_mother_id,
+                    plant_type='cutting',
+                    user_id=current_user.id
+                ).all()
+                
+                print(f"🔍 Found {len(all_old_cuttings)} total cutting trees linked to old mother {old_mother_id}")
+                
+                # ✅ FIXED: Only transfer cutting trees that were NOT copied (to avoid duplicates)
+                for old_cutting in all_old_cuttings:
+                    # Check if this cutting was copied (by checking if its ID is in the copied list)
+                    cutting_was_copied = any(c['id'] == old_cutting.id for c in cutting_trees_data)
+                    
+                    if not cutting_was_copied:
+                        # Transfer the cutting tree to the new mother (only if it wasn't copied)
+                        old_cutting.mother_plant_id = mother['new_id']
+                        old_cutting.plant_type = 'cutting'
+                        transferred_cuttings += 1
+                        print(f"🔄 Transferred non-copied cutting '{old_cutting.name}' (ID: {old_cutting.id}) from old mother {old_mother_id} to new mother {mother['new_id']}")
+                    else:
+                        # Remove the original cutting since it was copied
+                        old_cutting.mother_plant_id = None
+                        old_cutting.plant_type = 'mother'  # Convert to independent
+                        print(f"🗑️ Removed copied cutting '{old_cutting.name}' (ID: {old_cutting.id}) from old mother (copy exists)")
+                
+                # ✅ VERIFICATION: Check that old mother has no cutting trees left
+                remaining_cuttings_check = Tree.query.filter_by(
+                    mother_plant_id=old_mother_id,
+                    plant_type='cutting',
+                    user_id=current_user.id
+                ).count()
+                
+                print(f"✅ VERIFICATION: Old mother {old_mother_id} now has {remaining_cuttings_check} cutting trees (should be 0)")
+                
+                # ✅ FORCE: Update the old mother's cutting count to reflect the changes
+                old_mother_tree = Tree.query.get(old_mother_id)
+                if old_mother_tree:
+                    # Force update the cutting count for the old mother
+                    remaining_cuttings = Tree.query.filter_by(
                         mother_plant_id=old_mother_id,
                         plant_type='cutting',
                         user_id=current_user.id
-                        ).count()
-                        
-                        print(f"✅ VERIFICATION: Old mother {old_mother_id} now has {remaining_cuttings_check} cutting trees (should be 0)")
-                        
-                        print(f"✅ Completed transfer of {len(mother_cuttings)} cutting trees from old mother {old_mother_id}")
-                        
-                        # ✅ FORCE: Update the old mother's cutting count to reflect the changes
-                        old_mother_tree = Tree.query.get(old_mother_id)
-                        if old_mother_tree:
-                            # Force update the cutting count for the old mother
-                            remaining_cuttings = Tree.query.filter_by(
-                                mother_plant_id=old_mother_id,
-                                plant_type='cutting',
-                                user_id=current_user.id
-                            ).count()
-                            print(f"🔄 Old mother '{old_mother_tree.name}' now has {remaining_cuttings} cutting trees remaining")
-            
+                    ).count()
+                    print(f"🔄 Old mother '{old_mother_tree.name}' now has {remaining_cuttings} cutting trees remaining")
+
+            # ✅ FIX: Cutting trees are now tracked during creation above
+            # No need to track them here since they're tracked when actually created
+
             print(f"🌳 Found {len(mother_trees_pasted)} mother trees and {len(cutting_trees_pasted)} cutting trees")
             
             # Create a mapping of orphaned cutting IDs for quick lookup
@@ -13326,7 +13465,7 @@ def paste_drag_area_from_backend(dome_id):
             
             # For each cutting tree, handle relationships based on orphan mode
             for cutting in cutting_trees_pasted:
-                cutting_tree = Tree.query.get(cutting['new_id'])
+                cutting_tree = Tree.query.get(cutting['old_id'])  # Use old_id since we're updating existing trees
                 if not cutting_tree:
                     continue
                 
@@ -13486,12 +13625,14 @@ def paste_drag_area_from_backend(dome_id):
         print(f"❌ Traceback: {traceback.format_exc()}")
         
         # ✅ DEBUG: Log the problematic data
-        print(f"❌ DEBUG: data = {data}")
-        print(f"❌ DEBUG: orphan_handling = {orphan_handling}")
-        print(f"❌ DEBUG: orphaned_cuttings_info = {orphaned_cuttings_info}")
+        try:
+            print(f"❌ DEBUG: data = {data}")
+            print(f"❌ DEBUG: orphan_handling = {orphan_handling}")
+            print(f"❌ DEBUG: orphaned_cuttings_info = {orphaned_cuttings_info}")
+        except:
+            print("❌ DEBUG: Could not log debug data")
         
         return jsonify({'success': False, 'error': str(e)}), 500
-
 
 
 
