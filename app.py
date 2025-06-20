@@ -11766,7 +11766,7 @@ def reset_password():
         try:
             data = request.get_json() if request.is_json else request.form
             token = data.get('token')
-            new_password = data.get('password')
+            new_password = data.get('new_password') or data.get('password')
             confirm_password = data.get('confirm_password')
             
             if not token or not new_password:
@@ -11797,12 +11797,12 @@ def reset_password():
     # GET request - show password reset form
     token = request.args.get('token')
     if not token:
-        return render_template('auth/reset_request.html', error='No reset token provided')
+        return render_template('auth/reset_password.html', error='No reset token provided')
     
     # Verify token exists
     user = User.query.filter_by(reset_token=token).first()
     if not user or not user.verify_reset_token(token):
-        return render_template('auth/reset_request.html', error='Invalid or expired reset token')
+        return render_template('auth/reset_password.html', error='Invalid or expired reset token')
     
     return render_template('auth/reset_password.html', token=token)
 @app.route('/uploads/<path:filename>')
@@ -12880,6 +12880,27 @@ def copy_drag_area_to_backend(dome_id, area_id):
         # Add the additional trees to the main list
         area_trees.extend(additional_trees)
         print(f"📦 Total trees after auto-inclusion: {len(area_trees)} (added {len(additional_trees)} cuttings)")
+        
+        # ✅ ENHANCED: Verify all cutting trees are included for each mother
+        for mother_id in mother_tree_ids:
+            mother_tree = next((t for t in area_trees if t['id'] == mother_id), None)
+            if mother_tree:
+                all_cuttings_for_mother = Tree.query.filter_by(
+                    dome_id=dome_id,
+                    user_id=current_user.id,
+                    mother_plant_id=mother_id,
+                    plant_type='cutting'
+                ).all()
+                
+                included_cuttings = [t for t in area_trees if t.get('mother_plant_id') == mother_id and t.get('plant_type') == 'cutting']
+                
+                print(f"🔍 VERIFICATION: Mother '{mother_tree['name']}' (ID: {mother_id})")
+                print(f"   - Total cutting trees in dome: {len(all_cuttings_for_mother)}")
+                print(f"   - Cutting trees included in copy: {len(included_cuttings)}")
+                
+                if len(all_cuttings_for_mother) != len(included_cuttings):
+                    print(f"⚠️ WARNING: Not all cutting trees included for mother {mother_id}")
+                    print(f"   Missing: {len(all_cuttings_for_mother) - len(included_cuttings)} cutting trees")
 
         # Analyze relationships within the copied trees
         mother_trees = [t for t in area_trees if t['plant_type'] == 'mother']
@@ -13234,27 +13255,33 @@ def paste_drag_area_from_backend(dome_id):
                         
                         # ✅ CRITICAL: Remove cutting trees from old mother (always, regardless of dome)
                         old_mother_id = mother['old_id']
-                        print(f"🗑️ Removing {len(mother_cuttings)} cutting trees from old mother {old_mother_id}")
+                        print(f"🔄 COMPLETE TRANSFER: Moving ALL cutting trees from old mother {old_mother_id} to new mother {mother['new_id']}")
                         
-                        # Find all cutting trees that belong to the old mother (anywhere in the system)
-                        old_cuttings_to_remove = Tree.query.filter_by(
+                        # Find ALL cutting trees that belong to the old mother (anywhere in the system)
+                        all_old_cuttings = Tree.query.filter_by(
                             mother_plant_id=old_mother_id,
                             plant_type='cutting',
                             user_id=current_user.id
                         ).all()
                         
-                        print(f"🔍 Found {len(old_cuttings_to_remove)} cutting trees linked to old mother {old_mother_id}")
+                        print(f"🔍 Found {len(all_old_cuttings)} total cutting trees linked to old mother {old_mother_id}")
                         
-                        for old_cutting in old_cuttings_to_remove:
-                            # Check if this cutting was copied (by checking if its ID is in the copied list)
-                            cutting_was_copied = any(c['old_id'] == old_cutting.id for c in cutting_trees_pasted)
-                            if cutting_was_copied:
-                                # Remove the cutting tree from the old mother
-                                old_cutting.mother_plant_id = None
-                                old_cutting.plant_type = 'mother'  # Convert to independent
-                                print(f"🗑️ Removed cutting '{old_cutting.name}' (ID: {old_cutting.id}) from old mother and converted to independent")
-                            else:
-                                print(f"ℹ️ Keeping cutting '{old_cutting.name}' (ID: {old_cutting.id}) - not in copied list")
+                        # ✅ CRITICAL: Transfer ALL cutting trees to the new mother
+                        for old_cutting in all_old_cuttings:
+                            # Transfer the cutting tree to the new mother
+                            old_cutting.mother_plant_id = mother['new_id']
+                            old_cutting.plant_type = 'cutting'
+                            transferred_cuttings += 1
+                            print(f"🔄 Transferred cutting '{old_cutting.name}' (ID: {old_cutting.id}) from old mother {old_mother_id} to new mother {mother['new_id']}")
+                        
+                        # ✅ VERIFICATION: Check that old mother has no cutting trees left
+                        remaining_cuttings_check = Tree.query.filter_by(
+                        mother_plant_id=old_mother_id,
+                        plant_type='cutting',
+                        user_id=current_user.id
+                        ).count()
+                        
+                        print(f"✅ VERIFICATION: Old mother {old_mother_id} now has {remaining_cuttings_check} cutting trees (should be 0)")
                         
                         print(f"✅ Completed transfer of {len(mother_cuttings)} cutting trees from old mother {old_mother_id}")
                         
