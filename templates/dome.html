@@ -765,6 +765,40 @@
                 {% endif %}
             </div>
 
+            <!-- ✅ NEW: Cross-Dome Paste Controls -->
+            <div id="crossDomePasteControls" style="display: none; background: linear-gradient(135deg, #e3f2fd, #f3e5f5); border: 2px solid #9c27b0; border-radius: 8px; padding: 20px; margin: 20px 0; box-shadow: 0 4px 12px rgba(156, 39, 176, 0.2);">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h4 style="margin: 0; color: #9c27b0; font-size: 18px; display: flex; align-items: center; gap: 10px;">
+                        📋 Cross-Dome Paste Available
+                    </h4>
+                    <button onclick="hideCrossDomePasteControls()" style="background: none; border: none; font-size: 18px; cursor: pointer; color: #666;" title="Close">
+                        ✕
+                    </button>
+                </div>
+                <div id="crossDomePastePreview" style="background: white; border: 1px solid #ddd; border-radius: 6px; padding: 15px; margin: 15px 0; font-size: 14px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                    <div id="crossDomePasteContent">No area in clipboard</div>
+                </div>
+                <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 15px;">
+                    <button class="btn" onclick="executeCrossDomePaste()" style="background: #28a745; color: white;" title="Paste the copied area as new domes">
+                        📋 Paste as Domes
+                    </button>
+                    <button class="btn" onclick="showCrossDomePasteOptions()" style="background: #17a2b8; color: white;" title="Show paste options">
+                        ⚙️ Paste Options
+                    </button>
+                    <button class="btn cancel" onclick="clearCrossDomeClipboard()" title="Clear clipboard">
+                        🗑️ Clear Clipboard
+                    </button>
+                </div>
+                <div id="crossDomePasteInstructions" style="display: none; margin-top: 15px; padding: 12px; background: #e3f2fd; border-radius: 6px; text-align: center; font-size: 13px; color: #1976d2;">
+                    🎯 <strong>Click Mode Active:</strong> Click on any empty grid cell to paste the area there
+                </div>
+            </div>
+
+            <!-- ✅ NEW: Cross-Dome Clipboard Status Indicator -->
+            <div id="crossDomeClipboardStatus" style="position: fixed; top: 120px; right: 20px; background: linear-gradient(135deg, #28a745, #20c997); color: white; padding: 12px 16px; border-radius: 8px; font-size: 13px; font-weight: bold; z-index: 1000; display: none; box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3); cursor: pointer; transition: all 0.3s ease;" onclick="showCrossDomePasteControls()">
+                📋 Tree area ready to paste - Click here
+            </div>
+
             <!-- Main Grid Container -->
             <div class="grid-container" id="gridContainer">
                 <div class="farm-grid" id="farmGrid" style="grid-template-columns: repeat({{ grid_cols }}, 1fr)">
@@ -785,14 +819,14 @@
                                     {% if dome.image_url and dome.image_url.startswith('data:image/') %}
                                         <!-- Dome with base64 image -->
                                         <div class="dome dome-with-image" 
-                                             data-dome-id="{{ dome.id }}"
-                                             draggable="true"
-                                             ondragstart="dragDome(event)"
-                                             ondragend="dragEnd(event)"
-                                             onclick="handleDomeClick(event, {{ dome.id }})">
-                                            <img src="{{ dome.image_url }}" alt="Dome Image" class="dome-background-img">
-                                            <span class="dome-name">{{ dome.name }}</span>
-                                        </div>
+     data-dome-id="{{ dome.id }}"
+     draggable="true"
+     ondragstart="dragDome(event)"
+     ondragend="dragEnd(event)"
+     onclick="handleDomeClick(event, {{ dome.id }})">
+    <img src="{{ dome.image_url }}" alt="Dome Image" class="dome-background-img">
+    <span class="dome-name">{{ dome.name }}</span>
+</div>
                                     {% elif dome.image_url and not dome.image_url.startswith('data:image/') %}
                                         <!-- Dome with old file URL (fallback) -->
                                         <div class="dome" 
@@ -1179,25 +1213,32 @@
                 }
 
                 // ✅ FIXED: Enhanced dome click handler with drag detection
-                async function handleDomeClick(event, domeId) {
-                    event.stopPropagation();
-                    
-                    // Check if this was a drag operation
-                    const timeSinceDragStart = Date.now() - dragStartTime;
-                    if (isDragging || timeSinceDragStart < 300) {
-                        console.log('⚠️ Click ignored - was drag operation');
-                        return;
-                    }
-                    
-                    console.log('🖱️ Dome clicked:', domeId);
-                    
-                    try {
-                        window.location.href = `/dome_info/${domeId}`;
-                    } catch (error) {
-                        console.error('❌ Error accessing dome:', error);
-                        showErrorMessage('Unable to access dome information. Please try again.');
-                    }
-                }
+async function handleDomeClick(event, domeId) {
+    event.stopPropagation();
+    
+    // Check if this was a drag operation
+    const timeSinceDragStart = Date.now() - dragStartTime;
+    if (isDragging || timeSinceDragStart < 300) {
+        console.log('⚠️ Click ignored - was drag operation');
+        return;
+    }
+    
+    console.log('🖱️ Dome clicked:', domeId);
+    console.log('🎯 Navigating to dome_info...');
+    
+    try {
+        // ✅ ENHANCED: Add loading state and better error handling
+        showLoadingState(true);
+        
+        // Navigate to dome_info
+        window.location.href = `/dome_info/${domeId}`;
+        
+    } catch (error) {
+        console.error('❌ Error accessing dome:', error);
+        showErrorMessage('Unable to access dome information. Please try again.');
+        showLoadingState(false);
+    }
+}
 
                 // ✅ ENHANCED: Cell click handler with context awareness
                 function handleCellClick(row, col) {

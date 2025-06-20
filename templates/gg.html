@@ -1462,8 +1462,7 @@
     📋 Paste Area
 </button>
 
-            <button class="btn-warning" onclick="goToMainIndex()">🚜 Back to Farm Domes</button>
-            <button class="btn-primary" onclick="addRandomTree()">🌱 Add Random Tree</button>
+            <button class="btn-warning" onclick="goToMainIndex()">🚜 Back to Farm Domes</button class="btn-primary" onclick="addRandomTree()">🌱 Add Random Tree</button>
             <button class="btn-secondary" onclick="refreshGrid()">🔄 Refresh Grid</button>
             <button class="btn-danger" onclick="forceRefreshTrees()">🔄 Force Refresh Trees</button>
             <button class="btn-info" onclick="testSelection()">🧪 Test Selection</button>
@@ -1982,62 +1981,22 @@ let pasteOffset = { row: 0, col: 0 };
 function handlePasteButtonClick() {
     console.log('🎯 Paste button clicked');
     
-    // ✅ ENHANCED: Try to load clipboard data from multiple sources
-    let clipboard = window.dragClipboard || window.clipboardArea;
+    // Check what's in clipboard
+    const clipboard = dragClipboard || clipboardArea;
     
     if (!clipboard) {
-        console.log('🔍 No clipboard in memory, checking global storage...');
-        
         // Try loading from global storage
-        try {
-            const globalDragClipboard = localStorage.getItem('globalDragClipboard');
-            const globalTreeClipboard = localStorage.getItem('globalTreeClipboard');
-            
-            if (globalDragClipboard) {
-                const globalData = JSON.parse(globalDragClipboard);
-                if (globalData.data) {
-                    // New format with metadata
-                    clipboard = globalData.data;
-                    window.dragClipboard = clipboard;
-                    console.log('✅ Loaded drag area from global storage (new format):', clipboard.name);
-                } else {
-                    // Old format - direct data
-                    clipboard = globalData;
-                    window.dragClipboard = clipboard;
-                    console.log('✅ Loaded drag area from global storage (old format):', clipboard.name);
-                }
-            } else if (globalTreeClipboard) {
-                const treeData = JSON.parse(globalTreeClipboard);
-                // Convert single tree to area format
-                clipboard = {
-                    type: 'single_tree',
-                    name: `Tree: ${treeData.tree?.name || 'Unknown'}`,
-                    width: 1,
-                    height: 1,
-                    tree_count: 1,
-                    trees: [treeData.tree],
-                    trees_data: [treeData.tree],
-                    source_dome_id: treeData.source_dome_id,
-                    clipboard_source: 'single_tree'
-                };
-                window.dragClipboard = clipboard;
-                console.log('✅ Loaded single tree from global storage:', treeData.tree?.name);
-            } else {
-                // Try dome-specific clipboard as fallback
-                const domeClipboard = localStorage.getItem(`domeClipboard_${domeId}`);
-                if (domeClipboard) {
-                    clipboard = JSON.parse(domeClipboard);
-                    window.clipboardArea = clipboard;
-                    console.log('✅ Loaded dome-specific clipboard:', clipboard.name);
-                }
-            }
-        } catch (e) {
-            console.error('❌ Error loading clipboard from storage:', e);
-        }
+        const globalDrag = localStorage.getItem('globalDragClipboard');
+        const globalRegular = localStorage.getItem('globalRegularClipboard');
         
-        if (!clipboard) {
-            console.warn('⚠️ No clipboard data found in any storage location');
-            showStatus('No area in clipboard. Copy an area first.', 'warning');
+        if (globalDrag) {
+            dragClipboard = JSON.parse(globalDrag);
+            console.log('✅ Loaded drag clipboard from global storage');
+        } else if (globalRegular) {
+            clipboardArea = JSON.parse(globalRegular);
+            console.log('✅ Loaded regular clipboard from global storage');
+        } else {
+            showStatus('No area in clipboard', 'warning');
             return;
         }
     }
@@ -2062,8 +2021,8 @@ function handlePasteButtonClick() {
                 const motherId = pair.mother_original_id;
                 if (!motherGroups[motherId]) {
                     motherGroups[motherId] = {
-                        mother: pair,
-                        cuttings: []
+                    mother: pair,
+                    cuttings: []
                     };
                 }
                 if (pair.cutting_original_id) {
@@ -2082,84 +2041,24 @@ function handlePasteButtonClick() {
             
             // Store relationship data for paste operation
             clipboard.processedRelationships = {
-                motherGroups: motherGroups,
-                totalRelationships: motherCuttingPairs.length,
-                preservedRelationships: motherCuttingPairs.filter(p => p.relationship_preserved).length
+            motherGroups: motherGroups,
+            totalRelationships: motherCuttingPairs.length,
+            preservedRelationships: motherCuttingPairs.filter(p => p.relationship_preserved).length
             };
             
             console.log('✅ Relationship data processed and stored in clipboard');
         }
     }
     
-    console.log('📋 Final clipboard data for paste dialog:', {
-        name: clipboard.name,
-        type: clipboard.type,
-        tree_count: clipboard.tree_count,
-        source_dome_id: clipboard.source_dome_id
-    });
-    
     // Show paste options dialog
     showPasteOptionsDialog();
 }   
 // ✅ ENHANCED: Show paste options dialog with comprehensive tree breakdown
-async function showPasteOptionsDialog() {
-    // First check for backend clipboard data
-    let clipboard = null;
-    
-    try {
-        const backendStatus = await getBackendClipboardStatus();
-        if (backendStatus.has_clipboard) {
-            // ✅ FIX: Always prioritize full clipboard data from window variables
-            clipboard = window.dragClipboard || window.clipboardArea;
-            
-            if (clipboard && clipboard.clipboard_source === 'backend_enhanced') {
-                console.log('📋 Using full backend clipboard data with relationships:', clipboard);
-                console.log('📋 Relationship metadata:', clipboard.relationship_metadata);
-                console.log('📋 Summary relationships:', clipboard.summary?.plant_relationships);
-            } else {
-                console.log('⚠️ Full clipboard data not available, trying to get from backend...');
-                // Try to get the full clipboard data from backend
-                try {
-                    const response = await fetch('/api/get_clipboard_status');
-                    const result = await response.json();
-                    if (result.success && result.has_clipboard) {
-                        // Create a more complete clipboard object
-                        clipboard = {
-                            name: result.clipboard_info.name,
-                            tree_count: result.clipboard_info.tree_count,
-                            size: result.clipboard_info.size,
-                            source_dome_name: result.clipboard_info.source_dome,
-                            trees: new Array(result.clipboard_info.tree_count).fill({}),
-                            type: 'dragArea',
-                            clipboard_source: 'backend',
-                            summary: {
-                                total_trees: result.clipboard_info.tree_count,
-                                trees_in_original_area: result.clipboard_info.tree_count,
-                                related_trees_outside_area: 0,
-                                breeds: result.clipboard_info.breeds || [],
-                                plant_relationships: result.clipboard_info.relationships || {}
-                            }
-                        };
-                        console.log('📋 Created clipboard from backend status:', clipboard);
-                        console.log('📋 Backend relationships data:', result.clipboard_info.relationships);
-                    }
-                } catch (fetchError) {
-                    console.error('❌ Failed to get backend clipboard status:', fetchError);
-                }
-            }
-        }
-    } catch (error) {
-        console.warn('⚠️ Could not get backend clipboard:', error);
-    }
-    
-    // Fallback to frontend clipboard
+function showPasteOptionsDialog() {
+    const clipboard = window.dragClipboard || window.clipboardArea;
     if (!clipboard) {
-        clipboard = window.dragClipboard || window.clipboardArea;
-        if (!clipboard) {
-            console.warn('⚠️ No clipboard data available for paste options');
-            return;
-        }
-        console.log('📋 Using frontend clipboard data:', clipboard);
+        console.warn('⚠️ No clipboard data available for paste options');
+        return;
     }
     
     console.log('📋 Showing paste options dialog with clipboard data:', clipboard);
@@ -2170,16 +2069,15 @@ async function showPasteOptionsDialog() {
     let relatedTreesOutside = 0;
     let treesData = [];
     
-    // Get trees data - prioritize tree_count for backend clipboard
-    if (clipboard.tree_count !== undefined) {
-        totalTrees = clipboard.tree_count;
-        treesData = clipboard.trees || [];
-    } else if (clipboard.trees && Array.isArray(clipboard.trees)) {
+    // Get trees data
+    if (clipboard.trees && Array.isArray(clipboard.trees)) {
         treesData = clipboard.trees;
         totalTrees = clipboard.trees.length;
     } else if (clipboard.trees_data && Array.isArray(clipboard.trees_data)) {
         treesData = clipboard.trees_data;
         totalTrees = clipboard.trees_data.length;
+    } else if (clipboard.tree_count !== undefined) {
+        totalTrees = clipboard.tree_count;
     }
     
     // ✅ ENHANCED: Calculate tree breakdown
@@ -2207,41 +2105,22 @@ async function showPasteOptionsDialog() {
         breedCount = clipboard.summary.breed_count || breeds.length;
     }
     
-    // ✅ ENHANCED: Get relationship information including broken relationships
+    // ✅ ENHANCED: Get relationship information
     let relationshipInfo = '';
     let hasRelationships = false;
-    
-    console.log('🔍 DEBUG: Analyzing clipboard relationships...');
-    console.log('🔍 DEBUG: clipboard.summary:', clipboard.summary);
-    console.log('🔍 DEBUG: clipboard.relationship_metadata:', clipboard.relationship_metadata);
-    
     if (clipboard.summary && clipboard.summary.plant_relationships) {
         const rel = clipboard.summary.plant_relationships;
         const mothers = rel.mother_trees || 0;
         const cuttings = rel.cutting_trees || 0;
         const complete = rel.complete_relationships || 0;
-        const broken = rel.broken_relationships || 0;
-        
-        console.log('🔍 DEBUG: Relationship counts:', { mothers, cuttings, complete, broken });
         
         if (mothers > 0 || cuttings > 0) {
             relationshipInfo = `${mothers} mothers, ${cuttings} cuttings`;
             hasRelationships = true;
             if (complete > 0) {
-                relationshipInfo += ` (${complete} complete`;
-                if (broken > 0) {
-                    relationshipInfo += `, ${broken} orphaned)`;
-                } else {
-                    relationshipInfo += ')';
-                }
-            } else if (broken > 0) {
-                relationshipInfo += ` (${broken} orphaned)`;
+                relationshipInfo += ` (${complete} complete relationships)`;
             }
         }
-        
-        console.log('🔍 DEBUG: Final relationshipInfo:', relationshipInfo);
-    } else {
-        console.log('🔍 DEBUG: No plant_relationships found in clipboard.summary');
     }
     
     // ✅ ENHANCED: Create comprehensive clipboard info
@@ -2391,7 +2270,7 @@ async function showPasteOptionsDialog() {
                         </button>
                         
                         ${clipboardInfo.relatedOutside > 0 ? `
-                            <button onclick="pasteAreaTreesOnly().then(() => this.closest('.paste-options-modal').remove());" style="
+                            <button onclick="pasteAreaTreesOnly(); this.closest('.paste-options-modal').remove();" style="
                                 padding: 12px 20px;
                                 background: #17a2b8;
                                 color: white;
@@ -2408,7 +2287,7 @@ async function showPasteOptionsDialog() {
                             </button>
                         ` : ''}
                         
-                        <button onclick="pasteAreaOnlyFromDialog().then(() => this.closest('.paste-options-modal').remove());" style="
+                        <button onclick="pasteAreaOnlyFromDialog(); this.closest('.paste-options-modal').remove();" style="
                             padding: 12px 20px;
                             background: #ffc107;
                             color: #212529;
@@ -2464,17 +2343,7 @@ async function showPasteOptionsDialog() {
         relatedOutside: clipboardInfo.relatedOutside
     });
 }
-async function pasteAreaTreesOnly() {
-    // Check for backend clipboard first
-    const backendStatus = await getBackendClipboardStatus();
-    if (backendStatus.has_clipboard) {
-        console.log('📋 Using backend paste for trees only');
-        // Enable click-to-paste mode for backend clipboard
-        enableClickToPasteBackend();
-        return;
-    }
-    
-    // Fallback to frontend clipboard
+function pasteAreaTreesOnly() {
     const clipboard = window.dragClipboard || window.clipboardArea;
     if (!clipboard) {
         showStatus('No area in clipboard', 'error');
@@ -2513,17 +2382,7 @@ async function pasteAreaTreesOnly() {
     console.log(`🎯 Click-to-paste enabled for ${originalTrees.length} area trees only`);
 }
 // ✅ ADD THIS NEW FUNCTION for area-only pasting from dialog
-async function pasteAreaOnlyFromDialog() {
-    // Check for backend clipboard first
-    const backendStatus = await getBackendClipboardStatus();
-    if (backendStatus.has_clipboard) {
-        console.log('📋 Using backend paste for area only');
-        // Enable click-to-paste mode for area only
-        enableClickToPasteBackendAreaOnly();
-        return;
-    }
-    
-    // Fallback to frontend clipboard
+function pasteAreaOnlyFromDialog() {
     const clipboard = window.dragClipboard || window.clipboardArea;
     if (!clipboard) {
         showStatus('No area in clipboard', 'error');
@@ -2622,6 +2481,37 @@ function enableClickToPaste(areaOnly = false) {
 
 function disableClickToPaste() {
     clickToPasteMode = false;
+    
+    // Remove click-to-paste styling from grid
+    const grid = document.getElementById('treeGrid');
+    if (grid) {
+        grid.classList.remove('click-to-paste-mode');
+    }
+    
+    // Remove event listeners from grid cells
+    document.querySelectorAll('.grid-cell').forEach(cell => {
+        cell.removeEventListener('click', handleClickToPasteUnified);
+        cell.removeEventListener('mouseenter', showPastePreviewUnified);
+        cell.removeEventListener('mouseleave', hidePastePreviewUnified);
+    });
+    
+    // Remove any paste preview overlays
+    document.querySelectorAll('.paste-preview-overlay').forEach(el => el.remove());
+    
+    // Hide click-to-paste instructions
+    const instructions = document.getElementById('clickToPasteInstructions');
+    if (instructions) {
+        instructions.style.display = 'none';
+    }
+    
+    // Update button text
+    const clickToPasteBtn = document.getElementById('clickToPasteBtn');
+    if (clickToPasteBtn) {
+        clickToPasteBtn.textContent = '🎯 Click to Paste';
+    }
+    
+    console.log('✅ Click-to-paste mode disabled');
+}
     const gridContainer = document.getElementById('gridContainer');
     const instructions = document.getElementById('clickToPasteInstructions');
     const clickBtn = document.getElementById('clickToPasteBtn');
@@ -2660,13 +2550,38 @@ function disableClickToPaste() {
 function handleClickToPasteUnified(e) {
     if (!clickToPasteMode) return;
     
-    // ✅ FIX: Use window.dragClipboard/window.clipboardArea consistently
-    const clipboard = window.dragClipboard || window.clipboardArea;
-    if (!clipboard) {
-        console.error('❌ No clipboard data available');
-        showStatus('No clipboard data available', 'error');
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const cell = e.target.closest('.grid-cell');
+    if (!cell) return;
+    
+    const row = parseInt(cell.dataset.row);
+    const col = parseInt(cell.dataset.col);
+    
+    if (isNaN(row) || isNaN(col)) {
+        console.error('❌ Invalid cell coordinates');
         return;
     }
+    
+    console.log(`🎯 Click to paste at position: ${row}, ${col}`);
+    
+    // Check if cell is occupied
+    const existingTree = trees.find(tree => 
+        tree.internal_row === row && tree.internal_col === col
+    );
+    
+    if (existingTree) {
+        showStatus('Cannot paste on occupied cell', 'error');
+        return;
+    }
+    
+    // Execute paste at clicked position
+    executePasteAtPosition(row, col);
+}
+    
+    const clipboard = dragClipboard || clipboardArea;
+    if (!clipboard) return;
     
     // ✅ CRITICAL: Prevent all other click behaviors
     e.preventDefault();
@@ -3398,10 +3313,8 @@ async function executePasteAtPosition(targetRow, targetCol, pasteMode = 'all') {
         
         // ✅ CRITICAL: Handle orphaned cuttings before paste
         let finalClipboard = clipboard;
-        let orphanHandling = null; // ✅ FIX: Declare at function scope
-        
         if (clipboardAnalysis.hasOrphanedCuttings && pasteMode === 'all') {
-            orphanHandling = await handleOrphanedCuttingsDialog(clipboardAnalysis);
+            const orphanHandling = await handleOrphanedCuttingsDialog(clipboardAnalysis);
             if (!orphanHandling) {
                 console.log('❌ Paste cancelled due to orphaned cuttings');
                 return;
@@ -3440,27 +3353,39 @@ async function executePasteAtPosition(targetRow, targetCol, pasteMode = 'all') {
         
         // ✅ ENHANCED: Prepare paste data with relationship handling
         const pasteData = {
-            paste_row: targetRow,
-            paste_col: targetCol,
             name: finalClipboard.name || 'Pasted Area',
-            create_trees: pasteMode !== 'boundary',
-            // ✅ CRITICAL: Include orphan handling data
-            orphan_handling: clipboardAnalysis.hasOrphanedCuttings ? {
-                mode: orphanHandling?.mode || 'keep_orphaned',
-                orphaned_cuttings: clipboardAnalysis.orphanedCuttings.map(c => ({
-                    cutting_id: c.id,
-                    cutting_name: c.name,
-                    original_mother_id: c.mother_plant_id,
-                    new_handling: orphanHandling?.mode || 'keep_orphaned'
-                }))
-            } : null
+            color: finalClipboard.color || '#007bff',
+            minRow: targetRow,
+            maxRow: targetRow + (finalClipboard.height || 1) - 1,
+            minCol: targetCol,
+            maxCol: targetCol + (finalClipboard.width || 1) - 1,
+            width: finalClipboard.width || 1,
+            height: finalClipboard.height || 1,
+            trees_data: treesToPaste.map(tree => ({
+                ...tree,
+                internal_row: targetRow + (tree.relativeRow || tree.relative_row || 0),
+                internal_col: targetCol + (tree.relativeCol || tree.relative_col || 0)
+            })),
+            // ✅ CRITICAL: Enhanced relationship metadata
+            relationship_metadata: {
+                ...finalClipboard.relationship_mapping,
+                orphan_handling: clipboardAnalysis.hasOrphanedCuttings ? {
+                    mode: orphanHandling?.mode || 'keep_orphaned',
+                    orphaned_cuttings: clipboardAnalysis.orphanedCuttings.map(c => ({
+                        cutting_id: c.id,
+                        cutting_name: c.name,
+                        original_mother_id: c.mother_plant_id,
+                        new_handling: orphanHandling?.mode || 'keep_orphaned'
+                    }))
+                } : null
+            }
         };
         
         console.log('📤 Sending paste data to backend:', pasteData);
         showStatus('Pasting area with relationship handling...', 'info');
         
         // ✅ ENHANCED: Use relationship-aware paste endpoint
-        const response = await fetch(`/api/paste_drag_area_from_backend/${domeId}`, {
+        const response = await fetch(`/paste_drag_area_with_relationships/${domeId}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -3532,29 +3457,6 @@ async function handleOrphanedCuttingsDialog(analysis) {
                     
                     <div style="display: grid; gap: 15px; margin-bottom: 25px;">
                         ${analysis.availableMotherCount > 0 ? `
-                        <button class="orphan-option" data-mode="preserve_original" style="
-                            padding: 15px 20px;
-                            background: #007bff;
-                            color: white;
-                            border: none;
-                            border-radius: 8px;
-                            cursor: pointer;
-                            font-size: 14px;
-                            font-weight: bold;
-                            display: flex;
-                            align-items: center;
-                            gap: 12px;
-                            transition: all 0.2s ease;
-                            text-align: left;
-                            border: 3px solid #0056b3;
-                        ">
-                            <span style="font-size: 20px;">🔄</span>
-                            <div>
-                                <div style="margin-bottom: 4px;">Preserve Original Relationship</div>
-                                <small style="opacity: 0.8; font-weight: normal;">Keep the original mother-child relationship (Recommended)</small>
-                            </div>
-                        </button>
-
                         <button class="orphan-option" data-mode="find_mothers" style="
                             padding: 15px 20px;
                             background: #28a745;
@@ -3832,64 +3734,36 @@ async function handleSuccessfulPasteWithRelationshipUpdates(result, pasteData, c
     
     showStatus(successMessage, 'success');
     
-    // ✅ FIX: Refresh grid without reloading page to preserve clipboard
-    console.log('🔄 Refreshing grid to show pasted trees with updated relationships...');
+    // ✅ CRITICAL: Refresh the entire page to reload trees and areas with relationships
+    console.log('🔄 Refreshing page to show pasted trees with updated relationships...');
     setTimeout(() => {
-        // ✅ PRESERVE: Save clipboard data before refresh
-        const savedClipboard = window.dragClipboard || window.clipboardArea;
-        
-        // ✅ FORCE: Always reload page to ensure trees are visible
-        console.log('🔄 Forcing page reload to show pasted trees...');
-        
-        // Store clipboard in localStorage to survive page reload
-        if (savedClipboard) {
-            try {
-                localStorage.setItem('globalDragClipboard', JSON.stringify(savedClipboard));
-                localStorage.setItem('globalDragClipboardTimestamp', Date.now().toString());
-                console.log('💾 Clipboard saved to localStorage before reload');
-            } catch (e) {
-                console.warn('⚠️ Could not save clipboard to localStorage:', e);
-            }
-        }
-        
-        setTimeout(() => {
-            location.reload();
-        }, 500);
-    }, 1500); // Give user time to see success message
+        window.location.reload();
+    }, 2500); // Give user time to see success message
     
-    console.log('✅ Paste completed successfully with relationships - grid refreshed, clipboard preserved');
+    console.log('✅ Paste completed successfully with relationships - page will refresh');
 }
 function analyzeClipboardForOrphanedCuttings(clipboard) {
 const treesData = clipboard.trees_data || clipboard.trees || [];
 const motherIds = new Set(treesData.filter(t => t.plant_type === 'mother').map(t => t.id));
 
-console.log('🔍 Analyzing clipboard for orphaned cuttings:', {
-clipboard_source: clipboard.clipboard_source,
-has_relationship_metadata: !!clipboard.relationship_metadata,
-broken_relationships_count: clipboard.relationship_metadata?.broken_relationships?.length || 0
-});
-
-// ✅ NEW: Check for backend-stored broken relationships first
-let orphanedCuttings = [];
-// ✅ FIX: Declare at function scope to avoid reference errors
-let isRelationshipPreservationMode = false;
-
-if (clipboard.clipboard_source === 'backend_enhanced' && clipboard.relationship_metadata?.broken_relationships) {
-// Use the broken relationships identified by the backend during copy
-const brokenRelationshipIds = new Set(clipboard.relationship_metadata.broken_relationships.map(br => br.cutting_id));
-orphanedCuttings = treesData.filter(tree => 
-tree.plant_type === 'cutting' && brokenRelationshipIds.has(tree.id)
-);
-console.log('🔗 Using backend-identified broken relationships:', orphanedCuttings.length);
-} else {
-// Fallback to frontend analysis for other clipboard sources
 // ✅ CRITICAL: Check if this is a "copy with relationships" operation
-isRelationshipPreservationMode = clipboard.clipboard_source === 'frontend_with_relationships' ||
+const isRelationshipPreservationMode = clipboard.clipboard_source === 'frontend_with_relationships' || 
 clipboard.selection_mode === 'with_relationships' ||
 clipboard.includes_relationships === true;
 
+console.log('🔍 Analyzing clipboard for orphaned cuttings:', {
+clipboard_source: clipboard.clipboard_source,
+selection_mode: clipboard.selection_mode,
+includes_relationships: clipboard.includes_relationships,
+isRelationshipPreservationMode: isRelationshipPreservationMode
+});
+
+// ✅ FIXED: In relationship preservation mode, don't treat cuttings as orphaned
+// if they have a valid mother_plant_id - we want to preserve the original relationship
+let orphanedCuttings = [];
+
 if (isRelationshipPreservationMode) {
-// In relationship preservation mode, only consider cuttings truly orphaned
+// In relationship preservation mode, only consider cuttings truly orphaned 
 // if they don't have a mother_plant_id at all
 orphanedCuttings = treesData.filter(tree =>
 tree.plant_type === 'cutting' && !tree.mother_plant_id
@@ -3902,8 +3776,7 @@ tree.plant_type === 'cutting' &&
 tree.mother_plant_id &&
 !motherIds.has(tree.mother_plant_id)
 );
-        console.log('📋 Normal copy mode: Considering cuttings orphaned if mother not in selection');
-    }
+console.log('📋 Normal copy mode: Considering cuttings orphaned if mother not in selection');
 }
 
 const availableMothersInDome = trees.filter(t => t.plant_type === 'mother');
@@ -6593,122 +6466,6 @@ async function updateAreaInDatabase(areaId, updates) {
         return false;
     }
 }
-// ✅ BACKEND-BASED COPY FUNCTION
-async function copyDragAreaToBackend(areaId) {
-    try {
-        console.log('🔄 Copying drag area to backend:', areaId);
-        showStatus('Copying area...', 'info');
-        
-        // Call the backend API to copy the drag area
-        const response = await fetch(`/api/copy_drag_area/${domeId}/${areaId}`, {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json',
-            }
-        });
-        
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        const result = await response.json();
-        
-        if (result.success) {
-            const clipboardData = result.clipboard_data;
-            
-            // Store in global storage for cross-dome access
-            const globalClipboardData = {
-                data: clipboardData,
-                timestamp: Date.now(),
-                source_dome_id: domeId,
-                source_dome_name: document.title || `Dome ${domeId}`,
-                source: 'backend_api',
-                version: '2.4'
-            };
-            
-            localStorage.setItem('globalDragClipboard', JSON.stringify(globalClipboardData));
-            localStorage.setItem('globalClipboardTimestamp', Date.now().toString());
-            
-            // Also store in memory
-            window.dragClipboard = clipboardData;
-            window.clipboardArea = clipboardData;
-            
-            // Update paste button
-            const pasteBtn = document.getElementById('pasteAreaBtn');
-            if (pasteBtn) {
-                pasteBtn.style.display = 'inline-block';
-                const treeCount = clipboardData.tree_count || 0;
-                pasteBtn.textContent = `📋 Paste "${clipboardData.name}" (${treeCount} trees)`;
-                pasteBtn.onclick = handlePasteButtonClick;
-            }
-            
-            showStatus(`Area "${clipboardData.name}" copied to clipboard!`, 'success');
-            console.log('✅ Area copied successfully via backend:', clipboardData);
-            
-        } else {
-            throw new Error(result.error || 'Failed to copy area');
-        }
-        
-    } catch (error) {
-        console.error('❌ Error copying area via backend:', error);
-        showStatus('Error copying area: ' + error.message, 'error');
-    }
-}
-
-// ✅ BACKEND-BASED PASTE FUNCTION
-async function pasteDragAreaFromBackend(clipboardData, pasteRow, pasteCol, areaName, createTrees = true) {
-    try {
-        console.log('🔄 Pasting drag area via backend:', {
-            name: areaName,
-            position: `(${pasteRow}, ${pasteCol})`,
-            createTrees: createTrees
-        });
-        
-        showStatus('Pasting area...', 'info');
-        
-        const response = await fetch(`/api/paste_drag_area/${domeId}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                clipboard_data: clipboardData,
-                paste_row: pasteRow,
-                paste_col: pasteCol,
-                name: areaName,
-                create_trees: createTrees
-            })
-        });
-        
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        const result = await response.json();
-        
-        if (result.success) {
-            showStatus(result.message, 'success');
-            console.log('✅ Area pasted successfully via backend:', result);
-            
-            // Refresh the page to show the new area and trees
-            setTimeout(() => {
-                window.location.reload();
-            }, 1000);
-            
-        } else {
-            throw new Error(result.error || 'Failed to paste area');
-        }
-        
-    } catch (error) {
-        console.error('❌ Error pasting area via backend:', error);
-        showStatus('Error pasting area: ' + error.message, 'error');
-    }
-}
-
-// Make functions available globally
-window.copyDragAreaToBackend = copyDragAreaToBackend;
-window.pasteDragAreaFromBackend = pasteDragAreaFromBackend;
-
 async function copyArea(areaId) {
     try {
         showStatus('Copying area with trees...', 'info');
@@ -7566,10 +7323,59 @@ function hidePasteControls() {
     }
 }
 function showPastePreviewUnified(e) {
-    // TODO: Add preview functionality
+    if (!clickToPasteMode) return;
+    
+    const cell = e.target.closest('.grid-cell');
+    if (!cell) return;
+    
+    const row = parseInt(cell.dataset.row);
+    const col = parseInt(cell.dataset.col);
+    
+    if (isNaN(row) || isNaN(col)) return;
+    
+    const clipboard = dragClipboard || clipboardArea;
+    if (!clipboard) return;
+    
+    // Show preview of where the area would be pasted
+    const width = clipboard.width || 1;
+    const height = clipboard.height || 1;
+    
+    // Remove existing preview
+    document.querySelectorAll('.paste-preview-overlay').forEach(el => el.remove());
+    
+    // Check if paste position is valid
+    const isValid = isValidPastePosition(row, col, clipboard);
+    
+    // Create preview overlay
+    const overlay = document.createElement('div');
+    overlay.className = `paste-preview-overlay ${isValid ? '' : 'paste-invalid'}`;
+    overlay.style.cssText = `
+        position: absolute;
+        top: ${cell.offsetTop}px;
+        left: ${cell.offsetLeft}px;
+        width: ${width * (cell.offsetWidth + 8)}px;
+        height: ${height * (cell.offsetHeight + 8)}px;
+        pointer-events: none;
+        z-index: 100;
+        border: 3px dashed ${isValid ? '#28a745' : '#dc3545'};
+        background: ${isValid ? 'rgba(40, 167, 69, 0.1)' : 'rgba(220, 53, 69, 0.1)'};
+        border-radius: 6px;
+    `;
+    
+    cell.parentElement.appendChild(overlay);
+    
+    // Remove preview after a short delay
+    setTimeout(() => {
+        if (overlay.parentElement) {
+            overlay.remove();
+        }
+    }, 2000);
 }
 function hidePastePreviewUnified(e) {
-    // TODO: Add preview functionality
+    if (!clickToPasteMode) return;
+    
+    // Remove all paste preview overlays
+    document.querySelectorAll('.paste-preview-overlay').forEach(el => el.remove());
 }
         async function swapTrees(treeId1, treeId2) {
             try {
@@ -16430,144 +16236,44 @@ createEmptyAreaClipboard(area) {
 
 // ✅ NEW: Store clipboard data consistently
 storeClipboardData(clipboardData, source) {
-    console.log('💾 Storing clipboard data globally:', clipboardData);
-    
     // Store in multiple locations for compatibility
     window.dragClipboard = clipboardData;
     window.clipboardArea = clipboardData;
     
-    // ✅ CRITICAL: Store globally (not dome-specific) for cross-dome functionality
+    // Store in localStorage for persistence
     try {
-        const globalClipboardData = {
+        localStorage.setItem('dragClipboard', JSON.stringify({
             data: clipboardData,
             timestamp: Date.now(),
-            source_dome_id: domeId,
-            source_dome_name: document.title || `Dome ${domeId}`,
-            source: source,
-            version: '2.4'
-        };
-        
-        // Global storage (works across all domes)
-        localStorage.setItem('globalDragClipboard', JSON.stringify(globalClipboardData));
-        localStorage.setItem('globalClipboardTimestamp', Date.now().toString());
-        
-        // Also keep dome-specific for backward compatibility
-        localStorage.setItem(`dragClipboard_dome_${domeId}`, JSON.stringify(clipboardData));
-        
-        console.log('💾 Clipboard data saved globally and locally');
+            domeId: domeId,
+            source: source
+        }));
     } catch (storageError) {
         console.warn('⚠️ Could not store in localStorage:', storageError);
     }
     
-    // ✅ CRITICAL: Update paste button with area name
-    this.updatePasteButton(clipboardData);
+    // Broadcast to other tabs
+    try {
+        if (typeof BroadcastChannel !== 'undefined') {
+            const channel = new BroadcastChannel('dragClipboard');
+            channel.postMessage({
+                type: 'clipboard_updated',
+                data: clipboardData,
+                source: source,
+                timestamp: Date.now()
+            });
+            channel.close();
+        }
+    } catch (broadcastError) {
+        console.warn('⚠️ Could not broadcast clipboard update:', broadcastError);
+    }
     
-    // Broadcast to other tabs/domes
-    this.broadcastClipboardUpdate('dragArea', clipboardData);
-    
-    console.log('✅ Clipboard data stored globally:', {
+    console.log('✅ Clipboard data stored:', {
         source: source,
         tree_count: clipboardData.tree_count,
-        area_name: clipboardData.name,
-        source_dome: domeId,
         includes_relationships: clipboardData.includes_relationships
     });
 }
-updatePasteButton(clipboardData) {
-    const pasteBtn = document.getElementById('pasteAreaBtn');
-    if (!pasteBtn) {
-        console.warn('⚠️ Paste button not found in DOM');
-        return;
-    }
-    
-    // Show the button
-    pasteBtn.style.display = 'inline-block';
-    
-    // ✅ ENHANCED: Update button text with area name and source
-    const areaName = clipboardData.name || 'Unknown Area';
-    const treeCount = clipboardData.tree_count || 0;
-    const sourceDome = clipboardData.source_dome_id || 'Unknown';
-    const currentDome = domeId;
-    
-    let buttonText = `📋 Paste "${areaName}"`;
-    let buttonTitle = `Paste area "${areaName}" with ${treeCount} trees`;
-    
-    // Add cross-dome indicator
-    if (sourceDome !== currentDome) {
-        buttonText += ` (from Dome ${sourceDome})`;
-        buttonTitle += ` (copied from Dome ${sourceDome})`;
-        pasteBtn.style.background = '#17a2b8'; // Different color for cross-dome
-        pasteBtn.style.border = '2px solid #138496';
-    } else {
-        pasteBtn.style.background = '#28a745'; // Green for same dome
-        pasteBtn.style.border = '2px solid #1e7e34';
-    }
-    
-    // Update button
-    pasteBtn.innerHTML = buttonText;
-    pasteBtn.title = buttonTitle;
-    pasteBtn.onclick = function() {
-        enableClickToPaste();
-    };
-    
-    console.log('✅ Paste button updated:', {
-        text: buttonText,
-        area: areaName,
-        trees: treeCount,
-        cross_dome: sourceDome !== currentDome
-    });
-}
-loadGlobalClipboardData() {
-    try {
-        console.log('🔍 Loading global clipboard data...');
-        
-        // Try to load global clipboard first
-        const globalStored = localStorage.getItem('globalDragClipboard');
-        if (globalStored) {
-            const globalData = JSON.parse(globalStored);
-            const clipboardData = globalData.data;
-            
-            if (clipboardData && clipboardData.type === 'dragArea') {
-                window.dragClipboard = clipboardData;
-                window.clipboardArea = clipboardData;
-                
-                console.log('✅ Global clipboard loaded:', {
-                    area: clipboardData.name,
-                    trees: clipboardData.tree_count,
-                    source_dome: globalData.source_dome_id,
-                    current_dome: domeId,
-                    cross_dome: globalData.source_dome_id !== domeId
-                });
-                
-                // Update paste button
-                this.updatePasteButton(clipboardData);
-                return true;
-            }
-        }
-        
-        // Fallback: try dome-specific clipboard
-        const domeStored = localStorage.getItem(`dragClipboard_dome_${domeId}`);
-        if (domeStored) {
-            const clipboardData = JSON.parse(domeStored);
-            if (clipboardData && clipboardData.type === 'dragArea') {
-                window.dragClipboard = clipboardData;
-                window.clipboardArea = clipboardData;
-                
-                console.log('✅ Dome-specific clipboard loaded:', clipboardData.name);
-                this.updatePasteButton(clipboardData);
-                return true;
-            }
-        }
-        
-        console.log('ℹ️ No clipboard data found');
-        return false;
-        
-    } catch (error) {
-        console.error('❌ Failed to load clipboard data:', error);
-        return false;
-    }
-}
-
     analyzeAndIncludeRelatedTrees(treesInArea, area) {
         console.log('🔗 Analyzing plant relationships...');
         
@@ -19337,519 +19043,6 @@ setTimeout(function() {
 
 console.log('✅ Complete dome isolation and paste button management loaded');
 </script>
-<!-- Enhanced Copy/Paste Backend Integration -->
-<script>
-// Enhanced Copy/Paste Frontend Integration
-// This enhances the existing copy/paste functionality to use backend storage
-
-// Enhanced copy function that saves to backend
-async function copyDragAreaToBackend(areaId) {
-    try {
-        console.log(`🔄 Enhanced copy: Copying drag area ${areaId} to backend`);
-        showStatus('Copying area to backend...', 'info');
-        
-        // Call the backend copy API
-        const response = await fetch(`/api/copy_drag_area_to_backend/${domeId}/${areaId}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            }
-        });
-        
-        const result = await response.json();
-        
-        if (result.success) {
-            // Also store in localStorage for immediate use
-            localStorage.setItem('globalDragClipboard', JSON.stringify(result.clipboard_data));
-            localStorage.setItem('globalDragClipboardTimestamp', Date.now().toString());
-            
-            // Update frontend clipboard variables
-            window.dragClipboard = result.clipboard_data;
-            window.clipboardArea = result.clipboard_data;
-            
-            // Update paste button
-            if (typeof updatePasteButtonDisplay === 'function') {
-                updatePasteButtonDisplay();
-            }
-            
-            // Show success message with stats
-            const stats = result.stats;
-            const message = `✅ Copied "${result.clipboard_data.name}" to backend clipboard\n` +
-                          `📦 ${stats.trees_copied} trees, ${stats.breeds_found} breeds\n` +
-                          `🔗 ${stats.relationships_preserved} relationships preserved`;
-            
-            showStatus(message, 'success');
-            console.log('✅ Area copied to backend successfully:', result);
-            
-            return result;
-        } else {
-            throw new Error(result.error || 'Copy failed');
-        }
-        
-    } catch (error) {
-        console.error('❌ Error copying to backend:', error);
-        showStatus(`Error copying area: ${error.message}`, 'error');
-        throw error;
-    }
-}
-
-// Enhanced paste function that uses backend storage
-async function pasteDragAreaFromBackend(pasteRow, pasteCol, areaName = null) {
-    try {
-        console.log(`📋 Enhanced paste: Pasting from backend to (${pasteRow}, ${pasteCol})`);
-        showStatus('Pasting area from backend...', 'info');
-        
-        // Prepare paste data
-        const pasteData = {
-            paste_row: pasteRow,
-            paste_col: pasteCol,
-            create_trees: true
-        };
-        
-        // Add custom name if provided
-        if (areaName) {
-            pasteData.name = areaName;
-        }
-        
-        // Call the backend paste API
-        const response = await fetch(`/api/paste_drag_area_from_backend/${domeId}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(pasteData)
-        });
-        
-        const result = await response.json();
-        
-        if (result.success) {
-            // Show success message with stats
-            const stats = result.stats;
-            let message = `✅ Pasted "${result.area.name}" successfully\n` +
-                         `🌳 ${stats.trees_created} trees created\n` +
-                         `📍 From: ${stats.source_dome}`;
-            
-            // Add relationship info if applicable
-            if (stats.relationships_created > 0) {
-                message += `\n🔗 ${stats.relationships_created} mother-cutting relationships created`;
-            }
-            if (stats.independent_cuttings_converted > 0) {
-                message += `\n🌱 ${stats.independent_cuttings_converted} cuttings converted to independent mothers`;
-            }
-            
-            showStatus(message, 'success');
-            console.log('✅ Area pasted from backend successfully:', result);
-            
-            // Refresh the grid to show the new area
-            setTimeout(() => {
-                location.reload();
-            }, 1500);
-            
-            return result;
-        } else {
-            throw new Error(result.error || 'Paste failed');
-        }
-        
-    } catch (error) {
-        console.error('❌ Error pasting from backend:', error);
-        showStatus(`Error pasting area: ${error.message}`, 'error');
-        throw error;
-    }
-}
-
-// Check clipboard status from backend
-async function getBackendClipboardStatus() {
-    try {
-        const response = await fetch('/api/get_clipboard_status');
-        const result = await response.json();
-        
-        if (result.success) {
-            return result;
-        } else {
-            console.warn('Failed to get clipboard status:', result.error);
-            return { success: true, has_clipboard: false };
-        }
-        
-    } catch (error) {
-        console.error('Error getting clipboard status:', error);
-        return { success: true, has_clipboard: false };
-    }
-}
-
-// Enhanced copy function that replaces the existing one
-function enhancedCopyDragArea(areaId) {
-    // Use the backend copy function
-    return copyDragAreaToBackend(areaId);
-}
-
-// Enhanced paste function for click-to-paste
-async function enhancedPasteDragArea(row, col) {
-    try {
-        // First check if we have clipboard data in backend
-        const clipboardStatus = await getBackendClipboardStatus();
-        
-        if (clipboardStatus.has_clipboard) {
-            // Use backend paste
-            return await pasteDragAreaFromBackend(row, col);
-        } else {
-            // Fallback to existing frontend paste if available
-            if (window.dragClipboard || window.clipboardArea) {
-                console.log('📋 Using frontend clipboard as fallback');
-                return await pasteDragArea(row, col); // Call existing function
-            } else {
-                throw new Error('No clipboard data available');
-            }
-        }
-        
-    } catch (error) {
-        console.error('❌ Enhanced paste error:', error);
-        showStatus(`Paste failed: ${error.message}`, 'error');
-        throw error;
-    }
-}
-
-// Enable click-to-paste mode for backend clipboard
-function enableClickToPasteBackend() {
-    console.log('🎯 Enabling click-to-paste mode for backend clipboard');
-    
-    // Remove any existing click handlers
-    document.querySelectorAll('.grid-cell').forEach(cell => {
-        cell.classList.remove('paste-target');
-        cell.style.cursor = '';
-    });
-    
-    // Add click-to-paste mode
-    document.body.style.cursor = 'crosshair';
-    
-    // Show instruction
-    showStatus('Click on the grid where you want to paste the area', 'info');
-    
-    // Add click handler to grid cells
-    const gridCells = document.querySelectorAll('.grid-cell');
-    gridCells.forEach(cell => {
-        cell.classList.add('paste-target');
-        cell.style.cursor = 'crosshair';
-        
-        const clickHandler = async function(event) {
-            event.preventDefault();
-            event.stopPropagation();
-            
-            const row = parseInt(cell.dataset.row);
-            const col = parseInt(cell.dataset.col);
-            
-            console.log(`🎯 Backend paste clicked at (${row}, ${col})`);
-            
-            // Remove click handlers
-            gridCells.forEach(c => {
-                c.classList.remove('paste-target');
-                c.style.cursor = '';
-                c.removeEventListener('click', clickHandler);
-            });
-            document.body.style.cursor = '';
-            
-            // Execute backend paste
-            try {
-                await pasteDragAreaFromBackend(row, col);
-            } catch (error) {
-                console.error('❌ Backend paste failed:', error);
-                showStatus(`Paste failed: ${error.message}`, 'error');
-            }
-        };
-        
-        cell.addEventListener('click', clickHandler);
-    });
-}
-
-// Enable click-to-paste mode for backend clipboard (area only - no trees)
-function enableClickToPasteBackendAreaOnly() {
-    console.log('🎯 Enabling click-to-paste mode for backend clipboard (area only)');
-    
-    // Remove any existing click handlers
-    document.querySelectorAll('.grid-cell').forEach(cell => {
-        cell.classList.remove('paste-target');
-        cell.style.cursor = '';
-    });
-    
-    // Add click-to-paste mode
-    document.body.style.cursor = 'crosshair';
-    
-    // Show instruction
-    showStatus('Click on the grid where you want to paste the area boundary (no trees)', 'info');
-    
-    // Add click handler to grid cells
-    const gridCells = document.querySelectorAll('.grid-cell');
-    gridCells.forEach(cell => {
-        cell.classList.add('paste-target');
-        cell.style.cursor = 'crosshair';
-        
-        const clickHandler = async function(event) {
-            event.preventDefault();
-            event.stopPropagation();
-            
-            const row = parseInt(cell.dataset.row);
-            const col = parseInt(cell.dataset.col);
-            
-            console.log(`🎯 Backend area-only paste clicked at (${row}, ${col})`);
-            
-            // Remove click handlers
-            gridCells.forEach(c => {
-                c.classList.remove('paste-target');
-                c.style.cursor = '';
-                c.removeEventListener('click', clickHandler);
-            });
-            document.body.style.cursor = '';
-            
-            // Execute backend paste with create_trees = false
-            try {
-                const response = await fetch(`/api/paste_drag_area_from_backend/${domeId}`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        paste_row: row,
-                        paste_col: col,
-                        create_trees: false // Area only, no trees
-                    })
-                });
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    showStatus(`✅ Area boundary pasted successfully: "${result.area.name}"`, 'success');
-                    console.log('✅ Area-only paste successful:', result);
-                    
-                    // ✅ FIX: Refresh grid without reloading page to preserve clipboard
-                    setTimeout(() => {
-                        if (typeof refreshGridDisplay === 'function') {
-                            refreshGridDisplay();
-                        } else if (typeof renderGrid === 'function') {
-                            renderGrid();
-                        } else {
-                            console.log('🔄 Grid refresh functions not available, keeping clipboard active');
-                        }
-                    }, 1000);
-                } else {
-                    throw new Error(result.error || 'Area-only paste failed');
-                }
-            } catch (error) {
-                console.error('❌ Backend area-only paste failed:', error);
-                showStatus(`Area-only paste failed: ${error.message}`, 'error');
-            }
-        };
-        
-        cell.addEventListener('click', clickHandler);
-    });
-}
-
-// Initialize enhanced clipboard on page load
-async function initializeEnhancedClipboard() {
-    try {
-        console.log('🔄 Initializing enhanced clipboard...');
-        
-        // Check backend clipboard status
-        const clipboardStatus = await getBackendClipboardStatus();
-        
-        if (clipboardStatus.has_clipboard) {
-            const info = clipboardStatus.clipboard_info;
-            console.log(`📋 Found backend clipboard: "${info.name}" (${info.tree_count} trees)`);
-            
-            // Update paste button to show backend clipboard
-            const pasteBtn = document.getElementById('pasteAreaBtn');
-            if (pasteBtn) {
-                pasteBtn.style.display = 'block';
-                pasteBtn.textContent = `📋 Paste "${info.name}" (${info.tree_count} trees) [Backend]`;
-                pasteBtn.classList.add('paste-btn-backend');
-                
-                // Override the click handler to use backend paste
-                pasteBtn.onclick = function() {
-                    showPasteOptionsDialog();
-                };
-            }
-            
-            // Show notification about available clipboard
-            showStatus(`Backend clipboard available: "${info.name}" (${info.tree_count} trees)`, 'info');
-        } else {
-            console.log('📭 No backend clipboard data found');
-        }
-        
-    } catch (error) {
-        console.error('⚠️ Error initializing enhanced clipboard:', error);
-    }
-}
-
-// Override the copy function for drag areas
-function copyArea(areaId) {
-    console.log(`📋 ENHANCED: Copy area ${areaId} - using backend copy`);
-    console.log(`🔧 DEBUG: copyArea function called with areaId: ${areaId}`);
-    return copyDragAreaToBackend(areaId);
-}
-
-// Also override any existing copyArea functions
-window.copyArea = function(areaId) {
-    console.log(`📋 ENHANCED WINDOW: Copy area ${areaId} - using backend copy`);
-    console.log(`🔧 DEBUG: window.copyArea function called with areaId: ${areaId}`);
-    return copyDragAreaToBackend(areaId);
-};
-
-// Force override any existing copyArea functions
-if (typeof window.originalCopyArea === 'undefined' && typeof copyArea !== 'undefined') {
-    window.originalCopyArea = copyArea;
-}
-
-// Override with a more aggressive approach
-const enhancedCopyArea = function(areaId) {
-    console.log(`📋 FORCE ENHANCED: Copy area ${areaId} - using backend copy`);
-    console.log(`🔧 DEBUG: Force enhanced copyArea called`);
-    return copyDragAreaToBackend(areaId);
-};
-
-// Replace all possible copy functions
-window.copyArea = enhancedCopyArea;
-copyArea = enhancedCopyArea;
-
-// Also check if there are other copy functions
-console.log('🔍 DEBUG: Available copy functions:', {
-    'window.copyArea': typeof window.copyArea,
-    'copyArea': typeof copyArea,
-    'window.copyDragAreaToBackend': typeof window.copyDragAreaToBackend,
-    'dragSelector': typeof dragSelector,
-    'dragSelector.copyDragArea': typeof (dragSelector && dragSelector.copyDragArea)
-});
-
-// Override dragSelector.copyDragArea if it exists
-if (typeof dragSelector !== 'undefined' && dragSelector && typeof dragSelector.copyDragArea === 'function') {
-    console.log('🔧 DEBUG: Overriding dragSelector.copyDragArea');
-    dragSelector.originalCopyDragArea = dragSelector.copyDragArea;
-    dragSelector.copyDragArea = function(areaId) {
-        console.log(`📋 DRAGSEL ENHANCED: Copy area ${areaId} - using backend copy`);
-        console.log(`🔧 DEBUG: dragSelector.copyDragArea called with areaId: ${areaId}`);
-        return copyDragAreaToBackend(areaId);
-    };
-} else {
-    console.log('⚠️ DEBUG: dragSelector.copyDragArea not found, will override when available');
-}
-
-// Set up a periodic check to override dragSelector when it becomes available
-let dragSelectorOverrideAttempts = 0;
-const maxOverrideAttempts = 10;
-
-function attemptDragSelectorOverride() {
-    dragSelectorOverrideAttempts++;
-    
-    if (typeof dragSelector !== 'undefined' && dragSelector && typeof dragSelector.copyDragArea === 'function') {
-        console.log(`🔧 DEBUG: Found dragSelector on attempt ${dragSelectorOverrideAttempts}, overriding now`);
-        dragSelector.originalCopyDragArea = dragSelector.copyDragArea;
-        dragSelector.copyDragArea = function(areaId) {
-            console.log(`📋 DRAGSEL ENHANCED: Copy area ${areaId} - using backend copy`);
-            console.log(`🔧 DEBUG: dragSelector.copyDragArea called with areaId: ${areaId}`);
-            return copyDragAreaToBackend(areaId);
-        };
-        return true;
-    } else if (dragSelectorOverrideAttempts < maxOverrideAttempts) {
-        console.log(`⏳ DEBUG: dragSelector not ready yet, attempt ${dragSelectorOverrideAttempts}/${maxOverrideAttempts}`);
-        setTimeout(attemptDragSelectorOverride, 500);
-    } else {
-        console.log('❌ DEBUG: Failed to override dragSelector.copyDragArea after maximum attempts');
-    }
-}
-
-// Start the override attempts
-setTimeout(attemptDragSelectorOverride, 100);
-
-// Enhanced paste button handler
-async function enhancedHandlePasteButtonClick() {
-    console.log('🎯 Enhanced paste button clicked');
-
-    // First check for backend clipboard
-    try {
-        const backendStatus = await getBackendClipboardStatus();
-        if (backendStatus.has_clipboard) {
-            console.log('📋 Found backend clipboard, showing paste options');
-            await showPasteOptionsDialog();
-            return;
-        }
-    } catch (error) {
-        console.warn('⚠️ Could not check backend clipboard:', error);
-    }
-
-    // Fallback to original handler
-    if (typeof handlePasteButtonClick === 'function') {
-        handlePasteButtonClick();
-    } else {
-        console.warn('⚠️ No clipboard data available');
-    }
-}
-
-// Override the paste button handler
-window.handlePasteButtonClick = enhancedHandlePasteButtonClick;
-
-// Add enhanced functions to global scope
-window.copyDragAreaToBackend = copyDragAreaToBackend;
-window.pasteDragAreaFromBackend = pasteDragAreaFromBackend;
-window.enhancedCopyDragArea = enhancedCopyDragArea;
-window.enhancedPasteDragArea = enhancedPasteDragArea;
-window.getBackendClipboardStatus = getBackendClipboardStatus;
-window.initializeEnhancedClipboard = initializeEnhancedClipboard;
-
-// Initialize when DOM is ready
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('✅ Enhanced copy/paste frontend loaded');
-    
-    // Initialize enhanced clipboard after a short delay
-    setTimeout(initializeEnhancedClipboard, 2000);
-    
-    // Final override attempt after everything is loaded
-    setTimeout(function() {
-        console.log('🔧 FINAL: Attempting final override of all copy functions');
-        
-        // Override copyArea again
-        if (typeof copyArea === 'function') {
-            window.copyArea = enhancedCopyArea;
-            copyArea = enhancedCopyArea;
-            console.log('✅ FINAL: copyArea overridden');
-        }
-        
-        // Override dragSelector.copyDragArea again
-        if (typeof dragSelector !== 'undefined' && dragSelector && typeof dragSelector.copyDragArea === 'function') {
-            dragSelector.copyDragArea = function(areaId) {
-                console.log(`📋 FINAL DRAGSEL: Copy area ${areaId} - using backend copy`);
-                return copyDragAreaToBackend(areaId);
-            };
-            console.log('✅ FINAL: dragSelector.copyDragArea overridden');
-        }
-        
-        // Check what functions are available
-        console.log('🔍 FINAL: Function check:', {
-            'copyArea': typeof copyArea,
-            'window.copyArea': typeof window.copyArea,
-            'dragSelector': typeof dragSelector,
-            'dragSelector.copyDragArea': typeof (dragSelector && dragSelector.copyDragArea),
-            'copyDragAreaToBackend': typeof copyDragAreaToBackend
-        });
-    }, 5000);
-});
-
-// Add CSS for backend clipboard indicator
-const style = document.createElement('style');
-style.textContent = `
-    .paste-btn-backend {
-        background: linear-gradient(45deg, #28a745, #20c997) !important;
-        border-color: #28a745 !important;
-        box-shadow: 0 2px 4px rgba(40, 167, 69, 0.3) !important;
-    }
-    
-    .paste-btn-backend:hover {
-        background: linear-gradient(45deg, #218838, #1ea080) !important;
-        transform: translateY(-1px);
-        box-shadow: 0 4px 8px rgba(40, 167, 69, 0.4) !important;
-    }
-`;
-document.head.appendChild(style);
-
-console.log('🚀 Enhanced copy/paste system initialized');
-</script>
-
 </html>
 
 

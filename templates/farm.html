@@ -926,7 +926,32 @@
             </div>
         </div>
     </div>
-
+<!-- Farm Creation Modal -->
+<div id="farmCreationModal" class="modal">
+    <div class="modal-content">
+        <h3>🌱 Create New Farm</h3>
+        <p>Position: <span id="farmPosition"></span></p>
+        <div class="input-group">
+            <label>Farm Name:</label>
+            <input type="text" id="farmName" placeholder="Enter farm name" required>
+        </div>
+        <div class="input-group">
+            <label>Farm Password:</label>
+            <input type="password" id="farmPassword" placeholder="Create password for this farm" required>
+        </div>
+        <div class="input-group">
+            <label>Confirm Password:</label>
+            <input type="password" id="farmPasswordConfirm" placeholder="Confirm password" required>
+        </div>
+        <p style="color: #666; font-size: 12px;">
+            💡 This password will be required to access farm domes and details.
+        </p>
+        <div class="modal-actions">
+            <button class="btn" onclick="createFarmWithPassword()">Create Farm</button>
+            <button class="btn cancel" onclick="closeFarmCreationModal()">Cancel</button>
+        </div>
+    </div>
+</div>
     <script>
         // ✅ FIXED: Global variables with proper initialization
         let currentFarmId = null;
@@ -989,7 +1014,97 @@
                 draggedFarm = null;
             }, 100);
         }
+let selectedRow = null;
+let selectedCol = null;
 
+function showFarmCreationModal(row, col) {
+    selectedRow = row;
+    selectedCol = col;
+    
+    document.getElementById('farmPosition').textContent = `(${row}, ${col})`;
+    document.getElementById('farmName').value = '';
+    document.getElementById('farmPassword').value = '';
+    document.getElementById('farmPasswordConfirm').value = '';
+    document.getElementById('farmCreationModal').style.display = 'flex';
+    
+    // Focus on name input
+    setTimeout(() => {
+        document.getElementById('farmName').focus();
+    }, 100);
+}
+
+function closeFarmCreationModal() {
+    document.getElementById('farmCreationModal').style.display = 'none';
+    selectedRow = null;
+    selectedCol = null;
+}
+
+async function createFarmWithPassword() {
+    const name = document.getElementById('farmName').value.trim();
+    const password = document.getElementById('farmPassword').value;
+    const confirmPassword = document.getElementById('farmPasswordConfirm').value;
+    
+    // Validation
+    if (!name) {
+        showErrorMessage('Please enter a farm name');
+        return;
+    }
+    
+    if (!password) {
+        showErrorMessage('Please enter a password');
+        return;
+    }
+    
+    if (password.length < 6) {
+        showErrorMessage('Password must be at least 6 characters long');
+        return;
+    }
+    
+    if (password !== confirmPassword) {
+        showErrorMessage('Passwords do not match');
+        return;
+    }
+    
+    try {
+        console.log(`🌱 Creating farm "${name}" with password at (${selectedRow}, ${selectedCol})`);
+        
+        showLoadingState(true);
+        
+        const response = await fetch('/create_farm', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                name: name,
+                password: password,
+                grid_row: selectedRow,
+                grid_col: selectedCol
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            console.log('✅ Farm created successfully');
+            showSuccessMessage('Farm created successfully!');
+            closeFarmCreationModal();
+            
+            // Reload page to show new farm
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+        } else {
+            console.error('❌ Failed to create farm:', result.error);
+            showErrorMessage('Failed to create farm: ' + (result.error || 'Unknown error'));
+        }
+    } catch (error) {
+        console.error('❌ Error creating farm:', error);
+        showErrorMessage('Error creating farm. Please try again.');
+    } finally {
+        showLoadingState(false);
+    }
+}
         // ✅ FIXED: Enhanced allow drop function
         function allowDrop(event) {
             event.preventDefault();
@@ -1179,20 +1294,18 @@
         }
 
         // ✅ FIXED: Enhanced cell click handler
-        function handleCellClick(row, col) {
-            // Don't create farm if we're in the middle of a drag operation
-            if (isDragging) {
-                console.log('⚠️ Cell click ignored - drag in progress');
-                return;
-            }
-            
-            console.log(`🖱️ Empty cell clicked: (${row}, ${col})`);
-            
-            const farmName = prompt(`Create new farm at position (${row}, ${col})?\n\nEnter farm name:`);
-            if (farmName && farmName.trim()) {
-                createFarm(farmName.trim(), row, col);
-            }
-        }
+function handleCellClick(row, col) {
+    // Don't create farm if we're in the middle of a drag operation
+    if (isDragging) {
+        console.log('⚠️ Cell click ignored - drag in progress');
+        return;
+    }
+    
+    console.log(`🖱️ Empty cell clicked: (${row}, ${col})`);
+    
+    // Show farm creation modal instead of simple prompt
+    showFarmCreationModal(row, col);
+}
 
         // ✅ ENHANCED: Create farm function
         async function createFarm(name, row, col) {
@@ -1561,12 +1674,18 @@ function updateGridSize() {
         });
 
         // Close modal when clicking outside
-        window.onclick = function(event) {
-            const modal = document.getElementById('gridModal');
-            if (event.target === modal) {
-                closeGridModal();
-            }
-        }
+window.onclick = function(event) {
+    const gridModal = document.getElementById('gridModal');
+    const farmCreationModal = document.getElementById('farmCreationModal');
+    
+    if (event.target === gridModal) {
+        closeGridModal();
+    }
+    
+    if (event.target === farmCreationModal) {
+        closeFarmCreationModal();
+    }
+}
     </script>
 </body>
 </html>

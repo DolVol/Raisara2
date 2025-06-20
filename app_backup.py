@@ -19,7 +19,7 @@ from flask_login import LoginManager, login_user, logout_user, login_required, c
 from models import (
     db, User, Farm, Dome, Tree, GridSettings, 
     DragArea, DragAreaTree, RegularArea, RegularAreaCell,
-    PlantRelationship, TreeBreed, ClipboardData  # ✅ ADD ClipboardData
+    PlantRelationship, TreeBreed  # ✅ ADD THIS IMPORT
 )
 from werkzeug.security import generate_password_hash, check_password_hash
 import secrets
@@ -808,81 +808,6 @@ def login():
         </body>
         </html>
         '''
-@app.route('/api/tree/<int:tree_id>/update_mother', methods=['POST'])
-@login_required
-def update_tree_mother(tree_id):
-    """Update the mother plant relationship for a cutting tree"""
-    try:
-        # Get the cutting tree
-        cutting_tree = Tree.query.filter_by(id=tree_id, user_id=current_user.id).first()
-        if not cutting_tree:
-            return jsonify({'success': False, 'error': 'Tree not found'}), 404
-        
-        data = request.get_json()
-        new_mother_id = data.get('new_mother_id')
-        transfer_notes = data.get('transfer_notes', '')
-        
-        if not new_mother_id:
-            return jsonify({'success': False, 'error': 'New mother ID is required'}), 400
-        
-        # Get the new mother tree
-        new_mother = Tree.query.filter_by(id=new_mother_id, user_id=current_user.id).first()
-        if not new_mother:
-            return jsonify({'success': False, 'error': 'New mother tree not found'}), 404
-        
-        # Verify the new mother is actually a mother plant
-        if getattr(new_mother, 'plant_type', 'mother') != 'mother':
-            return jsonify({'success': False, 'error': 'Target tree is not a mother plant'}), 400
-        
-        # Store old mother info for logging
-        old_mother_id = getattr(cutting_tree, 'mother_plant_id', None)
-        old_mother = None
-        if old_mother_id:
-            old_mother = Tree.query.filter_by(id=old_mother_id, user_id=current_user.id).first()
-        
-        # Update the cutting tree's mother relationship
-        cutting_tree.mother_plant_id = new_mother_id
-        cutting_tree.plant_type = 'cutting'  # Ensure it's marked as cutting
-        
-        # Add transfer notes to the cutting tree's info
-        if transfer_notes:
-            current_info = getattr(cutting_tree, 'info', '') or ''
-            if current_info:
-                cutting_tree.info = f"{current_info}\n\n{transfer_notes}"
-            else:
-                cutting_tree.info = transfer_notes
-        
-        # Update cutting notes if available
-        if hasattr(cutting_tree, 'cutting_notes'):
-            current_notes = cutting_tree.cutting_notes or ''
-            transfer_note = f"Transferred from mother '{old_mother.name if old_mother else 'Unknown'}' to '{new_mother.name}'"
-            if current_notes:
-                cutting_tree.cutting_notes = f"{current_notes}\n{transfer_note}"
-            else:
-                cutting_tree.cutting_notes = transfer_note
-        
-        db.session.commit()
-        
-        print(f"✅ Transferred cutting '{cutting_tree.name}' from mother {old_mother_id} to mother {new_mother_id}")
-        
-        return jsonify({
-            'success': True,
-            'message': f'Successfully transferred cutting "{cutting_tree.name}" to new mother "{new_mother.name}"',
-            'cutting_tree': {
-                'id': cutting_tree.id,
-                'name': cutting_tree.name,
-                'old_mother_id': old_mother_id,
-                'old_mother_name': old_mother.name if old_mother else 'Unknown',
-                'new_mother_id': new_mother_id,
-                'new_mother_name': new_mother.name
-            }
-        })
-        
-    except Exception as e:
-        db.session.rollback()
-        print(f"❌ Error updating tree mother relationship: {str(e)}")
-        return jsonify({'success': False, 'error': str(e)}), 500
-
 @app.route('/api/tree/<int:tree_id>/pause_life', methods=['POST'])
 @login_required
 def pause_tree_life(tree_id):
@@ -1002,8 +927,6 @@ def grid(dome_id):
                     'user_id': tree.user_id,
                     'plant_type': getattr(tree, 'plant_type', 'mother'),
                     'cutting_notes': getattr(tree, 'cutting_notes', ''),
-                    # ✅ CRITICAL: Include mother_plant_id for relationship preservation
-                    'mother_plant_id': getattr(tree, 'mother_plant_id', None),
                     'life_stage': tree.get_life_stage() if hasattr(tree, 'get_life_stage') else 'Unknown',
                     'age_category': tree.get_age_category() if hasattr(tree, 'get_age_category') else 'unknown',
                     'position_string': f"({tree.internal_row}, {tree.internal_col})",
@@ -1733,7 +1656,8 @@ def create_dome():
         db.session.rollback()
         print(f"❌ Error creating dome: {str(e)}")
         return jsonify({'success': False, 'error': str(e)})
-
+#grid.html
+# ============= DRAG AREA MANAGEMENT ROUTES =============
 @app.route('/api/farm/<int:farm_id>/breeds')
 @login_required
 def get_farm_breeds(farm_id):
@@ -1806,8 +1730,6 @@ def get_farm_breeds(farm_id):
             'count': len(default_breeds),
             'fallback': True
         })
-
-#
 @app.route('/api/farm/<int:farm_id>/breeds', methods=['POST'])
 @login_required
 def add_farm_breed(farm_id):
@@ -2173,12 +2095,6 @@ def paste_drag_area_with_relationships(dome_id):
         
         for tree_data in trees_data:
             try:
-                # ✅ CRITICAL: Preserve original mother_plant_id for cutting trees
-                original_mother_id = tree_data.get('mother_plant_id')
-                plant_type = tree_data.get('plant_type', 'mother')
-                
-                print(f"🌳 Creating tree '{tree_data.get('name')}' - Type: {plant_type}, Original Mother ID: {original_mother_id}")
-                
                 new_tree = Tree(
                     name=tree_data.get('name', 'Pasted Tree'),
                     breed=tree_data.get('breed', ''),
@@ -2191,8 +2107,8 @@ def paste_drag_area_with_relationships(dome_id):
                     user_id=current_user.id,
                     plant_type=tree_data.get('plant_type', 'mother'),
                     cutting_notes=tree_data.get('cutting_notes', ''),
-                    # ✅ PRESERVE: Keep original mother_plant_id for cutting trees
-                    mother_plant_id=original_mother_id,
+                    # Don't set mother_plant_id yet
+                    mother_plant_id=None,
                     created_at=datetime.utcnow(),
                     updated_at=datetime.utcnow()
                 )
@@ -2212,7 +2128,7 @@ def paste_drag_area_with_relationships(dome_id):
                 elif new_tree.plant_type == 'cutting':
                     relationship_stats['cuttings_created'] += 1
                 
-                print(f"✅ Created tree '{new_tree.name}' (Type: {new_tree.plant_type}, Mother ID: {new_tree.mother_plant_id}) - old ID: {old_id if 'old_id' in locals() else 'N/A'} -> new ID: {new_tree.id}")
+                print(f"✅ Created tree '{new_tree.name}' (old ID: {old_id if 'old_id' in locals() else 'N/A'} -> new ID: {new_tree.id})")
                 
             except Exception as tree_error:
                 print(f"❌ Error creating tree: {tree_error}")
@@ -3459,11 +3375,14 @@ def auto_assign_trees_to_area(dome_id, area_id):
 @app.route('/api/get_drag_areas/<int:dome_id>')
 @login_required
 def get_drag_areas(dome_id):
-    """Get all drag areas for a dome with enhanced data"""
+    """Enhanced drag areas API with better error handling"""
     try:
+        print(f"🔍 Getting drag areas for dome {dome_id}")
+        
         # Verify dome ownership
         dome = Dome.query.filter_by(id=dome_id, user_id=current_user.id).first()
         if not dome:
+            print(f"❌ Dome {dome_id} not found or access denied")
             return jsonify({'success': False, 'error': 'Dome not found or access denied'}), 404
         
         # Get drag areas
@@ -3474,48 +3393,35 @@ def get_drag_areas(dome_id):
         drag_areas = []
         for area in drag_areas_db:
             try:
-                # Get trees in this area
+                # Get tree associations
                 tree_ids = []
-                trees_data = []
-                
                 for dat in area.drag_area_trees:
                     if dat.tree:
-                        tree_ids.append(dat.tree.id)
-                        trees_data.append({
-                            'id': dat.tree.id,
-                            'name': dat.tree.name,
-                            'breed': dat.tree.breed or '',
-                            'relative_row': dat.relative_row,
-                            'relative_col': dat.relative_col,
-                            'absolute_row': dat.tree.internal_row,
-                            'absolute_col': dat.tree.internal_col,
-                            'plant_type': getattr(dat.tree, 'plant_type', 'mother'),
-                            'mother_plant_id': getattr(dat.tree, 'mother_plant_id', None)
-                        })
+                        tree_ids.append(dat.tree_id)
                 
                 area_data = {
                     'id': area.id,
                     'name': area.name,
-                    'color': area.color,
-                    'min_row': area.min_row,
-                    'max_row': area.max_row,
-                    'min_col': area.min_col,
-                    'max_col': area.max_col,
+                    'color': area.color or '#007bff',
+                    'minRow': area.min_row,
+                    'maxRow': area.max_row,
+                    'minCol': area.min_col,
+                    'maxCol': area.max_col,
                     'width': area.width,
                     'height': area.height,
-                    'visible': area.visible,
+                    'visible': area.visible if hasattr(area, 'visible') else True,
                     'tree_ids': tree_ids,
                     'tree_count': len(tree_ids),
-                    'trees': trees_data,
+                    'cell_count': area.width * area.height,
                     'created_at': area.created_at.isoformat() if area.created_at else None,
-                    'updated_at': area.updated_at.isoformat() if area.updated_at else None
+                    'updated_at': area.updated_at.isoformat() if hasattr(area, 'updated_at') and area.updated_at else None
                 }
                 
                 drag_areas.append(area_data)
                 print(f"🔲 API Drag Area {area.id} '{area.name}' - Visible: {area_data['visible']} - Trees: {len(tree_ids)}")
                 
             except Exception as area_error:
-                print(f"⚠️ Error processing area {area.id}: {area_error}")
+                print(f"⚠️ Error processing drag area {area.id} for API: {area_error}")
                 continue
         
         return jsonify({
@@ -3527,7 +3433,9 @@ def get_drag_areas(dome_id):
         })
         
     except Exception as e:
-        print(f"❌ Error in get_drag_areas: {str(e)}")
+        print(f"❌ Error in drag areas API: {str(e)}")
+        import traceback
+        print(f"❌ API traceback: {traceback.format_exc()}")
         return jsonify({'success': False, 'error': str(e)}), 500
 @app.route('/cleanup/remove_regular_areas/<int:dome_id>')
 @login_required
@@ -3563,110 +3471,209 @@ def cleanup_regular_areas(dome_id):
 def save_drag_area(dome_id):
     """Save a new drag area with plant relationships and trees"""
     try:
-        # Verify dome ownership
-        dome = Dome.query.filter_by(id=dome_id, user_id=current_user.id).first()
-        if not dome:
-            return jsonify({'success': False, 'error': 'Dome not found or access denied'}), 404
-        
         data = request.get_json()
         print(f"🔍 Incoming data for save_drag_area: {data}")
         
-        # Extract data
-        name = data.get('name', '').strip()
-        color = data.get('color', '#007bff')
-        min_row = data.get('min_row', data.get('minRow', 0))
-        max_row = data.get('max_row', data.get('maxRow', 0))
-        min_col = data.get('min_col', data.get('minCol', 0))
-        max_col = data.get('max_col', data.get('maxCol', 0))
-        tree_ids = data.get('tree_ids', [])
-        cells_data = data.get('cells_data', [])
+        # ... existing validation code ...
         
-        # Validation
-        if not name:
-            return jsonify({'success': False, 'error': 'Area name is required'}), 400
+        # ✅ CRITICAL: Extract trees data for creation
+        trees_data = data.get('trees_data', [])  # This should contain the actual tree data
+        tree_ids = data.get('tree_ids', [])      # This contains just IDs (for existing trees)
         
-        # Check for duplicate names
-        existing_area = DragArea.query.filter_by(dome_id=dome_id, name=name).first()
-        if existing_area:
-            return jsonify({'success': False, 'error': 'Area name already exists'}), 400
+        print(f"🌳 Trees to create: {len(trees_data)} trees")
+        print(f"🌳 Existing tree IDs: {len(tree_ids)} IDs")
         
-        # Calculate dimensions
-        width = max_col - min_col + 1
-        height = max_row - min_row + 1
-        
-        # Create the drag area
+        # Create the drag area first
         drag_area = DragArea(
             name=name,
             color=color,
+            dome_id=dome_id,
             min_row=min_row,
             max_row=max_row,
             min_col=min_col,
             max_col=max_col,
             width=width,
             height=height,
-            dome_id=dome_id,
-            visible=True,
+            visible=visible,
             created_at=datetime.utcnow(),
             updated_at=datetime.utcnow()
         )
         
         # Add enhanced fields if available
+        if hasattr(DragArea, 'relationship_metadata'):
+            drag_area.relationship_metadata = json.dumps(relationship_metadata) if relationship_metadata else None
         if hasattr(DragArea, 'cells_data'):
             drag_area.cells_data = json.dumps(cells_data) if cells_data else None
         if hasattr(DragArea, 'supports_empty_cells'):
-            drag_area.supports_empty_cells = True
+            drag_area.supports_empty_cells = supports_empty_cells
         
         db.session.add(drag_area)
         db.session.flush()  # Get the ID
         
         print(f"✅ DragArea created with ID: {drag_area.id}")
         
-        # Associate trees with the drag area
+        # ✅ NEW: Create trees from trees_data (for paste operations)
         created_tree_ids = []
-        for tree_id in tree_ids:
-            # Verify tree exists and belongs to user
-            tree = Tree.query.filter_by(id=tree_id, user_id=current_user.id, dome_id=dome_id).first()
-            if tree:
-                # Calculate relative position
-                relative_row = tree.internal_row - min_row
-                relative_col = tree.internal_col - min_col
-                
-                # Create drag area tree association
-                drag_area_tree = DragAreaTree(
-                    drag_area_id=drag_area.id,
-                    tree_id=tree_id,
-                    relative_row=relative_row,
-                    relative_col=relative_col,
-                    created_at=datetime.utcnow()
-                )
-                
-                db.session.add(drag_area_tree)
-                created_tree_ids.append(tree_id)
+        trees_created = 0
+        tree_errors = []
         
+        if trees_data and len(trees_data) > 0:
+            print(f"🌳 Creating {len(trees_data)} trees from paste data...")
+            
+            for tree_data in trees_data:
+                try:
+                    # Extract tree information
+                    tree_name = tree_data.get('name', f"Tree {tree_data.get('internal_row', 0)}-{tree_data.get('internal_col', 0)}")
+                    tree_breed = tree_data.get('breed', '')
+                    tree_row = tree_data.get('internal_row')
+                    tree_col = tree_data.get('internal_col')
+                    tree_life_days = tree_data.get('life_days', 0)
+                    tree_info = tree_data.get('info', '')
+                    tree_image_url = tree_data.get('image_url', '')
+                    
+                    # ✅ NEW: Plant relationship data
+                    plant_type = tree_data.get('plant_type', 'mother')
+                    mother_plant_id = tree_data.get('mother_plant_id')
+                    cutting_notes = tree_data.get('cutting_notes', '')
+                    paste_metadata = tree_data.get('paste_metadata', {})
+                    
+                    print(f"🌱 Creating tree: {tree_name} at ({tree_row}, {tree_col}) - {plant_type}")
+                    
+                    # Validate position
+                    if tree_row is None or tree_col is None:
+                        tree_errors.append(f"Tree {tree_name}: Missing position data")
+                        continue
+                    
+                    # Check if position is occupied
+                    existing_tree = Tree.query.filter_by(
+                        dome_id=dome_id,
+                        internal_row=tree_row,
+                        internal_col=tree_col
+                    ).first()
+                    
+                    if existing_tree:
+                        tree_errors.append(f"Tree {tree_name}: Position ({tree_row}, {tree_col}) already occupied")
+                        continue
+                    
+                    # Create the tree
+                    new_tree = Tree(
+                        dome_id=dome_id,
+                        internal_row=tree_row,
+                        internal_col=tree_col,
+                        name=tree_name,
+                        breed=tree_breed,
+                        info=tree_info,
+                        life_days=tree_life_days,
+                        image_url=tree_image_url,
+                        user_id=current_user.id,
+                        created_at=datetime.utcnow(),
+                        
+                        # ✅ Plant relationship fields
+                        plant_type=plant_type,
+                        mother_plant_id=mother_plant_id,
+                        cutting_notes=cutting_notes,
+                        paste_metadata=json.dumps(paste_metadata) if paste_metadata else None
+                    )
+                    
+                    db.session.add(new_tree)
+                    db.session.flush()  # Get the tree ID
+                    
+                    created_tree_ids.append(new_tree.id)
+                    trees_created += 1
+                    
+                    # Create drag area tree association
+                    relative_row = tree_row - min_row
+                    relative_col = tree_col - min_col
+                    
+                    drag_area_tree = DragAreaTree(
+                        drag_area_id=drag_area.id,
+                        tree_id=new_tree.id,
+                        relative_row=relative_row,
+                        relative_col=relative_col,
+                        created_at=datetime.utcnow()
+                    )
+                    
+                    db.session.add(drag_area_tree)
+                    
+                    print(f"  ✅ Created tree {new_tree.id} ({tree_name}) and association")
+                    
+                except Exception as tree_error:
+                    tree_errors.append(f"Error creating tree {tree_data.get('name', 'unknown')}: {str(tree_error)}")
+                    print(f"  ❌ Error creating tree: {tree_error}")
+                    continue
+        
+        # ✅ ALSO: Handle existing tree IDs (for areas with existing trees)
+        elif tree_ids and len(tree_ids) > 0:
+            print(f"🌳 Processing {len(tree_ids)} existing trees...")
+            
+            for tree_id in tree_ids:
+                try:
+                    # Get and validate tree
+                    tree = Tree.query.filter_by(
+                        id=tree_id, 
+                        user_id=current_user.id, 
+                        dome_id=dome_id
+                    ).first()
+                    
+                    if not tree:
+                        tree_errors.append(f"Tree {tree_id} not found or access denied")
+                        continue
+                    
+                    # Calculate relative position
+                    relative_row = tree.internal_row - min_row
+                    relative_col = tree.internal_col - min_col
+                    
+                    # Create drag area tree association
+                    drag_area_tree = DragAreaTree(
+                        drag_area_id=drag_area.id,
+                        tree_id=tree_id,
+                        relative_row=relative_row,
+                        relative_col=relative_col,
+                        created_at=datetime.utcnow()
+                    )
+                    
+                    db.session.add(drag_area_tree)
+                    created_tree_ids.append(tree_id)
+                    trees_created += 1
+                    
+                    print(f"  ✅ Added existing tree {tree_id} ({tree.name}) to area")
+                    
+                except Exception as tree_error:
+                    tree_errors.append(f"Error processing tree {tree_id}: {str(tree_error)}")
+                    continue
+        
+        # Commit all changes
         db.session.commit()
         
-        print(f"✅ Drag area '{name}' saved with {len(created_tree_ids)} trees")
+        print(f"✅ Successfully saved drag area '{name}' with {trees_created} trees")
         
-        return jsonify({
+        # ✅ ENHANCED: Return comprehensive response
+        response_data = {
             'success': True,
             'drag_area_id': drag_area.id,
             'message': f'Drag area "{name}" saved successfully',
+            'trees_created': trees_created,
+            'tree_ids': created_tree_ids,
             'area_details': {
                 'id': drag_area.id,
                 'name': name,
-                'color': color,
-                'bounds': f"({min_row},{min_col}) to ({max_row},{max_col})",
-                'size': f"{width}×{height}",
-                'tree_count': len(created_tree_ids),
-                'tree_ids': created_tree_ids
+                'bounds': f"({min_row},{min_col})-({max_row},{max_col})",
+                'size': f"{width}x{height}",
+                'tree_count': trees_created
             }
-        })
+        }
+        
+        if tree_errors:
+            response_data['tree_warnings'] = tree_errors
+            response_data['message'] += f" (with {len(tree_errors)} tree warnings)"
+        
+        return jsonify(response_data)
         
     except Exception as e:
         db.session.rollback()
         print(f"❌ Error in save_drag_area: {str(e)}")
         return jsonify({
-            'success': False, 
+            'success': False,
             'error': f'Failed to save drag area: {str(e)}'
         }), 500
 @app.route('/api/update_drag_area/<int:dome_id>/<int:area_id>', methods=['POST'])
@@ -3716,26 +3723,25 @@ def update_drag_area(dome_id, area_id):
 @app.route('/api/delete_drag_area/<int:dome_id>/<int:area_id>', methods=['DELETE'])
 @login_required
 def delete_drag_area(dome_id, area_id):
-    """Delete a drag area"""
     try:
         # Verify dome ownership
         dome = Dome.query.filter_by(id=dome_id, user_id=current_user.id).first()
         if not dome:
             return jsonify({'success': False, 'error': 'Dome not found or access denied'}), 404
         
-        # Get the drag area
         drag_area = DragArea.query.filter_by(id=area_id, dome_id=dome_id).first()
+        
         if not drag_area:
-            return jsonify({'success': False, 'error': 'Drag area not found'}), 404
+            return jsonify({
+                'success': False,
+                'error': 'Drag area not found'
+            }), 404
         
         area_name = drag_area.name
-        tree_count = len(drag_area.drag_area_trees)
-        
-        # Delete the drag area (cascade will handle DragAreaTree records)
         db.session.delete(drag_area)
         db.session.commit()
         
-        print(f"✅ Deleted drag area '{area_name}' with {tree_count} tree associations")
+        print(f"✅ Drag area '{area_name}' deleted for dome {dome_id}")
         
         return jsonify({
             'success': True,
@@ -3745,98 +3751,206 @@ def delete_drag_area(dome_id, area_id):
     except Exception as e:
         db.session.rollback()
         print(f"❌ Error deleting drag area: {str(e)}")
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
 @app.route('/api/copy_drag_area/<int:dome_id>/<int:area_id>', methods=['GET'])
+@app.route('/copy_drag_area', methods=['POST'])
 @login_required
-def copy_drag_area(dome_id, area_id):
-    """Copy a drag area to clipboard with enhanced cross-dome support"""
+def copy_drag_area(dome_id=None, area_id=None):
+    """Copy a drag area to clipboard with enhanced relationship and image handling"""
     try:
+        # Handle both GET and POST requests
+        if request.method == 'POST':
+            data = request.get_json()
+            if not data:
+                return jsonify({'success': False, 'error': 'No data provided'}), 400
+
+            area_id = data.get('area_id')
+            dome_id = data.get('dome_id')
+
+            if not area_id or not dome_id:
+                return jsonify({'success': False, 'error': 'area_id and dome_id are required'}), 400
+
+        # Input validation
+        if not dome_id or not area_id or dome_id <= 0 or area_id <= 0:
+            return jsonify({'success': False, 'error': 'Invalid dome_id or area_id'}), 400
+
+        print(f"📋 Copy request: dome_id={dome_id}, area_id={area_id}, method={request.method}")
+
         # Verify dome ownership
         dome = Dome.query.filter_by(id=dome_id, user_id=current_user.id).first()
         if not dome:
-            return jsonify({'success': False, 'error': 'Dome not found or access denied'}), 404
-        
-        # Get the drag area
-        drag_area = DragArea.query.filter_by(id=area_id, dome_id=dome_id).first()
+            return jsonify({'success': False, 'error': f'Dome {dome_id} not found'}), 404
+
+        # Get drag area
+        try:
+            drag_area = DragArea.query.filter_by(id=area_id, dome_id=dome_id).first()
+        except Exception as db_error:
+            print(f"❌ Database error querying DragArea: {str(db_error)}")
+            return jsonify({'success': False, 'error': 'Database error'}), 500
+
         if not drag_area:
             return jsonify({'success': False, 'error': f'Drag area {area_id} not found'}), 404
-        
-        print(f"✅ Copying drag area {area_id} from dome {dome_id}")
-        
-        # Get trees in this area with full data
+
+        # Get trees in the drag area
         area_trees = []
-        for dat in drag_area.drag_area_trees:
-            if dat.tree:
-                tree = dat.tree
-                tree_data = {
-                    'id': tree.id,
-                    'name': tree.name,
-                    'breed': tree.breed or '',
-                    'internal_row': tree.internal_row,
-                    'internal_col': tree.internal_col,
-                    'relative_row': dat.relative_row,
-                    'relative_col': dat.relative_col,
-                    'image_url': tree.image_url,
-                    'info': tree.info or '',
-                    'life_days': tree.life_days or 0,
-                    'plant_type': getattr(tree, 'plant_type', 'mother'),
-                    'mother_plant_id': getattr(tree, 'mother_plant_id', None),
-                    'cutting_notes': getattr(tree, 'cutting_notes', ''),
-                    'created_at': tree.created_at.isoformat() if tree.created_at else None
-                }
-                area_trees.append(tree_data)
+        related_tree_ids = set()
         
-        # Create comprehensive clipboard data
-        clipboard_data = {
+        try:
+            if hasattr(drag_area, 'drag_area_trees') and drag_area.drag_area_trees:
+                for dat in drag_area.drag_area_trees:
+                    if dat and hasattr(dat, 'tree') and dat.tree:
+                        tree = dat.tree
+                        related_tree_ids.add(tree.id)
+                        
+                        # Build tree data with relationship info
+                        tree_data = {
+                            'id': tree.id,
+                            'name': tree.name,
+                            'breed': tree.breed or '',
+                            'internal_row': tree.internal_row,
+                            'internal_col': tree.internal_col,
+                            'life_days': tree.life_days or 0,
+                            'info': tree.info or '',
+                            'image_url': tree.image_url,
+                            'dome_id': tree.dome_id,
+                            'user_id': tree.user_id,
+                            'created_at': tree.created_at.isoformat() if tree.created_at else None,
+                            'updated_at': tree.updated_at.isoformat() if tree.updated_at else None,
+                            
+                            # Plant relationship data
+                            'plant_type': getattr(tree, 'plant_type', 'mother'),
+                            'mother_plant_id': getattr(tree, 'mother_plant_id', None),
+                            'cutting_notes': getattr(tree, 'cutting_notes', ''),
+                            'is_mother_plant': getattr(tree, 'plant_type', 'mother') == 'mother',
+                            'is_cutting': getattr(tree, 'plant_type', 'mother') == 'cutting',
+                            
+                            # Relationship metadata
+                            'hasMotherInCopy': (getattr(tree, 'plant_type', 'mother') == 'cutting' and
+                                              getattr(tree, 'mother_plant_id', None) in related_tree_ids),
+                            'hasCuttingsInCopy': (getattr(tree, 'plant_type', 'mother') == 'mother'),
+                            
+                            # Additional metadata
+                            'relative_row': dat.relative_row,
+                            'relative_col': dat.relative_col
+                        }
+                        
+                        area_trees.append(tree_data)
+                        print(f"🌳 Tree '{tree.name}' ({tree.plant_type}) added to copy")
+
+        except Exception as tree_processing_error:
+            print(f"❌ Error processing trees: {str(tree_processing_error)}")
+            return jsonify({'success': False, 'error': 'Error processing trees'}), 500
+
+        # ✅ FIXED: Build relationship metadata for paste operation
+        mother_cutting_pairs = []
+        relationship_stats = {
+            'total_trees': len(area_trees),
+            'mothers': 0,
+            'cuttings': 0,
+            'relationships': 0,
+            'preserved_relationships': 0
+        }
+        
+        # Build mother-cutting pairs for trees that have relationships
+        for tree_data in area_trees:
+            if tree_data.get('plant_type') == 'mother':
+                relationship_stats['mothers'] += 1
+            elif tree_data.get('plant_type') == 'cutting':
+                relationship_stats['cuttings'] += 1
+                
+                # ✅ FIXED: Check if this cutting has a mother_plant_id (regardless of whether mother is in copy)
+                mother_plant_id = tree_data.get('mother_plant_id')
+                if mother_plant_id:
+                    # Check if the mother is also in the copy
+                    mother_tree_data = None
+                    for potential_mother in area_trees:
+                        if potential_mother.get('id') == mother_plant_id:
+                            mother_tree_data = potential_mother
+                            break
+                    
+                    if mother_tree_data:
+                        # Mother is also being copied - full relationship preservation
+                        mother_cutting_pair = {
+                            'cutting_original_id': tree_data.get('id'),
+                            'mother_original_id': mother_tree_data.get('id'),
+                            'cutting_name': tree_data.get('name'),
+                            'mother_name': mother_tree_data.get('name'),
+                            'cutting_notes': tree_data.get('cutting_notes', ''),
+                            'relationship_preserved': True,
+                            'cutting_plant_type': tree_data.get('plant_type'),
+                            'mother_plant_type': mother_tree_data.get('plant_type'),
+                            'mother_in_copy': True
+                        }
+                        mother_cutting_pairs.append(mother_cutting_pair)
+                        relationship_stats['relationships'] += 1
+                        relationship_stats['preserved_relationships'] += 1
+                        
+                        print(f"🔗 Found complete relationship: cutting '{tree_data.get('name')}' -> mother '{mother_tree_data.get('name')}' (both in copy)")
+                    else:
+                        # Mother is not being copied - store relationship info for reference
+                        mother_cutting_pair = {
+                            'cutting_original_id': tree_data.get('id'),
+                            'mother_original_id': mother_plant_id,
+                            'cutting_name': tree_data.get('name'),
+                            'mother_name': f'Mother Tree {mother_plant_id}',  # We don't have the name, but store the ID
+                            'cutting_notes': tree_data.get('cutting_notes', ''),
+                            'relationship_preserved': False,  # Can't preserve since mother not in copy
+                            'cutting_plant_type': tree_data.get('plant_type'),
+                            'mother_plant_type': 'mother',
+                            'mother_in_copy': False
+                        }
+                        mother_cutting_pairs.append(mother_cutting_pair)
+                        relationship_stats['relationships'] += 1
+                        # Don't increment preserved_relationships since mother is not in copy
+                        
+                        print(f"🔗 Found partial relationship: cutting '{tree_data.get('name')}' -> mother ID {mother_plant_id} (mother not in copy)")
+
+        # Create relationship metadata
+        relationship_metadata = {
+            'mother_cutting_pairs': mother_cutting_pairs,
+            'stats': relationship_stats,
+            'copy_timestamp': datetime.utcnow().isoformat(),
+            'source_dome_id': dome_id,
+            'source_area_id': area_id
+        }
+
+        # Create complete area data
+        area_data = {
             'id': drag_area.id,
             'name': drag_area.name,
-            'type': 'dragArea',
             'color': drag_area.color,
             'width': drag_area.width,
             'height': drag_area.height,
-            'min_row': drag_area.min_row,
-            'max_row': drag_area.max_row,
-            'min_col': drag_area.min_col,
-            'max_col': drag_area.max_col,
+            'minRow': drag_area.min_row,
+            'maxRow': drag_area.max_row,
+            'minCol': drag_area.min_col,
+            'maxCol': drag_area.max_col,
             'trees': area_trees,
             'tree_count': len(area_trees),
-            'tree_ids': [tree['id'] for tree in area_trees],
+            'dome_id': drag_area.dome_id,
             'visible': drag_area.visible,
-            'copied_at': datetime.utcnow().isoformat(),
-            'source_dome_id': dome_id,
-            'source_dome_name': dome.name,
-            'clipboard_version': '2.4',
-            'clipboard_source': 'backend_api',
-            'summary': {
-                'total_trees': len(area_trees),
-                'trees_in_original_area': len(area_trees),
-                'related_trees_outside_area': 0,
-                'breeds': list(set([tree['breed'] for tree in area_trees if tree['breed']])),
-                'breed_count': len(set([tree['breed'] for tree in area_trees if tree['breed']])),
-                'has_images': len([tree for tree in area_trees if tree['image_url']]),
-                'plant_relationships': {
-                    'mother_trees': len([tree for tree in area_trees if tree['plant_type'] == 'mother']),
-                    'cutting_trees': len([tree for tree in area_trees if tree['plant_type'] == 'cutting']),
-                    'complete_relationships': 0,  # Calculate if needed
-                    'broken_relationships': 0
-                }
-            }
+            'created_at': drag_area.created_at.isoformat() if drag_area.created_at else None,
+            # ✅ FIXED: Include relationship metadata for paste operation
+            'relationship_metadata': relationship_metadata,
+            'trees_data': area_trees  # Also include as trees_data for paste compatibility
         }
-        
-        print(f"✅ Drag area '{clipboard_data['name']}' copied successfully")
-        print(f"   📊 Area size: {clipboard_data['width']}x{clipboard_data['height']}")
-        print(f"   🌳 Trees: {len(area_trees)}")
-        
+
+        print(f"✅ Retrieved full data for area '{drag_area.name}' with {len(area_trees)} trees")
+        print(f"🔗 Relationship metadata: {len(mother_cutting_pairs)} mother-cutting pairs")
+
         return jsonify({
             'success': True,
-            'clipboard_data': clipboard_data,
-            'message': f'Drag area "{drag_area.name}" copied to clipboard'
+            'area': area_data
         })
-        
+
     except Exception as e:
-        print(f"❌ Error in copy_drag_area: {str(e)}")
+        print(f"❌ Error getting full drag area data: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
+
 
 @app.route('/api/validate_area_name/<int:dome_id>', methods=['POST'])
 @login_required
@@ -4179,151 +4293,98 @@ def get_drag_area_full(area_id):
     except Exception as e:
         print(f"❌ Error getting full drag area data: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
-@app.route('/api/paste_drag_area/<int:dome_id>', methods=['POST'])
+@app.route('/paste_drag_area/<int:dome_id>', methods=['POST'])
+@app.route('/api/save_drag_area/<int:dome_id>', methods=['POST'])
 @login_required
 def paste_drag_area(dome_id):
-    """Paste a copied drag area with cross-dome support"""
+    """Paste a copied drag area with trees - ENHANCED with dual clipboard support"""
     try:
-        # Verify dome ownership
+        data = request.get_json()
+        
+        # Validate dome ownership first
         dome = Dome.query.filter_by(id=dome_id, user_id=current_user.id).first()
         if not dome:
-            return jsonify({'success': False, 'error': 'Dome not found or access denied'}), 404
+            return jsonify({'success': False, 'error': 'Dome not found'}), 404
         
-        data = request.get_json()
-        clipboard_data = data.get('clipboard_data')
-        paste_row = data.get('paste_row', 0)
-        paste_col = data.get('paste_col', 0)
-        new_name = data.get('name', clipboard_data.get('name', 'Pasted Area'))
+        # Extract clipboard data and validate
+        clipboard_result = _extract_clipboard_data(data)
+        if not clipboard_result['success']:
+            return jsonify({'success': False, 'error': clipboard_result['error']}), 400
+        
+        copied_area = clipboard_result['copied_area']
+        clipboard_source = clipboard_result['source']
+        paste_row = clipboard_result['paste_row']
+        paste_col = clipboard_result['paste_col']
+        new_name = clipboard_result['new_name']
         create_trees = data.get('create_trees', True)
         
-        if not clipboard_data:
-            return jsonify({'success': False, 'error': 'No clipboard data provided'}), 400
+        print(f"📋 Clipboard source: {clipboard_source}")
+        print(f"🎯 Pasting '{new_name}' at ({paste_row}, {paste_col})")
         
-        print(f"🔄 Pasting drag area '{new_name}' to dome {dome_id} at ({paste_row}, {paste_col})")
+        # Validate area placement
+        validation_result = _validate_area_placement(dome, copied_area, paste_row, paste_col, create_trees, current_user.id)
+        if not validation_result['success']:
+            return jsonify({'success': False, 'error': validation_result['error']}), 400
         
-        # Check for name conflicts
-        existing_area = DragArea.query.filter_by(dome_id=dome_id, name=new_name).first()
-        if existing_area:
+        # Check for duplicate names
+        if _area_name_exists(dome, new_name):
             return jsonify({'success': False, 'error': 'Area name already exists'}), 400
         
-        # Calculate new boundaries
-        width = clipboard_data.get('width', 1)
-        height = clipboard_data.get('height', 1)
-        new_min_row = paste_row
-        new_max_row = paste_row + height - 1
-        new_min_col = paste_col
-        new_max_col = paste_col + width - 1
-        
-        # Validate boundaries
-        if new_max_row >= dome.internal_rows or new_max_col >= dome.internal_cols:
+        # Start transaction
+        try:
+            # Create drag area record
+            drag_area_result = _create_drag_area_record(dome_id, new_name, copied_area, paste_row, paste_col, data)
+            drag_area_id = drag_area_result.get('drag_area_id')
+            
+            # Create trees with relationships
+            trees_result = _create_trees_with_relationships(
+                copied_area, paste_row, paste_col, dome_id, current_user.id, 
+                create_trees, drag_area_id
+            )
+            
+            # Update dome info
+            _update_dome_info(dome, new_name, copied_area, paste_row, paste_col, 
+                            trees_result['new_tree_ids'], drag_area_id, clipboard_source, 
+                            trees_result['relationship_stats'])
+            
+            # Commit transaction
+            db.session.commit()
+            
+            # Prepare response
+            success_message = _build_success_message(new_name, trees_result['trees_created'], 
+                                                   trees_result['relationship_stats'])
+            
+            breeds_pasted = list(set([
+                tree_data.get('breed', '') for tree_data in copied_area.get('trees', []) 
+                if tree_data.get('breed', '').strip()
+            ]))
+            
+            print(f"✅ {success_message}")
+            
             return jsonify({
-                'success': False, 
-                'error': f'Area would extend outside grid boundaries ({dome.internal_rows}x{dome.internal_cols})'
-            }), 400
-        
-        # Create new drag area
-        new_area = DragArea(
-            name=new_name,
-            color=clipboard_data.get('color', '#007bff'),
-            min_row=new_min_row,
-            max_row=new_max_row,
-            min_col=new_min_col,
-            max_col=new_max_col,
-            width=width,
-            height=height,
-            dome_id=dome_id,
-            visible=True,
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow()
-        )
-        
-        db.session.add(new_area)
-        db.session.flush()  # Get the ID
-        
-        # Create trees if requested
-        new_tree_ids = []
-        if create_trees and clipboard_data.get('trees'):
-            for tree_data in clipboard_data['trees']:
-                try:
-                    # Calculate new position
-                    new_row = paste_row + tree_data.get('relative_row', 0)
-                    new_col = paste_col + tree_data.get('relative_col', 0)
-                    
-                    # Check if position is available
-                    existing_tree = Tree.query.filter_by(
-                        dome_id=dome_id,
-                        internal_row=new_row,
-                        internal_col=new_col,
-                        user_id=current_user.id
-                    ).first()
-                    
-                    if existing_tree:
-                        print(f"⚠️ Position ({new_row}, {new_col}) occupied, skipping tree '{tree_data['name']}'")
-                        continue
-                    
-                    # Create new tree
-                    new_tree = Tree(
-                        name=tree_data['name'],
-                        breed=tree_data.get('breed', ''),
-                        dome_id=dome_id,
-                        internal_row=new_row,
-                        internal_col=new_col,
-                        image_url=tree_data.get('image_url'),
-                        info=tree_data.get('info', ''),
-                        life_days=tree_data.get('life_days', 0),
-                        user_id=current_user.id,
-                        created_at=datetime.utcnow(),
-                        updated_at=datetime.utcnow()
-                    )
-                    
-                    # Set plant type and relationships
-                    if hasattr(Tree, 'plant_type'):
-                        new_tree.plant_type = tree_data.get('plant_type', 'mother')
-                    if hasattr(Tree, 'cutting_notes'):
-                        new_tree.cutting_notes = tree_data.get('cutting_notes', '')
-                    
-                    db.session.add(new_tree)
-                    db.session.flush()  # Get the ID
-                    
-                    # Create drag area tree association
-                    drag_area_tree = DragAreaTree(
-                        drag_area_id=new_area.id,
-                        tree_id=new_tree.id,
-                        relative_row=tree_data.get('relative_row', 0),
-                        relative_col=tree_data.get('relative_col', 0),
-                        created_at=datetime.utcnow()
-                    )
-                    
-                    db.session.add(drag_area_tree)
-                    new_tree_ids.append(new_tree.id)
-                    
-                    print(f"✅ Created tree '{new_tree.name}' at ({new_row}, {new_col})")
-                    
-                except Exception as tree_error:
-                    print(f"⚠️ Error creating tree '{tree_data.get('name', 'Unknown')}': {tree_error}")
-                    continue
-        
-        db.session.commit()
-        
-        print(f"✅ Pasted drag area '{new_name}' with {len(new_tree_ids)} trees")
-        
-        return jsonify({
-            'success': True,
-            'message': f'Area "{new_name}" pasted successfully!',
-            'drag_area_id': new_area.id,
-            'trees_created': len(new_tree_ids),
-            'area_details': {
-                'id': new_area.id,
-                'name': new_name,
-                'bounds': f"({new_min_row},{new_min_col}) to ({new_max_row},{new_max_col})",
-                'size': f"{width}×{height}",
-                'tree_count': len(new_tree_ids)
-            }
-        })
+                'success': True,
+                'message': success_message,
+                'drag_area_id': drag_area_id,
+                'trees_created': trees_result['trees_created'],
+                'breeds_pasted': breeds_pasted,
+                'breed_count': len(breeds_pasted),
+                'relationship_stats': trees_result['relationship_stats'],
+                'clipboard_source': clipboard_source,
+                'debug_info': {
+                    'breed_debug': trees_result['breed_debug_info'],
+                    'original_breeds': breeds_pasted
+                }
+            })
+            
+        except Exception as transaction_error:
+            db.session.rollback()
+            raise transaction_error
         
     except Exception as e:
         db.session.rollback()
-        print(f"❌ Error in paste_drag_area: {str(e)}")
+        print(f"❌ Error pasting drag area: {str(e)}")
+        import traceback
+        print(f"❌ Full traceback: {traceback.format_exc()}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -4499,7 +4560,7 @@ def _create_drag_area_record(dome_id, new_name, copied_area, paste_row, paste_co
 
 
 def _create_trees_with_relationships(copied_area, paste_row, paste_col, dome_id, user_id, create_trees, drag_area_id):
-    """Create trees with proper plant relationships - COMPREHENSIVE FIX"""
+    """Create trees with proper plant relationships"""
     new_tree_ids = []
     trees_created = 0
     breed_debug_info = []
@@ -4507,10 +4568,11 @@ def _create_trees_with_relationships(copied_area, paste_row, paste_col, dome_id,
         'mothers_created': 0,
         'cuttings_created': 0,
         'relationships_preserved': 0,
-        'relationships_broken': 0,
-        'mothers_updated': []
+        'relationships_broken': 0
     }
-
+    # ✅ ENHANCED: Add mothers_updated tracking
+    relationship_stats['mothers_updated'] = []
+    
     if not create_trees or not copied_area.get('trees'):
         return {
             'new_tree_ids': new_tree_ids,
@@ -4518,66 +4580,53 @@ def _create_trees_with_relationships(copied_area, paste_row, paste_col, dome_id,
             'breed_debug_info': breed_debug_info,
             'relationship_stats': relationship_stats
         }
-
+    
     print(f"🌱 Creating {len(copied_area['trees'])} trees from copied area...")
 
     # ✅ ENHANCED DEBUG: Show what data we're working with
     print(f"🔍 === DEBUGGING PASTE OPERATION ===")
-    print(f"🔍 Trees to create: {len(copied_area.get('trees', []))}")
-    print(f"🔍 Copied area keys: {list(copied_area.keys())}")
-    print(f"🔍 Copied area type: {type(copied_area)}")
-
+    print(f"📊 Trees to create: {len(copied_area.get('trees', []))}")
+    
     for i, tree_data in enumerate(copied_area.get('trees', [])):
         print(f"🌳 Tree {i}: '{tree_data.get('name', 'Unknown')}'")
         print(f"   - Plant type: {tree_data.get('plant_type', 'Unknown')}")
         print(f"   - Mother plant ID: {tree_data.get('mother_plant_id', 'None')}")
         print(f"   - Original ID: {tree_data.get('id', 'None')}")
         print(f"   - Has mother_plant_id key: {'mother_plant_id' in tree_data}")
-        print(f"   - Tree data type: {type(tree_data)}")
         print(f"   - All keys: {list(tree_data.keys())}")
-
+    
     print(f"🔍 === END PASTE DEBUG INFO ===")
-
-    # ✅ STEP 1: Create ID mapping dictionaries
-    original_to_new_id_mapping = {}
+    
+    # Create mother trees first for relationship mapping
     mother_id_mapping = {}
-
-    # ✅ STEP 2: First pass - Create all trees and build ID mappings
+    original_to_new_id_mapping = {}
+    
+    # First pass: Create all trees and map mother IDs
     for i, tree_data in enumerate(copied_area['trees']):
         new_row = paste_row + tree_data['relativeRow']
         new_col = paste_col + tree_data['relativeCol']
-
+        
         # Process breed data
         original_breed = tree_data.get('breed', '')
         breed_value = original_breed.strip() if original_breed and original_breed.strip() else None
-
-        # ✅ CRITICAL: Plant relationship handling with better data extraction
+        
+        # Plant relationship handling
         plant_type = tree_data.get('plant_type', 'mother')
         cutting_notes = tree_data.get('cutting_notes', '')
         original_mother_id = tree_data.get('mother_plant_id')
         
-        # ✅ ENHANCED: Also check alternative keys for mother ID
-        if not original_mother_id:
-            original_mother_id = tree_data.get('mother_tree_id')
-        if not original_mother_id:
-            original_mother_id = tree_data.get('mother_id')
-        
-        # ✅ CRITICAL: Debug what we're getting
-        print(f"🔍 Tree {i} relationship debug:")
-        print(f"   - tree_data keys: {list(tree_data.keys())}")
-        print(f"   - plant_type: {tree_data.get('plant_type')}")
-        print(f"   - mother_plant_id: {tree_data.get('mother_plant_id')}")
-        print(f"   - original_mother_id extracted: {original_mother_id}")
-
         # ✅ CRITICAL: Store original_mother_id in paste metadata for later use
-        paste_metadata = tree_data.get('paste_metadata', {})
-
+        paste_metadata = tree_data.get('paste_metadata', {})  # ✅ CRITICAL: Capture this!
+        
         # ✅ DEBUG: Log what we're working with for each tree
         print(f"🌱 Creating tree {i}: '{tree_data.get('name', 'Unknown')}'")
         print(f"   - Plant type: {plant_type}")
         print(f"   - Original mother ID: {original_mother_id}")
         print(f"   - Original tree ID: {tree_data.get('id')}")
-
+        print(f"   - Tree data keys: {list(tree_data.keys())}")
+        cutting_notes = tree_data.get('cutting_notes', '')
+        paste_metadata = tree_data.get('paste_metadata', {})
+        
         # Enhanced paste metadata
         enhanced_paste_metadata = {
             **paste_metadata,
@@ -4586,10 +4635,8 @@ def _create_trees_with_relationships(copied_area, paste_row, paste_col, dome_id,
             'original_mother_id': original_mother_id,  # ✅ CRITICAL: Store this!
             'paste_operation': True
         }
-
+        
         try:
-            # ✅ CRITICAL: Create tree WITHOUT mother_plant_id initially
-            # We'll set it in the second pass after all trees are created
             new_tree = Tree(
                 name=tree_data.get('name', f'Tree {i+1}'),
                 breed=breed_value,
@@ -4602,29 +4649,27 @@ def _create_trees_with_relationships(copied_area, paste_row, paste_col, dome_id,
                 user_id=user_id,
                 plant_type=plant_type,
                 cutting_notes=cutting_notes,
-                mother_plant_id=None,  # ✅ CRITICAL: Set to None initially
                 paste_metadata=json.dumps(enhanced_paste_metadata) if enhanced_paste_metadata else None,
-                planted_date=datetime.utcnow(),
+                planted_date=datetime.utcnow(),  # Set planted date for new trees
                 created_at=datetime.utcnow(),
                 updated_at=datetime.utcnow()
             )
-
+            
             db.session.add(new_tree)
             db.session.flush()  # Get the ID without committing
-
+            
             new_tree_ids.append(new_tree.id)
             trees_created += 1
-
+            
             # ✅ ENHANCED: Track ALL trees for relationship mapping with consistent keys
             original_id = tree_data.get('id', f'temp_{i}')
             if original_id:
-                print(f"🔗 Mapping tree {i}: original_id='{original_id}' -> new_id={new_tree.id} (type: {plant_type})")
-                
+                print(f"🔍 Mapping tree {i}: original_id='{original_id}' -> new_id={new_tree.id} (type: {plant_type})")
                 # Add to general ID mapping for all trees (both string and original type keys)
                 original_id_str = str(original_id)
                 original_to_new_id_mapping[original_id_str] = new_tree.id
                 original_to_new_id_mapping[original_id] = new_tree.id  # Keep original type for compatibility
-
+                
                 # Also add mother trees to specific mother mapping
                 if plant_type == 'mother':
                     mother_id_mapping[original_id_str] = new_tree.id
@@ -4632,7 +4677,7 @@ def _create_trees_with_relationships(copied_area, paste_row, paste_col, dome_id,
                     relationship_stats['mothers_created'] += 1
                 elif plant_type == 'cutting':
                     relationship_stats['cuttings_created'] += 1
-
+            
             # Create DragAreaTree association if DragArea was created
             if drag_area_id:
                 drag_area_tree = DragAreaTree(
@@ -4643,9 +4688,9 @@ def _create_trees_with_relationships(copied_area, paste_row, paste_col, dome_id,
                     created_at=datetime.utcnow()
                 )
                 db.session.add(drag_area_tree)
-
+            
             print(f"✅ Tree created: '{new_tree.name}' ({plant_type}) at ({new_row}, {new_col})")
-
+            
             breed_debug_info.append({
                 'tree_name': new_tree.name,
                 'original_breed': original_breed,
@@ -4655,165 +4700,252 @@ def _create_trees_with_relationships(copied_area, paste_row, paste_col, dome_id,
                 'plant_type': plant_type,
                 'original_id': tree_data.get('id')
             })
-
+            
         except Exception as tree_error:
             print(f"❌ Error creating tree {i+1}: {tree_error}")
             raise tree_error
-
-    # ✅ STEP 3: Second pass - Set mother_plant_id relationships
+    
+    # ✅ ENHANCED: Second pass - Comprehensive relationship mapping with better debugging
     print(f"🔗 === STARTING RELATIONSHIP PROCESSING ===")
     print(f"🔗 Original to new ID mapping: {dict(list(original_to_new_id_mapping.items())[:5])}...")  # Show first 5
     print(f"🔗 Mother ID mapping: {dict(list(mother_id_mapping.items())[:5])}...")  # Show first 5
-
-    # Process each tree to set mother relationships
+    print(f"🔗 ID mapping (created during tree creation): {original_to_new_id_mapping}")
+    print(f"🔗 Mother ID mapping: {mother_id_mapping}")
+    
+    # ✅ CRITICAL: Process ALL cutting trees systematically
+    cutting_trees_to_process = []
+    
+    # First, identify all cutting trees and their original mother IDs
     for i, tree_data in enumerate(copied_area['trees']):
         if i < len(new_tree_ids):
             tree_id = new_tree_ids[i]
             tree = db.session.get(Tree, tree_id)
-
+            
             if tree and tree.plant_type == 'cutting':
-                # ✅ ENHANCED: Get original mother ID from multiple sources
                 original_mother_id = tree_data.get('mother_plant_id')
-                if not original_mother_id:
-                    original_mother_id = tree_data.get('mother_tree_id')
-                if not original_mother_id:
-                    original_mother_id = tree_data.get('mother_id')
+                cutting_trees_to_process.append({
+                    'tree': tree,
+                    'tree_data': tree_data,
+                    'original_mother_id': original_mother_id,
+                    'index': i
+                })
+                print(f"🌿 Found cutting tree '{tree.name}' (ID: {tree.id}) - original mother: {original_mother_id}")
+    
+    print(f"🔗 Processing {len(cutting_trees_to_process)} cutting trees for relationships...")
+    
+    # Process each cutting tree
+    for cutting_info in cutting_trees_to_process:
+        print(f"🔗 Processing cutting tree: {cutting_info['tree'].name} (ID: {cutting_info['tree'].id})")
+        print(f"   - Original mother ID from tree_data: {cutting_info.get('original_mother_id')}")
+        print(f"   - Tree index: {cutting_info.get('index')}")
+        tree = cutting_info['tree']
+        original_mother_id = cutting_info['original_mother_id']
+        
+        if not original_mother_id:
+            print(f"⚠️ Cutting tree '{tree.name}' has no original mother ID - skipping")
+            continue
+            
+        print(f"🌿 Processing cutting '{tree.name}' - Original mother ID: {original_mother_id}")
 
-                if not original_mother_id:
-                    print(f"⚠️ Cutting tree '{tree.name}' has no original mother ID - skipping")
-                    continue
+        new_mother_id = None
+        
+        # ✅ ENHANCED: Try multiple approaches to find the mother tree
+        original_mother_str = str(original_mother_id)
+        
+        # Approach 1: Check mother_id_mapping with both key types
+        if original_mother_str in mother_id_mapping:
+            new_mother_id = mother_id_mapping[original_mother_str]
+            print(f"✅ Found mother in mother_id_mapping (str key): {original_mother_id} -> {new_mother_id}")
+        elif original_mother_id in mother_id_mapping:
+            new_mother_id = mother_id_mapping[original_mother_id]
+            print(f"✅ Found mother in mother_id_mapping (orig key): {original_mother_id} -> {new_mother_id}")
+        
+        # Approach 2: Check original_to_new_id_mapping with both key types
+        elif original_mother_str in original_to_new_id_mapping:
+            new_mother_id = original_to_new_id_mapping[original_mother_str]
+            print(f"✅ Found mother in original_to_new_id_mapping (str key): {original_mother_id} -> {new_mother_id}")
+        elif original_mother_id in original_to_new_id_mapping:
+            new_mother_id = original_to_new_id_mapping[original_mother_id]
+            print(f"✅ Found mother in original_to_new_id_mapping (orig key): {original_mother_id} -> {new_mother_id}")
+        
+        # Approach 3: Check if mother tree already exists in dome
+        else:
+            existing_mother = Tree.query.filter_by(
+                dome_id=dome_id,
+                user_id=user_id,
+                id=original_mother_id
+            ).first()
 
-                print(f"🌿 Processing cutting '{tree.name}' - Original mother ID: {original_mother_id}")
+            if existing_mother and (existing_mother.plant_type == 'mother' or not existing_mother.plant_type):
+                new_mother_id = existing_mother.id
+                print(f"✅ Found existing mother tree in dome: {original_mother_id}")
+            else:
+                print(f"❌ Mother tree {original_mother_id} not found anywhere")
 
-                new_mother_id = None
+        # ✅ CRITICAL: Set the relationship if mother was found
+        if new_mother_id:
+            # Verify the mother tree exists and is valid
+            mother_tree = db.session.get(Tree, new_mother_id)
+            if mother_tree and (mother_tree.plant_type == 'mother' or not mother_tree.plant_type):
+                tree.mother_plant_id = new_mother_id
+                relationship_stats['relationships_preserved'] += 1
 
-                # ✅ ENHANCED: Try multiple approaches to find the mother tree
-                original_mother_str = str(original_mother_id)
+                # โ… CRITICAL: Create PlantRelationship record for bidirectional relationship
+                create_plant_relationship_record(
+                    mother_tree_id=new_mother_id,
+                    cutting_tree_id=tree.id,
+                    user_id=user_id,
+                    dome_id=dome_id,
+                    cutting_notes=tree.cutting_notes or ''
+                )
 
-                # Approach 1: Check if mother was also pasted (in our mappings)
-                if original_mother_str in original_to_new_id_mapping:
-                    new_mother_id = original_to_new_id_mapping[original_mother_str]
-                    print(f"✅ Found pasted mother in mapping (str key): {original_mother_id} -> {new_mother_id}")
-                elif original_mother_id in original_to_new_id_mapping:
-                    new_mother_id = original_to_new_id_mapping[original_mother_id]
-                    print(f"✅ Found pasted mother in mapping (orig key): {original_mother_id} -> {new_mother_id}")
+                # ✅ CRITICAL: Track that this mother tree was updated
+                if new_mother_id not in relationship_stats['mothers_updated']:
+                    relationship_stats['mothers_updated'].append(new_mother_id)
 
-                # Approach 2: Check if mother exists in the same dome (not pasted, but existing)
-                elif not new_mother_id:
-                    existing_mother = Tree.query.filter_by(
-                        dome_id=dome_id,
-                        user_id=user_id,
-                        id=original_mother_id
-                    ).first()
+                # Update paste metadata
+                paste_meta = tree.get_paste_metadata()
+                paste_meta['relationship_preserved'] = True
+                paste_meta['original_mother_id'] = original_mother_id
+                paste_meta['new_mother_id'] = new_mother_id
+                tree.set_paste_metadata(paste_meta)
 
-                    if existing_mother and (existing_mother.plant_type == 'mother' or not existing_mother.plant_type):
-                        new_mother_id = existing_mother.id
-                        print(f"✅ Found existing mother tree in dome: {original_mother_id}")
-                    else:
-                        print(f"❌ Mother tree {original_mother_id} not found anywhere")
+                print(f"✅ Relationship preserved: '{tree.name}' -> mother '{mother_tree.name}' (ID {new_mother_id})")
+            else:
+                print(f"❌ Invalid mother tree ID {new_mother_id} - tree not found or not a mother")
+                relationship_stats['relationships_broken'] += 1
+        else:
+            relationship_stats['relationships_broken'] += 1
 
-                # ✅ CRITICAL: Set the relationship if mother was found
-                if new_mother_id:
-                    # Verify the mother tree exists and is valid
-                    mother_tree = db.session.get(Tree, new_mother_id)
-                    if mother_tree and (mother_tree.plant_type == 'mother' or not mother_tree.plant_type):
-                        tree.mother_plant_id = new_mother_id
-                        relationship_stats['relationships_preserved'] += 1
+            # Update paste metadata for broken relationship
+            paste_meta = tree.get_paste_metadata()
+            paste_meta['relationship_preserved'] = False
+            paste_meta['original_mother_id'] = original_mother_id
+            paste_meta['relationship_broken_reason'] = 'Mother tree not found in paste operation'
+            tree.set_paste_metadata(paste_meta)
 
-                        # ✅ CRITICAL: Create PlantRelationship record for bidirectional relationship
-                        try:
-                            # Check if relationship already exists
-                            existing_relationship = PlantRelationship.query.filter_by(
-                                cutting_tree_id=tree.id
-                            ).first()
-                            
-                            if not existing_relationship:
-                                plant_relationship = PlantRelationship(
-                                    mother_tree_id=new_mother_id,
-                                    cutting_tree_id=tree.id,
-                                    user_id=user_id,
-                                    dome_id=dome_id,
-                                    notes=tree.cutting_notes or '',
-                                    cutting_date=datetime.utcnow()
-                                )
-                                db.session.add(plant_relationship)
-                                print(f"✅ Created PlantRelationship record")
-                            else:
-                                print(f"ℹ️ PlantRelationship already exists")
-                        except Exception as rel_error:
-                            print(f"⚠️ Error creating PlantRelationship: {rel_error}")
+            print(f"❌ Relationship broken: '{tree.name}' - mother {original_mother_id} not found")
 
-                        # ✅ CRITICAL: Track that this mother tree was updated
-                        if new_mother_id not in relationship_stats['mothers_updated']:
-                            relationship_stats['mothers_updated'].append(new_mother_id)
-
-                        # Update paste metadata
-                        paste_meta = tree.get_paste_metadata()
-                        paste_meta['relationship_preserved'] = True
-                        paste_meta['original_mother_id'] = original_mother_id
-                        paste_meta['new_mother_id'] = new_mother_id
-                        tree.set_paste_metadata(paste_meta)
-
-                        print(f"✅ Relationship preserved: '{tree.name}' -> mother '{mother_tree.name}' (ID {new_mother_id})")
-                    else:
-                        print(f"❌ Invalid mother tree ID {new_mother_id} - tree not found or not a mother")
-                        relationship_stats['relationships_broken'] += 1
-                else:
-                    relationship_stats['relationships_broken'] += 1
-
-                    # Update paste metadata for broken relationship
-                    paste_meta = tree.get_paste_metadata()
-                    paste_meta['relationship_preserved'] = False
-                    paste_meta['original_mother_id'] = original_mother_id
-                    paste_meta['relationship_broken_reason'] = 'Mother tree not found in paste operation'
-                    tree.set_paste_metadata(paste_meta)
-
-                    print(f"❌ Relationship broken: '{tree.name}' - mother {original_mother_id} not found")
-
-    # ✅ STEP 4: Update mother trees' cutting counts
+    # Third pass: Update mother trees' cutting counts and info
     print("🔄 Updating mother trees' cutting counts...")
     updated_mothers = set()
-
+    
     for tree_id in new_tree_ids:
         tree = db.session.get(Tree, tree_id)
         if tree and tree.plant_type == 'cutting' and tree.mother_plant_id:
             if tree.mother_plant_id not in updated_mothers:
                 mother_tree = db.session.get(Tree, tree.mother_plant_id)
                 if mother_tree:
-                    # Update mother tree's updated_at timestamp to reflect new cutting
-                    mother_tree.updated_at = datetime.utcnow()
+                    update_mother_cutting_count(mother_tree)
                     updated_mothers.add(tree.mother_plant_id)
-                    print(f"✅ Updated mother tree '{mother_tree.name}' timestamp")
-
+                    print(f"✅ Updated mother tree '{mother_tree.name}' cutting count")
+    
     print(f"✅ Updated {len(updated_mothers)} mother trees")
 
-    # ✅ STEP 5: Final validation pass
-    print("🔍 Final validation pass...")
-    final_validation_stats = {
-        'trees_with_preserved_relationships': 0,
-        'trees_with_broken_relationships': 0,
-        'orphaned_cuttings': 0
-    }
-
+    # ✅ FALLBACK: Final pass to catch any missed relationships
+    print("🔄 Final pass: Checking for any missed relationships...")
+    
     for tree_id in new_tree_ids:
         tree = db.session.get(Tree, tree_id)
-        if tree and tree.plant_type == 'cutting':
-            if tree.mother_plant_id:
-                final_validation_stats['trees_with_preserved_relationships'] += 1
-            else:
-                final_validation_stats['orphaned_cuttings'] += 1
-
-    print(f"📊 Final validation results:")
-    print(f"   - Trees with preserved relationships: {final_validation_stats['trees_with_preserved_relationships']}")
-    print(f"   - Orphaned cuttings: {final_validation_stats['orphaned_cuttings']}")
+        if tree and tree.plant_type == 'cutting' and not tree.mother_plant_id:
+            # Try to get original_mother_id from paste metadata
+            paste_meta = tree.get_paste_metadata()
+            original_mother_id = paste_meta.get('original_mother_id')
+            
+            if original_mother_id:
+                print(f"🔄 Fallback: Trying to fix relationship for tree {tree.id} -> mother {original_mother_id}")
+                
+                # Try to find the mother tree
+                mother_tree = None
+                
+                # Check if mother was also pasted (in our mappings)
+                for key_variant in [str(original_mother_id), original_mother_id]:
+                    if key_variant in original_to_new_id_mapping:
+                        mother_tree = db.session.get(Tree, original_to_new_id_mapping[key_variant])
+                        if mother_tree:
+                            print(f"✅ Fallback: Found pasted mother {mother_tree.id}")
+                            break
+                
+                # Check if mother exists in dome
+                if not mother_tree:
+                    mother_tree = Tree.query.filter_by(
+                        id=original_mother_id,
+                        dome_id=dome_id,
+                        user_id=user_id
+                    ).first()
+                    if mother_tree:
+                        print(f"✅ Fallback: Found existing mother {mother_tree.id}")
+                
+                # Set the relationship
+                if mother_tree and (mother_tree.plant_type == 'mother' or not mother_tree.plant_type):
+                    tree.mother_plant_id = mother_tree.id
+                    relationship_stats['relationships_preserved'] += 1
+                    
+                    # Update metadata
+                    paste_meta['relationship_preserved'] = True
+                    paste_meta['relationship_fixed_in_fallback'] = True
+                    tree.set_paste_metadata(paste_meta)
+                    
+                    print(f"✅ Fallback: Fixed relationship {tree.name} -> {mother_tree.name}")
+                else:
+                    print(f"❌ Fallback: Could not find valid mother for tree {tree.id}")
+    
+        # ✅ FALLBACK: Final pass to catch any missed relationships
+    print("🔄 Final pass: Checking for any missed relationships...")
+    
+    for tree_id in new_tree_ids:
+        tree = db.session.get(Tree, tree_id)
+        if tree and tree.plant_type == 'cutting' and not tree.mother_plant_id:
+            # Try to get original_mother_id from paste metadata
+            paste_meta = tree.get_paste_metadata()
+            original_mother_id = paste_meta.get('original_mother_id')
+            
+            if original_mother_id:
+                print(f"🔄 Fallback: Trying to fix relationship for tree {tree.id} -> mother {original_mother_id}")
+                
+                # Try to find the mother tree
+                mother_tree = None
+                
+                # Check if mother was also pasted (in our mappings)
+                for key_variant in [str(original_mother_id), original_mother_id]:
+                    if key_variant in original_to_new_id_mapping:
+                        mother_tree = db.session.get(Tree, original_to_new_id_mapping[key_variant])
+                        if mother_tree:
+                            print(f"✅ Fallback: Found pasted mother {mother_tree.id}")
+                            break
+                
+                # Check if mother exists in dome
+                if not mother_tree:
+                    mother_tree = Tree.query.filter_by(
+                        id=original_mother_id,
+                        dome_id=dome_id,
+                        user_id=user_id
+                    ).first()
+                    if mother_tree:
+                        print(f"✅ Fallback: Found existing mother {mother_tree.id}")
+                
+                # Set the relationship
+                if mother_tree and (mother_tree.plant_type == 'mother' or not mother_tree.plant_type):
+                    tree.mother_plant_id = mother_tree.id
+                    relationship_stats['relationships_preserved'] += 1
+                    
+                    # Update metadata
+                    paste_meta['relationship_preserved'] = True
+                    paste_meta['relationship_fixed_in_fallback'] = True
+                    tree.set_paste_metadata(paste_meta)
+                    
+                    print(f"✅ Fallback: Fixed relationship {tree.name} -> {mother_tree.name}")
+                else:
+                    print(f"❌ Fallback: Could not find valid mother for tree {tree.id}")
 
     return {
         'new_tree_ids': new_tree_ids,
         'trees_created': trees_created,
         'breed_debug_info': breed_debug_info,
-        'relationship_stats': relationship_stats,
-        'final_validation': final_validation_stats
+        'relationship_stats': relationship_stats
     }
+
+
 def _update_dome_info(dome, new_name, copied_area, paste_row, paste_col, new_tree_ids, drag_area_id, clipboard_source, relationship_stats):
     """Update dome.info with new area data"""
     try:
@@ -4869,27 +5001,30 @@ def _build_success_message(new_name, trees_created, relationship_stats):
 def create_drag_area(dome_id):
     """Create a new drag area from selected cells"""
     try:
+        data = request.get_json()
+        print(f"🔍 Creating new drag area for dome {dome_id}: {data}")
+        
         # Verify dome ownership
         dome = Dome.query.filter_by(id=dome_id, user_id=current_user.id).first()
         if not dome:
-            return jsonify({'success': False, 'error': 'Dome not found or access denied'}), 404
+            return jsonify({'success': False, 'error': 'Dome not found'}), 404
         
-        data = request.get_json()
-        print(f"🔍 Creating drag area with data: {data}")
-        
-        # Extract data
+        # Extract required fields
         name = data.get('name', '').strip()
         color = data.get('color', '#007bff')
-        min_row = data.get('min_row', 0)
-        max_row = data.get('max_row', 0)
-        min_col = data.get('min_col', 0)
-        max_col = data.get('max_col', 0)
+        min_row = data.get('min_row')
+        max_row = data.get('max_row')
+        min_col = data.get('min_col')
+        max_col = data.get('max_col')
         tree_ids = data.get('tree_ids', [])
         cells_data = data.get('cells_data', [])
         
         # Validation
         if not name:
             return jsonify({'success': False, 'error': 'Area name is required'}), 400
+        
+        if any(x is None for x in [min_row, max_row, min_col, max_col]):
+            return jsonify({'success': False, 'error': 'Area bounds are required'}), 400
         
         # Check for duplicate names
         existing_area = DragArea.query.filter_by(dome_id=dome_id, name=name).first()
@@ -4900,32 +5035,54 @@ def create_drag_area(dome_id):
         width = max_col - min_col + 1
         height = max_row - min_row + 1
         
-        # Create the drag area
+        # Create drag area
         drag_area = DragArea(
             name=name,
             color=color,
+            dome_id=dome_id,
             min_row=min_row,
             max_row=max_row,
             min_col=min_col,
             max_col=max_col,
             width=width,
             height=height,
-            dome_id=dome_id,
             visible=True,
             created_at=datetime.utcnow(),
             updated_at=datetime.utcnow()
         )
         
-        db.session.add(drag_area)
-        db.session.flush()  # Get the ID
+        # Add enhanced fields if available
+        if hasattr(DragArea, 'cells_data'):
+            drag_area.cells_data = json.dumps(cells_data)
+        if hasattr(DragArea, 'supports_empty_cells'):
+            drag_area.supports_empty_cells = True
+        if hasattr(DragArea, 'total_cells'):
+            drag_area.total_cells = len(cells_data)
+        if hasattr(DragArea, 'empty_count'):
+            drag_area.empty_count = len(cells_data) - len(tree_ids)
         
-        # Associate trees with the drag area
+        db.session.add(drag_area)
+        db.session.flush()
+        
+        # Add tree associations
+        trees_added = 0
         for tree_id in tree_ids:
-            tree = Tree.query.filter_by(id=tree_id, user_id=current_user.id, dome_id=dome_id).first()
-            if tree:
+            try:
+                # Validate tree
+                tree = Tree.query.filter_by(
+                    id=tree_id,
+                    user_id=current_user.id,
+                    dome_id=dome_id
+                ).first()
+                
+                if not tree:
+                    continue
+                
+                # Calculate relative position
                 relative_row = tree.internal_row - min_row
                 relative_col = tree.internal_col - min_col
                 
+                # Create association
                 drag_area_tree = DragAreaTree(
                     drag_area_id=drag_area.id,
                     tree_id=tree_id,
@@ -4935,30 +5092,35 @@ def create_drag_area(dome_id):
                 )
                 
                 db.session.add(drag_area_tree)
+                trees_added += 1
+                
+            except Exception as tree_error:
+                print(f"❌ Error adding tree {tree_id}: {tree_error}")
+                continue
         
         db.session.commit()
+        
+        print(f"✅ Created drag area '{name}' with {trees_added} trees")
         
         return jsonify({
             'success': True,
             'drag_area_id': drag_area.id,
+            'message': f'Drag area "{name}" created successfully',
+            'trees_added': trees_added,
             'area': {
                 'id': drag_area.id,
                 'name': name,
                 'color': color,
-                'min_row': min_row,
-                'max_row': max_row,
-                'min_col': min_col,
-                'max_col': max_col,
                 'width': width,
                 'height': height,
-                'tree_count': len(tree_ids),
+                'tree_count': trees_added,
                 'created_at': drag_area.created_at.isoformat()
             }
         })
         
     except Exception as e:
         db.session.rollback()
-        print(f"❌ Error in create_drag_area: {str(e)}")
+        print(f"❌ Error creating drag area: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
 @app.route('/api/tree/<int:tree_id>/breeds')
 @login_required
@@ -6501,7 +6663,63 @@ def update_farm_name(farm_id):
         print(f"Error updating farm name: {e}")
         db.session.rollback()
         return jsonify(success=False, error=str(e)), 500
-
+@app.route('/api/update_drag_area_color/<int:dome_id>/<int:area_id>', methods=['PUT'])
+@login_required
+def update_drag_area_color(dome_id, area_id):
+    try:
+        data = request.get_json()
+        new_color = data.get('color')
+        
+        if not new_color:
+            return jsonify({'success': False, 'error': 'Color is required'}), 400
+        
+        # Validate hex color format
+        if not re.match(r'^#[0-9A-Fa-f]{6}$', new_color):
+            return jsonify({'success': False, 'error': 'Invalid color format'}), 400
+        
+        # ✅ FIXED: Remove user_id filter since DragArea model doesn't have user_id
+        try:
+            # Find the drag area in the database
+            drag_area = DragArea.query.filter_by(
+                id=area_id,
+                dome_id=dome_id
+            ).first()
+            
+            if not drag_area:
+                return jsonify({
+                    'success': False, 
+                    'error': 'Drag area not found'
+                }), 404
+            
+            # Update the color
+            old_color = drag_area.color
+            drag_area.color = new_color
+            drag_area.updated_at = datetime.utcnow()  # Use utcnow() to match your model
+            
+            # Save to database
+            db.session.commit()
+            
+            print(f"✅ Updated drag area {area_id} color from {old_color} to {new_color}")
+            
+            return jsonify({
+                'success': True,
+                'message': f'Drag area color updated to {new_color}',
+                'color': new_color,
+                'area_id': area_id,
+                'old_color': old_color
+            })
+            
+        except Exception as db_error:
+            db.session.rollback()
+            print(f"❌ Database error updating drag area color: {db_error}")
+            return jsonify({
+                'success': False, 
+                'error': f'Database error: {str(db_error)}'
+            }), 500
+        
+    except Exception as e:
+        print(f"❌ Error in update_drag_area_color: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 @app.route('/api/remove_breed', methods=['DELETE'])
 @login_required
 def remove_breed():
@@ -12651,932 +12869,10 @@ def fix_all_tables():
             
     except Exception as e:
         return f"❌ Error: {e}"
-@app.route('/api/update_drag_area_color/<int:dome_id>/<int:area_id>', methods=['PUT'])
-@login_required
-def update_drag_area_color(dome_id, area_id):
-    """Update drag area color"""
-    try:
-        # Verify dome ownership
-        dome = Dome.query.filter_by(id=dome_id, user_id=current_user.id).first()
-        if not dome:
-            return jsonify({'success': False, 'error': 'Dome not found or access denied'}), 404
-        
-        # Get the drag area
-        drag_area = DragArea.query.filter_by(id=area_id, dome_id=dome_id).first()
-        if not drag_area:
-            return jsonify({'success': False, 'error': 'Drag area not found'}), 404
-        
-        data = request.get_json()
-        new_color = data.get('color')
-        
-        if not new_color:
-            return jsonify({'success': False, 'error': 'Color is required'}), 400
-        
-        # Validate hex color format
-        if not new_color.startswith('#') or len(new_color) != 7:
-            return jsonify({'success': False, 'error': 'Invalid color format. Use #RRGGBB'}), 400
-        
-        # Update color
-        drag_area.color = new_color
-        if hasattr(drag_area, 'updated_at'):
-            drag_area.updated_at = datetime.utcnow()
-        
-        db.session.commit()
-        
-        print(f"✅ Updated drag area {area_id} color to {new_color}")
-        
-        return jsonify({
-            'success': True,
-            'message': f'Area color updated to {new_color}',
-            'area': {
-                'id': drag_area.id,
-                'name': drag_area.name,
-                'color': drag_area.color
-            }
-        })
-        
-    except Exception as e:
-        db.session.rollback()
-        print(f"❌ Error updating drag area color: {str(e)}")
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-#
-
-# ============= ENHANCED COPY/PASTE BACKEND ROUTES =============
-# Enhanced Copy/Paste Backend Implementation
-# This file contains the enhanced copy/paste functionality that saves clipboard data to the backend
-
-from flask import request, jsonify
-from flask_login import login_required, current_user
-from models import db, Dome, DragArea, DragAreaTree, Tree, ClipboardData
-from datetime import datetime
-import json
-
-@app.route('/api/copy_drag_area_to_backend/<int:dome_id>/<int:area_id>', methods=['POST'])
-@login_required
-def copy_drag_area_to_backend(dome_id, area_id):
-    """Copy a drag area to backend clipboard storage with full tree data"""
-    try:
-        print(f"🔄 Backend copy: Copying drag area {area_id} from dome {dome_id}")
-        
-        # Verify dome ownership
-        dome = Dome.query.filter_by(id=dome_id, user_id=current_user.id).first()
-        if not dome:
-            return jsonify({'success': False, 'error': 'Dome not found or access denied'}), 404
-
-        # Get the drag area with all relationships
-        drag_area = DragArea.query.filter_by(id=area_id, dome_id=dome_id).first()
-        if not drag_area:
-            return jsonify({'success': False, 'error': f'Drag area {area_id} not found'}), 404
-
-        print(f"✅ Found drag area: {drag_area.name}")
-        print(f"🔍 Drag area details: ID={drag_area.id}, Name='{drag_area.name}', Size={drag_area.width}x{drag_area.height}")
-        print(f"🔍 Drag area bounds: ({drag_area.min_row},{drag_area.min_col}) to ({drag_area.max_row},{drag_area.max_col})")
-
-        # ✅ DEBUG: Check if there are any trees in this dome at all
-        all_dome_trees = Tree.query.filter_by(dome_id=dome_id, user_id=current_user.id).all()
-        print(f"🔍 Total trees in dome {dome_id}: {len(all_dome_trees)}")
-        
-        # ✅ DEBUG: Check which trees are within the drag area bounds
-        trees_in_bounds = []
-        for tree in all_dome_trees:
-            in_bounds = (drag_area.min_row <= tree.internal_row <= drag_area.max_row and 
-                        drag_area.min_col <= tree.internal_col <= drag_area.max_col)
-            print(f"   - Tree {tree.id} '{tree.name}' at ({tree.internal_row},{tree.internal_col}) - In bounds: {in_bounds}")
-            if in_bounds:
-                trees_in_bounds.append(tree)
-        
-        print(f"🔍 Trees within drag area bounds: {len(trees_in_bounds)}")
-
-        # Get all trees in this area with full data including relationships
-        area_trees = []
-        tree_ids = []
-        
-        # ✅ FIX: Explicitly query drag area trees to avoid lazy loading issues
-        drag_area_trees = DragAreaTree.query.filter_by(drag_area_id=area_id).all()
-        print(f"🔍 Found {len(drag_area_trees)} drag area tree associations for area {area_id}")
-        
-        # ✅ FALLBACK: If no associations but trees are in bounds, use the trees in bounds
-        if len(drag_area_trees) == 0 and len(trees_in_bounds) > 0:
-            print(f"⚠️ No DragAreaTree associations found, but {len(trees_in_bounds)} trees are within bounds")
-            print(f"🔄 Using trees within bounds as fallback")
-            
-            # Create temporary DragAreaTree objects for processing
-            drag_area_trees = []
-            for tree in trees_in_bounds:
-                # Calculate relative position within the drag area
-                relative_row = tree.internal_row - drag_area.min_row
-                relative_col = tree.internal_col - drag_area.min_col
-                
-                # Create a temporary DragAreaTree-like object
-                temp_dat = type('TempDragAreaTree', (), {
-                    'drag_area_id': area_id,
-                    'tree_id': tree.id,
-                    'tree': tree,
-                    'relative_row': relative_row,
-                    'relative_col': relative_col
-                })()
-                
-                drag_area_trees.append(temp_dat)
-                print(f"   + Added tree {tree.id} '{tree.name}' with relative pos ({relative_row},{relative_col})")
-        
-        # ✅ DEBUG: Check all DragAreaTree records for this dome
-        all_drag_area_trees = DragAreaTree.query.join(DragArea).filter(DragArea.dome_id == dome_id).all()
-        print(f"🔍 Total DragAreaTree records in dome {dome_id}: {len(all_drag_area_trees)}")
-        for dat in all_drag_area_trees:
-            print(f"   - DragAreaTree: area_id={dat.drag_area_id}, tree_id={dat.tree_id}")
-        
-        # ✅ DEBUG: Check if the drag area has the relationship loaded
-        try:
-            original_trees = drag_area.drag_area_trees
-            print(f"🔍 Original relationship loaded: {len(original_trees)} trees")
-        except Exception as rel_error:
-            print(f"⚠️ Original relationship not loaded: {rel_error}")
-        
-        # ✅ DEBUG: Show what's in the DragAreaTree associations
-        for i, dat in enumerate(drag_area_trees):
-            print(f"🔍 DragAreaTree {i}: area_id={dat.drag_area_id}, tree_id={dat.tree_id}, relative_pos=({dat.relative_row},{dat.relative_col})")
-        
-        for dat in drag_area_trees:
-            tree = dat.tree
-            if not tree:
-                # ✅ FALLBACK: If tree relationship isn't loaded, query directly
-                tree = Tree.query.get(dat.tree_id)
-                print(f"🔄 Fallback: Loaded tree {dat.tree_id} directly")
-            
-            if tree:
-                print(f"🌳 Processing tree {tree.id} '{tree.name}' in drag area")
-                tree_data = {
-                    'id': tree.id,
-                    'name': tree.name,
-                    'breed': tree.breed or '',
-                    'internal_row': tree.internal_row,
-                    'internal_col': tree.internal_col,
-                    'relative_row': dat.relative_row,
-                    'relative_col': dat.relative_col,
-                    'image_url': tree.image_url,
-                    'info': tree.info or '',
-                    'life_days': tree.life_days or 0,
-                    'plant_type': getattr(tree, 'plant_type', 'mother'),
-                    'mother_plant_id': getattr(tree, 'mother_plant_id', None),
-                    'cutting_notes': getattr(tree, 'cutting_notes', ''),
-                    'created_at': tree.created_at.isoformat() if tree.created_at else None,
-                    'updated_at': tree.updated_at.isoformat() if tree.updated_at else None
-                }
-                area_trees.append(tree_data)
-                tree_ids.append(tree.id)
-
-        print(f"📦 Collected {len(area_trees)} trees from drag area")
-
-        # ✅ NEW: Auto-include cutting trees when copying mother trees
-        additional_trees = []
-        mother_tree_ids = [t['id'] for t in area_trees if t['plant_type'] == 'mother']
-        
-        if mother_tree_ids:
-            print(f"🔍 Found {len(mother_tree_ids)} mother trees, checking for their cuttings...")
-            
-            # Find all cutting trees that belong to these mothers (anywhere in the dome)
-            for mother_id in mother_tree_ids:
-                cutting_trees_for_mother = Tree.query.filter_by(
-                    dome_id=dome_id,
-                    user_id=current_user.id,
-                    mother_plant_id=mother_id,
-                    plant_type='cutting'
-                ).all()
-                
-                print(f"��� Mother {mother_id} has {len(cutting_trees_for_mother)} cutting trees")
-                
-                for cutting_tree in cutting_trees_for_mother:
-                    # Check if this cutting is already in the area
-                    already_included = any(t['id'] == cutting_tree.id for t in area_trees)
-                    if not already_included:
-                        # Add the cutting tree to the copy
-                        cutting_data = {
-                            'id': cutting_tree.id,
-                            'name': cutting_tree.name,
-                            'breed': cutting_tree.breed or '',
-                            'internal_row': cutting_tree.internal_row,
-                            'internal_col': cutting_tree.internal_col,
-                            'relative_row': 0,  # Will be calculated later
-                            'relative_col': 0,  # Will be calculated later
-                            'image_url': cutting_tree.image_url,
-                            'info': cutting_tree.info or '',
-                            'life_days': cutting_tree.life_days or 0,
-                            'plant_type': 'cutting',
-                            'mother_plant_id': cutting_tree.mother_plant_id,
-                            'cutting_notes': getattr(cutting_tree, 'cutting_notes', ''),
-                            'created_at': cutting_tree.created_at.isoformat() if cutting_tree.created_at else None,
-                            'updated_at': cutting_tree.updated_at.isoformat() if cutting_tree.updated_at else None,
-                            'auto_included': True  # Mark as auto-included
-                        }
-                        additional_trees.append(cutting_data)
-                        tree_ids.append(cutting_tree.id)
-                        print(f"➕ Auto-included cutting '{cutting_tree.name}' (ID: {cutting_tree.id})")
-
-        # Add the additional trees to the main list
-        area_trees.extend(additional_trees)
-        print(f"📦 Total trees after auto-inclusion: {len(area_trees)} (added {len(additional_trees)} cuttings)")
-
-        # Analyze relationships within the copied trees
-        mother_trees = [t for t in area_trees if t['plant_type'] == 'mother']
-        cutting_trees = [t for t in area_trees if t['plant_type'] == 'cutting']
-        
-        print(f"🔍 RELATIONSHIP DEBUG: Found {len(mother_trees)} mothers, {len(cutting_trees)} cuttings")
-        for tree in area_trees:
-            print(f"🔍 Tree {tree['id']} '{tree['name']}' - Type: {tree['plant_type']} - Mother ID: {tree.get('mother_plant_id', 'None')}")
-        
-        # Find relationships that will be preserved (both mother and cutting in the area)
-        preserved_relationships = []
-        broken_relationships = []
-        
-        for cutting in cutting_trees:
-            print(f"🔍 Analyzing cutting {cutting['id']} '{cutting['name']}' - Mother ID: {cutting.get('mother_plant_id', 'None')}")
-            if cutting['mother_plant_id']:
-                mother_in_area = any(t['id'] == cutting['mother_plant_id'] for t in area_trees)
-                print(f"🔍 Mother {cutting['mother_plant_id']} in area: {mother_in_area}")
-                if mother_in_area:
-                    preserved_relationships.append({
-                        'mother_id': cutting['mother_plant_id'],
-                        'cutting_id': cutting['id']
-                    })
-                    print(f"✅ Preserved relationship: Cutting {cutting['id']} -> Mother {cutting['mother_plant_id']}")
-                else:
-                    broken_relationships.append({
-                        'cutting_id': cutting['id'],
-                        'original_mother_id': cutting['mother_plant_id']
-                    })
-                    print(f"💔 Broken relationship: Cutting {cutting['id']} -> Mother {cutting['mother_plant_id']} (not in area)")
-            else:
-                print(f"ℹ️ Cutting {cutting['id']} has no mother relationship")
-
-        # Get breed information
-        breeds = list(set([tree['breed'] for tree in area_trees if tree['breed']]))
-        
-        # Create comprehensive clipboard data
-        clipboard_data = {
-            'id': drag_area.id,
-            'name': drag_area.name,
-            'type': 'dragArea',
-            'color': drag_area.color,
-            'width': drag_area.width,
-            'height': drag_area.height,
-            'min_row': drag_area.min_row,
-            'max_row': drag_area.max_row,
-            'min_col': drag_area.min_col,
-            'max_col': drag_area.max_col,
-            'trees': area_trees,
-            'tree_count': len(area_trees),
-            'tree_ids': tree_ids,
-            'visible': drag_area.visible,
-            'copied_at': datetime.utcnow().isoformat(),
-            'source_dome_id': dome_id,
-            'source_dome_name': dome.name,
-            'source_farm_id': dome.farm_id,
-            'clipboard_version': '3.0',
-            'clipboard_source': 'backend_enhanced',
-            'summary': {
-                'total_trees': len(area_trees),
-                'breeds': breeds,
-                'breed_count': len(breeds),
-                'has_images': len([tree for tree in area_trees if tree['image_url']]),
-                'plant_relationships': {
-                    'mother_trees': len(mother_trees),
-                    'cutting_trees': len(cutting_trees),
-                    'preserved_relationships': len(preserved_relationships),
-                    'broken_relationships': len(broken_relationships),
-                    'complete_relationships': preserved_relationships,
-                    'broken_relationships_detail': broken_relationships
-                }
-            },
-            'relationship_metadata': {
-                'mother_cutting_pairs': preserved_relationships,
-                'broken_relationships': broken_relationships,
-                'total_relationships': len(preserved_relationships) + len(broken_relationships)
-            }
-        }
-
-        # Save to backend clipboard storage
-        # First, clear any existing clipboard data for this user
-        ClipboardData.query.filter_by(user_id=current_user.id).delete()
-        
-        # Create new clipboard entry
-        clipboard_entry = ClipboardData(
-            user_id=current_user.id,
-            clipboard_type='drag_area',
-            name=clipboard_data['name'],
-            source_dome_id=dome_id,
-            source_farm_id=dome.farm_id,
-            clipboard_content=json.dumps(clipboard_data),
-            width=clipboard_data['width'],
-            height=clipboard_data['height'],
-            tree_count=clipboard_data['tree_count'],
-            created_at=datetime.utcnow()
-        )
-        
-        db.session.add(clipboard_entry)
-        db.session.commit()
-
-        print(f"✅ Drag area '{clipboard_data['name']}' saved to backend clipboard")
-        print(f"   📏 Area size: {clipboard_data['width']}x{clipboard_data['height']}")
-        print(f"   🌳 Trees: {len(area_trees)}")
-        print(f"   🧬 Breeds: {len(breeds)} ({', '.join(breeds) if breeds else 'None'})")
-        print(f"   🔗 Relationships: {len(preserved_relationships)} preserved, {len(broken_relationships)} broken")
-        print(f"   💾 Clipboard entry ID: {clipboard_entry.id}")
-        print(f"   ���� Clipboard data preview: {clipboard_data['name']} - {clipboard_data['tree_count']} trees")
-
-        return jsonify({
-            'success': True,
-            'clipboard_data': clipboard_data,
-            'message': f'Drag area "{drag_area.name}" copied to backend clipboard',
-            'stats': {
-                'trees_copied': len(area_trees),
-                'breeds_found': len(breeds),
-                'relationships_preserved': len(preserved_relationships),
-                'relationships_broken': len(broken_relationships)
-            }
-        })
-
-    except Exception as e:
-        db.session.rollback()
-        print(f"❌ Error in copy_drag_area_to_backend: {str(e)}")
-        import traceback
-        print(f"❌ Traceback: {traceback.format_exc()}")
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-
-@app.route('/api/paste_drag_area_from_backend/<int:dome_id>', methods=['POST'])
-@login_required
-def paste_drag_area_from_backend(dome_id):
-    """Paste a drag area from backend clipboard storage with orphaned relationship handling"""
-    try:
-        print(f"📋 Backend paste: Pasting to dome {dome_id}")
-
-        # Verify dome ownership
-        dome = Dome.query.filter_by(id=dome_id, user_id=current_user.id).first()
-        if not dome:
-            return jsonify({'success': False, 'error': 'Dome not found or access denied'}), 404
-
-        # Get clipboard data from backend
-        clipboard_entry = ClipboardData.query.filter_by(
-            user_id=current_user.id,
-            clipboard_type='drag_area'
-        ).order_by(ClipboardData.created_at.desc()).first()
-
-        if not clipboard_entry:
-            return jsonify({'success': False, 'error': 'No clipboard data found'}), 400
-
-        # Parse clipboard data
-        try:
-            clipboard_data = json.loads(clipboard_entry.clipboard_content)
-        except json.JSONDecodeError:
-            return jsonify({'success': False, 'error': 'Invalid clipboard data format'}), 400
-
-        # Get paste parameters
-        data = request.get_json()
-        paste_row = data.get('paste_row', 0)
-        paste_col = data.get('paste_col', 0)
-        new_name = data.get('name', f"{clipboard_data.get('name', 'Pasted Area')} Copy")
-        create_trees = data.get('create_trees', True)
-        
-        # ✅ NEW: Get orphan handling parameters
-        # Check both direct orphan_handling and relationship_metadata.orphan_handling
-        orphan_handling = data.get('orphan_handling', {})
-        relationship_metadata = data.get('relationship_metadata', {})
-        if not orphan_handling and relationship_metadata.get('orphan_handling'):
-            orphan_handling = relationship_metadata.get('orphan_handling', {})
-        
-        # ✅ FIX: Ensure orphan_handling is never None
-        if orphan_handling is None:
-            orphan_handling = {}
-        
-        orphan_mode = orphan_handling.get('mode', 'preserve_original') if orphan_handling else 'preserve_original'
-        orphaned_cuttings_info = orphan_handling.get('orphaned_cuttings', []) if orphan_handling else []
-        
-        # ✅ Map frontend mode names to backend mode names
-        mode_mapping = {
-            'preserve_original': 'preserve_original',
-            'find_mothers': 'link_to_existing',
-            'link_to_existing': 'link_to_existing',
-            'convert_to_independent': 'convert_to_independent',
-            'keep_orphaned': 'keep_orphaned'
-        }
-        orphan_mode = mode_mapping.get(orphan_mode, 'preserve_original')  # Default to preserve original
-
-        print(f"📋 Pasting '{new_name}' at ({paste_row}, {paste_col})")
-        print(f"🔗 Orphan handling mode: {orphan_mode}")
-        if orphaned_cuttings_info:
-            print(f"⚠️ Orphaned cuttings to handle: {len(orphaned_cuttings_info)}")
-
-        # Check for name conflicts
-        existing_area = DragArea.query.filter_by(dome_id=dome_id, name=new_name).first()
-        if existing_area:
-            # Auto-generate unique name
-            counter = 1
-            base_name = new_name
-            while existing_area:
-                new_name = f"{base_name} ({counter})"
-                existing_area = DragArea.query.filter_by(dome_id=dome_id, name=new_name).first()
-                counter += 1
-
-        # Calculate new boundaries
-        width = clipboard_data.get('width', 1)
-        height = clipboard_data.get('height', 1)
-        new_min_row = paste_row
-        new_max_row = paste_row + height - 1
-        new_min_col = paste_col
-        new_max_col = paste_col + width - 1
-
-        # Validate boundaries
-        if new_max_row >= dome.internal_rows or new_max_col >= dome.internal_cols:
-            return jsonify({
-                'success': False,
-                'error': f'Area would extend outside grid boundaries ({dome.internal_rows}x{dome.internal_cols})'
-            }), 400
-
-        # Create new drag area
-        new_area = DragArea(
-            name=new_name,
-            color=clipboard_data.get('color', '#007bff'),
-            min_row=new_min_row,
-            max_row=new_max_row,
-            min_col=new_min_col,
-            max_col=new_max_col,
-            width=width,
-            height=height,
-            dome_id=dome_id,
-            visible=True,
-            created_at=datetime.utcnow()
-        )
-
-        db.session.add(new_area)
-        db.session.flush()  # Get the new area ID
-
-        print(f"✅ Created new drag area: {new_area.name} (ID: {new_area.id})")
-
-        # Create trees if requested
-        new_trees = []
-        old_to_new_tree_mapping = {}
-        
-        if create_trees and clipboard_data.get('trees'):
-            trees_data = clipboard_data['trees']
-            
-            # Calculate position offsets
-            original_min_row = clipboard_data.get('min_row', 0)
-            original_min_col = clipboard_data.get('min_col', 0)
-            row_offset = paste_row - original_min_row
-            col_offset = paste_col - original_min_col
-
-            print(f"🌳 Creating {len(trees_data)} trees with offset ({row_offset}, {col_offset})")
-
-            # First pass: Create all trees without relationships
-            for tree_data in trees_data:
-                new_row = tree_data['internal_row'] + row_offset
-                new_col = tree_data['internal_col'] + col_offset
-                
-                # Skip if position is occupied
-                existing_tree = Tree.query.filter_by(
-                    dome_id=dome_id,
-                    internal_row=new_row,
-                    internal_col=new_col
-                ).first()
-                
-                if existing_tree:
-                    print(f"⚠️ Position ({new_row}, {new_col}) occupied, skipping tree '{tree_data['name']}'")
-                    continue
-
-                new_tree = Tree(
-                    name=tree_data['name'],
-                    breed=tree_data.get('breed', ''),
-                    internal_row=new_row,
-                    internal_col=new_col,
-                    life_days=tree_data.get('life_days', 0),
-                    info=tree_data.get('info', ''),
-                    image_url=tree_data.get('image_url', ''),
-                    dome_id=dome_id,
-                    user_id=current_user.id,
-                    plant_type=tree_data.get('plant_type', 'mother'),
-                    cutting_notes=tree_data.get('cutting_notes', ''),
-                    created_at=datetime.utcnow()
-                )
-
-                db.session.add(new_tree)
-                db.session.flush()  # Get the new tree ID
-                
-                # Map old ID to new ID for relationship restoration
-                old_to_new_tree_mapping[tree_data['id']] = new_tree.id
-                new_trees.append(new_tree)
-
-                # Create drag area tree association
-                relative_row = tree_data.get('relative_row', new_row - paste_row)
-                relative_col = tree_data.get('relative_col', new_col - paste_col)
-                
-                drag_area_tree = DragAreaTree(
-                    drag_area_id=new_area.id,
-                    tree_id=new_tree.id,
-                    relative_row=relative_row,
-                    relative_col=relative_col,
-                    created_at=datetime.utcnow()
-                )
-                db.session.add(drag_area_tree)
-
-                print(f"🌳 Created tree '{new_tree.name}' at ({new_row}, {new_col})")
-
-            # Second pass: Handle relationships based on orphan handling mode
-            relationships_created = 0
-            independent_cuttings = 0
-            orphaned_cuttings_handled = 0
-            linked_to_existing_mothers = 0
-            transferred_cuttings = 0
-            
-            # Find all mother trees that were pasted
-            mother_trees_pasted = []
-            cutting_trees_pasted = []
-            
-            for tree_data in trees_data:
-                if tree_data.get('plant_type') == 'mother' and tree_data['id'] in old_to_new_tree_mapping:
-                    mother_trees_pasted.append({
-                        'old_id': tree_data['id'],
-                        'new_id': old_to_new_tree_mapping[tree_data['id']],
-                        'name': tree_data['name']
-                    })
-                elif tree_data.get('plant_type') == 'cutting' and tree_data['id'] in old_to_new_tree_mapping:
-                    cutting_trees_pasted.append({
-                        'old_id': tree_data['id'],
-                        'new_id': old_to_new_tree_mapping[tree_data['id']],
-                        'name': tree_data['name'],
-                        'original_mother_id': tree_data.get('mother_plant_id')
-                    })
-            
-            # ✅ NEW: Handle cutting tree transfers when mother trees are pasted
-            if mother_trees_pasted and cutting_trees_pasted:
-                print(f"🔄 Processing cutting tree transfers for {len(mother_trees_pasted)} mother trees...")
-                
-                for mother in mother_trees_pasted:
-                    # Find all cutting trees that belong to this mother
-                    mother_cuttings = [c for c in cutting_trees_pasted if c['original_mother_id'] == mother['old_id']]
-                    
-                    if mother_cuttings:
-                        print(f"🔄 Transferring {len(mother_cuttings)} cutting trees from old mother {mother['old_id']} to new mother {mother['new_id']}")
-                        
-                        for cutting in mother_cuttings:
-                            cutting_tree = Tree.query.get(cutting['new_id'])
-                            if cutting_tree:
-                                # Update cutting to point to new mother
-                                cutting_tree.mother_plant_id = mother['new_id']
-                                cutting_tree.plant_type = 'cutting'
-                                relationships_created += 1
-                                transferred_cuttings += 1
-                                print(f"✅ Transferred cutting '{cutting['name']}' to new mother '{mother['name']}'")
-                        
-                        # ✅ CRITICAL: Remove cutting trees from old mother (always, regardless of dome)
-                        old_mother_id = mother['old_id']
-                        print(f"🗑️ Removing {len(mother_cuttings)} cutting trees from old mother {old_mother_id}")
-                        
-                        # Find all cutting trees that belong to the old mother (anywhere in the system)
-                        old_cuttings_to_remove = Tree.query.filter_by(
-                            mother_plant_id=old_mother_id,
-                            plant_type='cutting',
-                            user_id=current_user.id
-                        ).all()
-                        
-                        print(f"🔍 Found {len(old_cuttings_to_remove)} cutting trees linked to old mother {old_mother_id}")
-                        
-                        for old_cutting in old_cuttings_to_remove:
-                            # Check if this cutting was copied (by checking if its ID is in the copied list)
-                            cutting_was_copied = any(c['old_id'] == old_cutting.id for c in cutting_trees_pasted)
-                            if cutting_was_copied:
-                                # Remove the cutting tree from the old mother
-                                old_cutting.mother_plant_id = None
-                                old_cutting.plant_type = 'mother'  # Convert to independent
-                                print(f"🗑️ Removed cutting '{old_cutting.name}' (ID: {old_cutting.id}) from old mother and converted to independent")
-                            else:
-                                print(f"ℹ️ Keeping cutting '{old_cutting.name}' (ID: {old_cutting.id}) - not in copied list")
-                        
-                        print(f"✅ Completed transfer of {len(mother_cuttings)} cutting trees from old mother {old_mother_id}")
-                        
-                        # ✅ FORCE: Update the old mother's cutting count to reflect the changes
-                        old_mother_tree = Tree.query.get(old_mother_id)
-                        if old_mother_tree:
-                            # Force update the cutting count for the old mother
-                            remaining_cuttings = Tree.query.filter_by(
-                                mother_plant_id=old_mother_id,
-                                plant_type='cutting',
-                                user_id=current_user.id
-                            ).count()
-                            print(f"🔄 Old mother '{old_mother_tree.name}' now has {remaining_cuttings} cutting trees remaining")
-            
-            print(f"🌳 Found {len(mother_trees_pasted)} mother trees and {len(cutting_trees_pasted)} cutting trees")
-            
-            # Create a mapping of orphaned cutting IDs for quick lookup
-            orphaned_cutting_ids = set()
-            orphan_handling_map = {}
-            for orphan_info in orphaned_cuttings_info:
-                orphaned_cutting_ids.add(orphan_info.get('cutting_id'))
-                orphan_handling_map[orphan_info.get('cutting_id')] = orphan_info
-            
-            # Get available mother trees in the destination dome for linking
-            available_mothers_in_dome = []
-            if orphan_mode == 'link_to_existing':
-                available_mothers_in_dome = Tree.query.filter_by(
-                    dome_id=dome_id,
-                    user_id=current_user.id,
-                    plant_type='mother'
-                ).all()
-                print(f"🔍 Found {len(available_mothers_in_dome)} available mother trees in destination dome")
-            
-            # For each cutting tree, handle relationships based on orphan mode
-            for cutting in cutting_trees_pasted:
-                cutting_tree = Tree.query.get(cutting['new_id'])
-                if not cutting_tree:
-                    continue
-                
-                is_orphaned = cutting['old_id'] in orphaned_cutting_ids
-                
-                if is_orphaned:
-                    print(f"⚠️ Handling orphaned cutting: '{cutting['name']}' (mode: {orphan_mode})")
-                    
-                    if orphan_mode == 'preserve_original':
-                        # Preserve the original mother relationship (even if mother is in different dome)
-                        original_mother_id = cutting.get('original_mother_id')
-                        if original_mother_id:
-                            cutting_tree.mother_plant_id = original_mother_id
-                            cutting_tree.plant_type = 'cutting'
-                            relationships_created += 1
-                            orphaned_cuttings_handled += 1
-                            print(f"🔄 Preserved original relationship: cutting '{cutting['name']}' -> mother ID {original_mother_id}")
-                        else:
-                            # No original mother ID, convert to independent
-                            cutting_tree.mother_plant_id = None
-                            cutting_tree.plant_type = 'mother'
-                            independent_cuttings += 1
-                            orphaned_cuttings_handled += 1
-                            print(f"🌱 No original mother ID, converted '{cutting['name']}' to independent")
-                        
-                    elif orphan_mode == 'convert_to_independent':
-                        # Convert to independent mother tree
-                        cutting_tree.mother_plant_id = None
-                        cutting_tree.plant_type = 'mother'
-                        independent_cuttings += 1
-                        orphaned_cuttings_handled += 1
-                        print(f"🌱 Converted orphaned cutting '{cutting['name']}' to independent mother")
-                        
-                    elif orphan_mode == 'link_to_existing' and available_mothers_in_dome:
-                        # Link to an existing mother tree in the dome
-                        # Try to find a mother with the same breed first
-                        suitable_mother = None
-                        cutting_breed = cutting_tree.breed or ''
-                        
-                        for mother in available_mothers_in_dome:
-                            if mother.breed == cutting_breed:
-                                suitable_mother = mother
-                                break
-                        
-                        # If no breed match, use the first available mother
-                        if not suitable_mother and available_mothers_in_dome:
-                            suitable_mother = available_mothers_in_dome[0]
-                        
-                        if suitable_mother:
-                            cutting_tree.mother_plant_id = suitable_mother.id
-                            cutting_tree.plant_type = 'cutting'
-                            relationships_created += 1
-                            linked_to_existing_mothers += 1
-                            orphaned_cuttings_handled += 1
-                            print(f"🔗 Linked orphaned cutting '{cutting['name']}' to existing mother '{suitable_mother.name}'")
-                        else:
-                            # No suitable mother found, convert to independent
-                            cutting_tree.mother_plant_id = None
-                            cutting_tree.plant_type = 'mother'
-                            independent_cuttings += 1
-                            orphaned_cuttings_handled += 1
-                            print(f"🌱 No suitable mother found, converted '{cutting['name']}' to independent")
-                            
-                    else:  # keep_orphaned mode or fallback
-                        # Keep as orphaned cutting (broken relationship)
-                        cutting_tree.mother_plant_id = cutting['original_mother_id']  # Keep original reference
-                        cutting_tree.plant_type = 'cutting'
-                        orphaned_cuttings_handled += 1
-                        print(f"⚠️ Kept '{cutting['name']}' as orphaned cutting (broken relationship)")
-                        
-                else:
-                    # Not orphaned - handle normal relationship restoration
-                    # Check if the original mother was also pasted
-                    original_mother_pasted = None
-                    if cutting['original_mother_id']:
-                        for mother in mother_trees_pasted:
-                            if mother['old_id'] == cutting['original_mother_id']:
-                                original_mother_pasted = mother
-                                break
-                    
-                    if original_mother_pasted:
-                        # Link to the original mother that was pasted
-                        cutting_tree.mother_plant_id = original_mother_pasted['new_id']
-                        relationships_created += 1
-                        print(f"🔗 Linked cutting '{cutting['name']}' to original mother '{original_mother_pasted['name']}'")
-                    elif mother_trees_pasted:
-                        # Link to the first available mother tree that was pasted
-                        first_mother = mother_trees_pasted[0]
-                        cutting_tree.mother_plant_id = first_mother['new_id']
-                        relationships_created += 1
-                        print(f"🔗 Linked cutting '{cutting['name']}' to available pasted mother '{first_mother['name']}'")
-                    else:
-                        # No mother trees available, convert to independent
-                        cutting_tree.mother_plant_id = None
-                        cutting_tree.plant_type = 'mother'
-                        independent_cuttings += 1
-                        print(f"🌱 Converted cutting '{cutting['name']}' to independent mother (no mothers pasted)")
-
-        # ✅ FORCE: Ensure all database changes are committed and visible
-        db.session.commit()
-        
-        # ✅ DEBUG: Verify the changes were actually applied
-        if mother_trees_pasted:
-            for mother in mother_trees_pasted:
-                old_mother_id = mother['old_id']
-                old_mother_tree = Tree.query.get(old_mother_id)
-                if old_mother_tree:
-                    remaining_cuttings = Tree.query.filter_by(
-                        mother_plant_id=old_mother_id,
-                        plant_type='cutting',
-                        user_id=current_user.id
-                    ).count()
-                    print(f"🔍 VERIFICATION: Old mother '{old_mother_tree.name}' (ID: {old_mother_id}) has {remaining_cuttings} cuttings after transfer")
-
-        print(f"✅ Paste completed successfully")
-        print(f"   📏 Area: {new_area.name} ({width}x{height})")
-        print(f"   🌳 Trees created: {len(new_trees)}")
-        print(f"   🔗 Relationships created: {relationships_created}")
-        print(f"   🌱 Independent cuttings converted: {independent_cuttings}")
-        print(f"   ⚠️ Orphaned cuttings handled: {orphaned_cuttings_handled}")
-        print(f"   🔗 Linked to existing mothers: {linked_to_existing_mothers}")
-        print(f"   🔄 Cutting trees transferred: {transferred_cuttings}")
-        
-        # Calculate preserved relationships
-        preserved_relationships = 0
-        if orphan_mode == 'preserve_original':
-            preserved_relationships = orphaned_cuttings_handled
-
-        return jsonify({
-            'success': True,
-            'message': f'Drag area "{new_name}" pasted successfully',
-            'area': {
-                'id': new_area.id,
-                'name': new_area.name,
-                'position': f"({paste_row}, {paste_col})",
-                'size': f"{width}x{height}"
-            },
-            'stats': {
-                'trees_created': len(new_trees),
-                'mother_trees_pasted': len(mother_trees_pasted),
-                'cutting_trees_pasted': len(cutting_trees_pasted),
-                'relationships_created': relationships_created,
-                'independent_cuttings_converted': independent_cuttings,
-                'orphaned_cuttings_handled': orphaned_cuttings_handled,
-                'linked_to_existing_mothers': linked_to_existing_mothers,
-                'preserved_original_relationships': preserved_relationships,
-                'transferred_cuttings': transferred_cuttings,
-                'orphan_handling_mode': orphan_mode,
-                'source_dome': clipboard_data.get('source_dome_name', 'Unknown')
-            }
-        })
-
-    except Exception as e:
-        db.session.rollback()
-        print(f"❌ Error in paste_drag_area_from_backend: {str(e)}")
-        import traceback
-        print(f"❌ Traceback: {traceback.format_exc()}")
-        
-        # ✅ DEBUG: Log the problematic data
-        print(f"❌ DEBUG: data = {data}")
-        print(f"❌ DEBUG: orphan_handling = {orphan_handling}")
-        print(f"❌ DEBUG: orphaned_cuttings_info = {orphaned_cuttings_info}")
-        
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-
-
-
-
-
-
-
-
-
-
-
-
-@app.route('/api/refresh_tree_relationships/<int:tree_id>', methods=['POST'])
-@login_required
-def refresh_tree_relationships(tree_id):
-    """Force refresh tree relationships data (cache-busting)"""
-    try:
-        # This endpoint forces a fresh query of tree relationships
-        # It's useful after paste operations that might affect relationships
-        tree = Tree.query.filter_by(id=tree_id, user_id=current_user.id).first()
-        if not tree:
-            return jsonify({'success': False, 'error': 'Tree not found'}), 404
-        
-        # Force a fresh count of cutting trees
-        if tree.plant_type == 'mother':
-            cutting_count = Tree.query.filter_by(
-                mother_plant_id=tree.id,
-                plant_type='cutting',
-                user_id=current_user.id
-            ).count()
-            print(f"🔄 Refreshed: Mother '{tree.name}' has {cutting_count} cutting trees")
-        
-        return jsonify({
-            'success': True,
-            'message': 'Tree relationships refreshed',
-            'tree_id': tree_id,
-            'timestamp': datetime.utcnow().isoformat()
-        })
-        
-    except Exception as e:
-        print(f"❌ Error refreshing tree relationships: {str(e)}")
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-@app.route('/api/get_clipboard_status', methods=['GET'])
-@login_required
-def get_clipboard_status():
-    """Get current clipboard status from backend"""
-    try:
-        clipboard_entry = ClipboardData.query.filter_by(
-            user_id=current_user.id,
-            clipboard_type='drag_area'
-        ).order_by(ClipboardData.created_at.desc()).first()
-        
-        if not clipboard_entry:
-            return jsonify({
-                'success': True,
-                'has_clipboard': False,
-                'message': 'No clipboard data available'
-            })
-
-        # Parse clipboard data for summary
-        try:
-            clipboard_data = json.loads(clipboard_entry.clipboard_content)
-            
-            print(f"🔍 DEBUG: Clipboard entry found - ID: {clipboard_entry.id}")
-            print(f"🔍 DEBUG: Clipboard entry name: {clipboard_entry.name}")
-            print(f"🔍 DEBUG: Clipboard entry tree_count: {getattr(clipboard_entry, 'tree_count', 'N/A')}")
-            print(f"🔍 DEBUG: Parsed clipboard_data keys: {list(clipboard_data.keys())}")
-            print(f"🔍 DEBUG: Clipboard data name: {clipboard_data.get('name', 'NOT_FOUND')}")
-            print(f"🔍 DEBUG: Clipboard data tree_count: {clipboard_data.get('tree_count', 'NOT_FOUND')}")
-            
-            return jsonify({
-                'success': True,
-                'has_clipboard': True,
-                'clipboard_info': {
-                    'name': clipboard_data.get('name', 'Unknown Area'),
-                    'tree_count': clipboard_data.get('tree_count', 0),
-                    'size': f"{clipboard_data.get('width', 1)}x{clipboard_data.get('height', 1)}",
-                    'source_dome': clipboard_data.get('source_dome_name', 'Unknown'),
-                    'copied_at': clipboard_entry.created_at.isoformat(),
-                    'breeds': clipboard_data.get('summary', {}).get('breeds', []),
-                    'relationships': clipboard_data.get('summary', {}).get('plant_relationships', {})
-                }
-            })
-            
-        except json.JSONDecodeError:
-            return jsonify({
-                'success': True,
-                'has_clipboard': False,
-                'message': 'Clipboard data corrupted'
-            })
-
-    except Exception as e:
-        print(f"❌ Error getting clipboard status: {str(e)}")
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-
-@app.route('/api/clear_clipboard', methods=['POST'])
-@login_required
-def clear_clipboard():
-    """Clear backend clipboard data"""
-    try:
-        deleted_count = ClipboardData.query.filter_by(user_id=current_user.id).delete()
-        db.session.commit()
-        
-        print(f"🗑️ Cleared {deleted_count} clipboard entries for user {current_user.id}")
-        
-        return jsonify({
-            'success': True,
-            'message': f'Cleared {deleted_count} clipboard entries'
-        })
-
-    except Exception as e:
-        db.session.rollback()
-        print(f"❌ Error clearing clipboard: {str(e)}")
-        return jsonify({'success': False, 'error': str(e)}), 500
-
 if __name__ == '__main__':
     # Create upload directories
     os.makedirs(os.path.join(UPLOAD_FOLDER, 'trees'), exist_ok=True)
     os.makedirs(os.path.join(UPLOAD_FOLDER, 'domes'), exist_ok=True)
-
+    
     # Run the application
-    print("🚀 Starting Flask server...")
-    print("📍 Server will be available at: http://127.0.0.1:5000")
-    print("🌐 Grid 1: http://127.0.0.1:5000/grid/1")
-    print("🌐 Grid 2: http://127.0.0.1:5000/grid/2")
     app.run(debug=True, host='0.0.0.0', port=5000)

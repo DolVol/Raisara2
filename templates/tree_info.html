@@ -35,6 +35,210 @@
     /* Add default background color while loading */
     background-color: #f0f0f0;
 }
+.tree-created-time, .tree-planted-time {
+    display: inline-block;
+    background: #f8f9fa;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 13px;
+}
+
+.tree-created-time {
+    border-left: 3px solid #17a2b8;
+}
+
+.tree-planted-time {
+    border-left: 3px solid #28a745;
+}
+
+#treeAgeDisplay {
+    background: #e8f5e8;
+    padding: 4px 8px;
+    border-radius: 4px;
+    border: 1px solid #28a745;
+}
+
+/* Hover effects for time elements */
+.tree-created-time:hover, .tree-planted-time:hover {
+    background: #e9ecef;
+    cursor: help;
+}
+.life-days-container {
+    border: 1px solid #e9ecef;
+    border-radius: 6px;
+    padding: 12px;
+    background: #f8f9fa;
+    margin-top: 5px;
+}
+
+.calculated-age-info {
+    background: #e8f4f8;
+    padding: 8px;
+    border-radius: 4px;
+    border-left: 3px solid #17a2b8;
+    margin-bottom: 10px;
+}
+
+.manual-life-days {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+.manual-life-days input {
+    flex: 1;
+    max-width: 150px;
+}
+
+.form-help {
+    line-height: 1.4;
+}
+
+/* Enhanced life indicators */
+.life-indicator {
+    padding: 4px 12px;
+    border-radius: 12px;
+    color: white;
+    font-weight: bold;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+}
+
+.life-indicator.life-healthy { 
+    background: linear-gradient(135deg, #28a745, #20c997);
+}
+
+.life-indicator.life-warning { 
+    background: linear-gradient(135deg, #ffc107, #fd7e14);
+}
+
+.life-indicator.life-critical { 
+    background: linear-gradient(135deg, #dc3545, #e83e8c);
+}
+
+.life-indicator.life-seedling { 
+    background: linear-gradient(135deg, #4CAF50, #45a049);
+}
+
+.life-indicator.life-young { 
+    background: linear-gradient(135deg, #8BC34A, #7CB342);
+}
+
+.life-indicator.life-growing { 
+    background: linear-gradient(135deg, #FFC107, #FFB300);
+}
+
+.life-indicator.life-mature { 
+    background: linear-gradient(135deg, #FF9800, #F57C00);
+}
+
+.life-indicator.life-adult { 
+    background: linear-gradient(135deg, #FF5722, #E64A19);
+}
+
+.life-indicator.life-ancient { 
+    background: linear-gradient(135deg, #795548, #6D4C41);
+}
+
+@media (max-width: 768px) {
+    .manual-life-days {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+    }
+    
+    .manual-life-days input {
+        max-width: none;
+    }
+    
+    .life-indicator {
+        text-align: center;
+    }
+}
+.life-indicator.life-seedling { 
+    background: linear-gradient(135deg, #4CAF50, #45a049);
+}
+
+.life-indicator.life-young { 
+    background: linear-gradient(135deg, #8BC34A, #7CB342);
+}
+
+.life-indicator.life-growing { 
+    background: linear-gradient(135deg, #FFC107, #FFB300);
+}
+
+.life-indicator.life-mature { 
+    background: linear-gradient(135deg, #FF9800, #F57C00);
+}
+
+.life-indicator.life-adult { 
+    background: linear-gradient(135deg, #FF5722, #E64A19);
+}
+
+.life-indicator.life-ancient { 
+    background: linear-gradient(135deg, #795548, #6D4C41);
+}
+
+/* ✅ NEW: Manual Life Days Info */
+#lifeDaysInfo {
+    border-left: 4px solid #ffc107;
+    transition: all 0.3s ease;
+}
+
+#lifeDaysInfo:hover {
+    background: #fff3cd !important;
+    border-left-color: #ff9800;
+}
+
+/* ✅ ENHANCED: Tree Age Display */
+#treeAgeDisplay {
+    background: linear-gradient(135deg, #e8f5e8, #f0f8f0);
+    padding: 6px 12px;
+    border-radius: 6px;
+    border: 1px solid #28a745;
+    display: inline-block;
+    margin-right: 10px;
+}
+
+/* ✅ ENHANCED: Status Display */
+#treeStatusDisplay {
+    font-style: italic;
+}
+
+/* ✅ NEW: Tree Stats Section Improvements */
+.tree-stats p {
+    margin: 12px 0;
+    line-height: 1.6;
+}
+
+.tree-stats p strong {
+    display: inline-block;
+    min-width: 80px;
+    color: #495057;
+}
+
+/* ✅ NEW: Responsive adjustments */
+@media (max-width: 768px) {
+    .life-indicator {
+        display: block;
+        margin: 5px 0;
+        text-align: center;
+    }
+    
+    #treeAgeDisplay {
+        display: block;
+        margin: 5px 0;
+        text-align: center;
+    }
+    
+    .tree-stats p strong {
+        display: block;
+        margin-bottom: 4px;
+    }
+}
 .tree-image.loading {
     background-image: url('/static/images/gunja.jpg');
 }
@@ -325,6 +529,230 @@
         .btn-info:hover {
             background: #138496;
         }
+        .tree-breed-display {
+    background: linear-gradient(135deg, #28a745, #20c997);
+    color: white;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: bold;
+    display: inline-block;
+    margin-left: 5px;
+}
+
+.form-group select {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    box-sizing: border-box;
+    font-size: 14px;
+    background: white;
+}
+
+.form-group select:focus {
+    outline: none;
+    border-color: #28a745;
+    box-shadow: 0 0 0 2px rgba(40, 167, 69, 0.2);
+}
+
+.form-group small {
+    display: block;
+    margin-top: 4px;
+}
+.tree-relationships {
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 20px;
+    margin: 20px 0;
+}
+
+.relationship-header h3 {
+    margin: 0 0 15px 0;
+    color: #495057;
+    font-size: 1.2em;
+}
+
+.tree-type-section {
+    margin-bottom: 20px;
+}
+
+.tree-type-badge {
+    display: inline-flex;
+    align-items: center;
+    background: #e9ecef;
+    padding: 8px 16px;
+    border-radius: 20px;
+    margin-bottom: 10px;
+    font-weight: bold;
+}
+
+.tree-type-badge.mother {
+    background: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.tree-type-badge.cutting {
+    background: #d1ecf1;
+    color: #0c5460;
+    border: 1px solid #bee5eb;
+}
+
+.tree-type-icon {
+    margin-right: 8px;
+    font-size: 1.2em;
+}
+
+.tree-type-description {
+    color: #6c757d;
+    font-size: 0.9em;
+    font-style: italic;
+}
+
+.mother-tree-section, .cutting-trees-section {
+    margin: 20px 0;
+    padding: 15px;
+    background: white;
+    border-radius: 6px;
+    border: 1px solid #e9ecef;
+}
+
+.mother-tree-section h4, .cutting-trees-section h4 {
+    margin: 0 0 15px 0;
+    color: #495057;
+    font-size: 1.1em;
+}
+
+.mother-tree-card, .cutting-tree-card {
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    padding: 12px;
+    margin: 8px 0;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.mother-tree-card:hover, .cutting-tree-card:hover {
+    background: #f8f9fa;
+    border-color: #007bff;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.tree-card-info {
+    flex: 1;
+}
+
+.tree-card-name {
+    font-weight: bold;
+    color: #495057;
+    margin-bottom: 4px;
+}
+
+.tree-card-details {
+    font-size: 0.85em;
+    color: #6c757d;
+}
+
+.tree-card-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.tree-card-btn {
+    padding: 4px 8px;
+    font-size: 0.8em;
+    border-radius: 4px;
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.tree-card-btn.view {
+    background: #007bff;
+    color: white;
+}
+
+.tree-card-btn.view:hover {
+    background: #0056b3;
+}
+
+.cutting-trees-count {
+    margin-bottom: 15px;
+}
+
+.count-badge {
+    background: #007bff;
+    color: white;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-weight: bold;
+    font-size: 0.9em;
+}
+
+.add-cutting-section {
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid #e9ecef;
+}
+
+.relationship-actions {
+    margin-top: 20px;
+    padding-top: 15px;
+    border-top: 1px solid #e9ecef;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.loading {
+    text-align: center;
+    color: #6c757d;
+    font-style: italic;
+    padding: 20px;
+}
+
+.no-relationships {
+    text-align: center;
+    color: #6c757d;
+    font-style: italic;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 4px;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .tree-relationships {
+        padding: 15px;
+        margin: 15px 0;
+    }
+    
+    .action-buttons {
+        flex-direction: column;
+    }
+    
+    .tree-card-actions {
+        flex-direction: column;
+        gap: 4px;
+        }
+    }
+/* Different breed colors */
+.tree-breed-display.apple { background: linear-gradient(135deg, #ff6347, #ff4500); }
+.tree-breed-display.orange { background: linear-gradient(135deg, #ffa500, #ff8c00); }
+.tree-breed-display.mango { background: linear-gradient(135deg, #ffd700, #ffb347); }
+.tree-breed-display.coconut { background: linear-gradient(135deg, #8b4513, #a0522d); }
+.tree-breed-display.banana { background: linear-gradient(135deg, #ffff00, #ffd700); }
+.tree-breed-display.avocado { background: linear-gradient(135deg, #808000, #9acd32); }
         .btn-warning {
             background: #ffc107;
             color: #212529;
@@ -352,14 +780,26 @@
             text-align: center;
             margin-top: 20px;
         }
-        .life-indicator {
-            display: inline-block;
-            padding: 5px 10px;
-            border-radius: 15px;
-            color: white;
-            font-weight: bold;
-            margin-left: 10px;
-        }
+        .tree-info-container > * {
+    margin-bottom: 20px;
+}
+
+.tree-relationships {
+    margin: 30px 0;
+}
+
+.qr-section {
+    margin: 30px 0;
+}
+
+.edit-form {
+    margin: 30px 0;
+}
+
+.tree-stats {
+    margin: 30px 0;
+}
+
         .life-healthy { background: #4CAF50; }
         .life-warning { background: #ff9800; }
         .life-critical { background: #f44336; }
@@ -371,7 +811,7 @@
             color: #f44336;
             font-weight: bold;
         }
-    </style>
+</style>
 </head>
 <body>
     <div class="tree-info-container">
@@ -384,49 +824,142 @@
             {% endif %}
             <button class="btn btn-success" onclick="goToFarms()">🚜 All Farms</button>
             <!-- Add this button temporarily for testing -->
-<button class="btn btn-info" onclick="forceGoToGrid()" style="font-size: 12px;">🔧 Force Grid</button>
+            <button class="btn btn-info" onclick="forceGoToGrid()" style="font-size: 12px;">🔧 Force Grid</button>
         </div>
         
         <!-- Tree Image Section -->
- <div class="tree-image-section">
-    {% if tree.image_url and tree.image_url.startswith('data:image/') %}
-        <div class="tree-image-container" onclick="openImageUpload()">
-            <img id="treeImage" src="{{ tree.image_url }}" alt="Tree Image" class="tree-image-img">
+        <div class="tree-image-section">
+            {% if tree.image_url and tree.image_url.startswith('data:image/') %}
+                <div class="tree-image-container" onclick="openImageUpload()">
+                    <img id="treeImage" src="{{ tree.image_url }}" alt="Tree Image" class="tree-image-img">
+                </div>
+            {% else %}
+                <div class="tree-placeholder" id="treePlaceholder" onclick="openImageUpload()">
+                    🌳
+                </div>
+            {% endif %}
+            
+            <!-- Image Upload Section -->
+            <div class="image-upload-section">
+                <div class="upload-title">📸 Change Tree Image</div>
+                
+                <div class="file-input-wrapper">
+                    <input type="file" id="imageInput" class="file-input" accept="image/*" onchange="previewImage(event)">
+                    <label for="imageInput" class="file-input-label">Choose Image</label>
+                </div>
+                
+                <div>
+                    <img id="uploadPreview" class="upload-preview" alt="Preview">
+                </div>
+                
+                <div class="upload-buttons">
+                    <button class="upload-btn upload-btn-upload" onclick="uploadImage()" id="uploadBtn" style="display: none;">
+                        📤 Upload Image
+                    </button>
+                    <button class="upload-btn upload-btn-remove" onclick="removeImage()" id="removeBtn" 
+                            style="{% if not (tree.image_url and tree.image_url.startswith('data:image/')) %}display: none;{% endif %}">
+                        🗑️ Remove Image
+                    </button>
+                </div>
+                
+                <div id="uploadStatus" class="upload-status"></div>
+            </div>
         </div>
-    {% else %}
-        <div class="tree-placeholder" id="treePlaceholder" onclick="openImageUpload()">
-            🌳
-        </div>
-    {% endif %}
-    
-    <!-- Image Upload Section -->
-    <div class="image-upload-section">
-        <div class="upload-title">📸 Change Tree Image</div>
         
-        <div class="file-input-wrapper">
-            <input type="file" id="imageInput" class="file-input" accept="image/*" onchange="previewImage(event)">
-            <label for="imageInput" class="file-input-label">Choose Image</label>
-        </div>
-        
-        <div>
-            <img id="uploadPreview" class="upload-preview" alt="Preview">
-        </div>
-        
-        <div class="upload-buttons">
-            <button class="upload-btn upload-btn-upload" onclick="uploadImage()" id="uploadBtn" style="display: none;">
-                📤 Upload Image
-            </button>
-            <button class="upload-btn upload-btn-remove" onclick="removeImage()" id="removeBtn" 
-                    style="{% if not (tree.image_url and tree.image_url.startswith('data:image/')) %}display: none;{% endif %}">
-                🗑️ Remove Image
-            </button>
-        </div>
-        
-        <div id="uploadStatus" class="upload-status"></div>
-    </div>
-</div>
-        
+        <!-- Tree Name - Should come after image, before relationships -->
         <h1 class="tree-name">{{ tree.name }}</h1>
+        
+        <!-- Debug Sections (can be removed in production) -->
+        <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; margin: 10px 0; border-radius: 4px; font-family: monospace; font-size: 12px;">
+            <strong>🔍 RELATIONSHIP DEBUG INFO:</strong><br>
+            Tree ID: {{ tree.id }}<br>
+            Tree Plant Type: "{{ tree.plant_type or 'NULL' }}"<br>
+            Plant Type Type: {{ tree.plant_type.__class__.__name__ if tree.plant_type else 'NoneType' }}<br>
+            Has Plant Type: {{ 'Yes' if tree.plant_type else 'No' }}<br>
+            Plant Type Value: {{ tree.plant_type|string if tree.plant_type else 'None' }}<br>
+            
+            <!-- Debug relationship loading -->
+            <div id="relationshipDebugInfo" style="margin-top: 10px; padding: 10px; background: #f8f9fa; border-radius: 4px;">
+                <strong>Relationship Loading Status:</strong><br>
+                <span id="debugStatus">Not started</span><br>
+                <span id="debugDetails"></span>
+            </div>
+        </div>
+        
+        <div style="background: #e8f4f8; padding: 10px; margin: 10px 0; border-radius: 4px; font-family: monospace; font-size: 12px; border-left: 4px solid #17a2b8;">
+            <strong>🔍 BREED DEBUG INFO:</strong><br>
+            Tree ID: {{ tree.id }}<br>
+            Tree Name: "{{ tree.name }}"<br>
+            Tree Breed: "{{ tree.breed or 'NULL' }}"<br>
+            Breed Type: {{ tree.breed.__class__.__name__ if tree.breed else 'NoneType' }}<br>
+            Breed Length: {{ tree.breed|length if tree.breed else 0 }}<br>
+            Has Breed: {{ 'Yes' if tree.breed else 'No' }}<br>
+            Breed Truthiness: {{ tree.breed|string|lower }}<br>
+            Raw Breed Value: {{ tree.breed|string if tree.breed else 'None' }}
+        </div>
+        
+        <!-- Tree Relationships Section -->
+        <div class="tree-relationships">
+            <div class="relationship-header">
+                <h3>🌳 Tree Relationships</h3>
+            </div>
+            
+            <!-- Tree Type Display -->
+            <div class="tree-type-section">
+                <div class="tree-type-badge" id="treeTypeBadge">
+                    <span class="tree-type-icon">🌱</span>
+                    <span class="tree-type-text" id="treeTypeText">Loading...</span>
+                </div>
+                <div class="tree-type-description" id="treeTypeDescription">
+                    Determining tree type...
+                </div>
+            </div>
+            
+            <!-- Mother Tree Section (shown for cutting trees) -->
+            <div class="mother-tree-section" id="motherTreeSection" style="display: none;">
+                <h4>🌳 Mother Tree</h4>
+                <div class="mother-tree-info" id="motherTreeInfo">
+                    <div class="loading">Loading mother tree information...</div>
+                </div>
+            </div>
+            
+            <!-- Cutting Trees Section (shown for mother trees) -->
+            <div class="cutting-trees-section" id="cuttingTreesSection" style="display: none;">
+                <h4>✂️ Cutting Trees</h4>
+                <div class="cutting-trees-count" id="cuttingTreesCount">
+                    <span class="count-badge">0</span> cutting trees from this mother
+                </div>
+                <div class="cutting-trees-list" id="cuttingTreesList">
+                    <div class="loading">Loading cutting trees...</div>
+                </div>
+                
+                <!-- Add New Cutting Button -->
+                <div class="add-cutting-section">
+                    <button class="btn btn-success btn-sm" onclick="createCuttingTree()" id="addCuttingBtn">
+                        ✂️ Create New Cutting
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Relationship Actions -->
+            <div class="relationship-actions" id="relationshipActions">
+                <div class="action-buttons">
+                    <button class="btn btn-outline-info btn-sm" onclick="refreshTreeRelationships()" id="refreshRelationshipsBtn">
+                        🔄 Refresh Relationships
+                    </button>
+                    <!-- Convert to Mother/Cutting buttons -->
+                    <button class="btn btn-outline-primary btn-sm" onclick="convertToMother()" id="convertToMotherBtn" style="display: none;">
+                        🌳 Convert to Mother Tree
+                    </button>
+                    <button class="btn btn-outline-secondary btn-sm" onclick="linkToMother()" id="linkToMotherBtn" style="display: none;">
+                        🔗 Link to Mother Tree
+                    </button>
+                    <button class="btn btn-outline-warning btn-sm" onclick="unlinkFromMother()" id="unlinkFromMotherBtn" style="display: none;">
+                        🔓 Unlink from Mother
+                    </button>
+                </div>
+            </div>
+        </div>
         
         <!-- QR Code Section -->
         <div class="qr-section">
@@ -442,6 +975,7 @@
             </div>
         </div>
         
+        <!-- Tree Edit Form -->
         <div class="edit-form">
             <div class="form-group">
                 <label for="treeName">Tree Name:</label>
@@ -449,23 +983,59 @@
             </div>
             
             <div class="form-group">
+                <label for="treeBreed">Tree Breed:</label>
+                <select id="treeBreed">
+                    <option value="">Select breed...</option>
+                    <!-- Breeds will be populated by JavaScript -->
+                </select>
+                <small style="color: #666; font-size: 12px;">Select the breed/variety of this tree</small>
+            </div>
+            
+            <div class="form-group">
                 <label for="treeInfo">Tree Information:</label>
                 <textarea id="treeInfo" placeholder="Enter tree description, notes, or other information">{{ tree.info or '' }}</textarea>
             </div>
             
-            <div class="form-group">
-                <label for="lifeDays">Life Days:</label>
-                <input type="number" id="lifeDays" value="{{ tree.life_days or 0 }}" min="0" placeholder="Days since planted">
-                <span class="life-indicator {{ 'life-healthy' if (tree.life_days or 0) < 30 else ('life-warning' if (tree.life_days or 0) < 60 else 'life-critical') }}">
-                    {% if (tree.life_days or 0) < 30 %}
-                        Young
-                    {% elif (tree.life_days or 0) < 60 %}
-                        Mature
-                    {% else %}
-                        Old
-                    {% endif %}
-                </span>
-            </div>
+<div class="form-group">
+    <label for="lifeDays">Life Days (Manual Override):</label>
+    <div class="life-days-container">
+        <!-- Show calculated age as reference -->
+        <div class="calculated-age-info">
+            <small style="color: #666; margin-bottom: 8px; display: block;">
+                📅 <strong>Calculated Age:</strong> <span id="calculatedAgeDisplay">Calculating...</span>
+                <br>
+                <em>Based on creation/planted date</em>
+            </small>
+        </div>
+        
+        <!-- Manual life days input -->
+        <div class="manual-life-days">
+            <input type="number" id="lifeDays" value="{{ tree.life_days or 0 }}" min="0" 
+                   placeholder="Override calculated age (optional)"
+                   onchange="updateLifeDaysIndicator()"
+                   oninput="updateLifeDaysIndicator()">
+            
+            <!-- Dynamic life stage indicator -->
+            <span id="lifeDaysIndicator" class="life-indicator life-healthy">
+                Young
+            </span>
+        </div>
+        
+        <!-- Help text -->
+        <small class="form-help" style="color: #666; font-size: 11px; margin-top: 5px; display: block;">
+            💡 <strong>Tip:</strong> Leave as 0 to use calculated age, or enter a number to manually override.
+            <br>
+            <span id="lifeDaysHelpText">Currently using calculated age.</span>
+        </small>
+        
+        <!-- Reset button -->
+        <button type="button" class="btn btn-sm btn-outline-secondary" 
+                onclick="resetToCalculatedAge()" 
+                id="resetLifeDaysBtn"
+                style="margin-top: 8px; font-size: 12px;">
+            🔄 Reset to Calculated Age
+        </button>
+    </div>
             
             <div class="button-group">
                 <button class="btn btn-primary" onclick="updateTree()">Update Tree</button>
@@ -473,27 +1043,86 @@
             </div>
         </div>
         
-        <div class="tree-stats">
-            <p><strong>Position:</strong> Row {{ tree.internal_row }}, Column {{ tree.internal_col }}</p>
-            <p><strong>Dome:</strong> 
-                {% if tree.dome %}
-                    {{ tree.dome.name }}
-                {% else %}
-                    Dome ID {{ tree.dome_id }}
-                {% endif %}
-            </p>
-            <p><strong>Life Days:</strong> {{ tree.life_days or 0 }} days</p>
-            <p><strong>Status:</strong> 
-                {% if (tree.life_days or 0) < 30 %}
-                    Young and Growing
-                {% elif (tree.life_days or 0) < 60 %}
-                    Mature and Healthy
-                {% else %}
-                    Old and Wise
-                {% endif %}
-            </p>
-        </div>
+        <!-- Tree Stats Section -->
+<div class="tree-stats">
+    <p><strong>Position:</strong> Row {{ tree.internal_row }}, Column {{ tree.internal_col }}</p>
+    <p><strong>Dome:</strong> 
+        {% if tree.dome %}
+            {{ tree.dome.name }}
+        {% else %}
+            Dome ID {{ tree.dome_id }}
+        {% endif %}
+    </p>
+    <p><strong>Breed:</strong> 
+        {% if tree.breed %}
+            <span class="tree-breed-display">🧬 {{ tree.breed }}</span>
+        {% else %}
+            <span style="color: #999; font-style: italic;">No breed specified</span>
+        {% endif %}
+    </p>
+    
+    <!-- ✅ ENHANCED: Creation time with dynamic updates -->
+    <p><strong>Created:</strong> 
+        {% if tree.created_at %}
+            <span class="tree-created-time">
+                📅 <span id="createdTimeDisplay" 
+                         data-timestamp="{{ tree.created_at.isoformat() if tree.created_at else '' }}"
+                         title="{{ tree.created_at.strftime('%Y-%m-%d %H:%M:%S UTC') if tree.created_at else 'Unknown' }}">
+                    {{ tree.created_at.strftime('%B %d, %Y at %I:%M %p') if tree.created_at else 'Unknown' }}
+                </span>
+            </span>
+            <br>
+            <small id="createdTimeAgo" style="color: #666; font-size: 11px;">
+                Loading...
+            </small>
+        {% else %}
+            <span style="color: #999; font-style: italic;">Creation time unknown</span>
+        {% endif %}
+    </p>
+    
+    <!-- ✅ ENHANCED: Planted time if different -->
+    {% if tree.planted_date and tree.planted_date != tree.created_at %}
+    <p><strong>Planted:</strong> 
+        <span class="tree-planted-time">
+            🌱 <span id="plantedTimeDisplay" 
+                     data-timestamp="{{ tree.planted_date.isoformat() if tree.planted_date else '' }}"
+                     title="{{ tree.planted_date.strftime('%Y-%m-%d %H:%M:%S UTC') if tree.planted_date else 'Unknown' }}">
+                {{ tree.planted_date.strftime('%B %d, %Y at %I:%M %p') if tree.planted_date else 'Unknown' }}
+            </span>
+        </span>
+        <br>
+        <small id="plantedTimeAgo" style="color: #666; font-size: 11px;">
+            Loading...
+        </small>
+    </p>
+    {% endif %}
+    
+    <!-- ✅ ENHANCED: Tree age with life stage indicator -->
+    <p><strong>Tree Age:</strong> 
+        <span id="treeAgeDisplay" style="color: #28a745; font-weight: bold;">
+            Calculating...
+        </span>
+        <span id="treeLifeStage" class="life-indicator" style="margin-left: 10px;">
+            <!-- Life stage will be calculated and displayed here -->
+        </span>
+    </p>
+    
+    <p><strong>Status:</strong> 
+        <span id="treeStatusDisplay">
+            <span style="color: #28a745;">🌱 Growing Healthy</span>
+        </span>
+    </p>
+    
+    <!-- ✅ NEW: Show stored life days only if different from calculated age -->
+    <div id="lifeDaysInfo" style="display: none; margin-top: 10px; padding: 10px; background: #f8f9fa; border-radius: 4px; font-size: 12px;">
+        <strong>Manual Life Days:</strong> <span id="storedLifeDays">{{ tree.life_days or 0 }}</span> days
+        <small style="display: block; color: #666; margin-top: 4px;">
+            This is manually set and may differ from calculated age
+        </small>
     </div>
+</div>
+</body>
+</html>
 
 <script>
     // ✅ GLOBAL VARIABLES
@@ -501,7 +1130,16 @@
     const domeId = {{ tree.dome_id }};
     let currentTreeUrl = '';
     let selectedFile = null;
-    
+    let globalCalculatedAge = 0;
+    let treeRelationships = {
+    tree: null,
+    is_mother: false,
+    is_cutting: false,
+    mother: null,
+    cuttings: [],
+    summary: null,
+    isLoaded: false
+};
     // ✅ GLOBAL FUNCTIONS (accessible to onclick handlers)
     
 function goBack() {
@@ -543,6 +1181,852 @@ function goBack() {
         window.location.href = `/dome_info/{{ tree.dome_id }}`;
     }
     // ✅ ALTERNATIVE: Force grid navigation
+function formatRelativeTime(timestamp) {
+    if (!timestamp) return 'Unknown';
+    
+    const now = new Date();
+    const date = new Date(timestamp);
+    const diffMs = now - date;
+    const diffSeconds = Math.floor(diffMs / 1000);
+    const diffMinutes = Math.floor(diffSeconds / 60);
+    const diffHours = Math.floor(diffMinutes / 60);
+    const diffDays = Math.floor(diffHours / 24);
+    const diffWeeks = Math.floor(diffDays / 7);
+    const diffMonths = Math.floor(diffDays / 30);
+    const diffYears = Math.floor(diffDays / 365);
+    
+    if (diffSeconds < 60) {
+        return diffSeconds <= 1 ? 'Just now' : `${diffSeconds} seconds ago`;
+    } else if (diffMinutes < 60) {
+        return diffMinutes === 1 ? '1 minute ago' : `${diffMinutes} minutes ago`;
+    } else if (diffHours < 24) {
+        return diffHours === 1 ? '1 hour ago' : `${diffHours} hours ago`;
+    } else if (diffDays < 7) {
+        return diffDays === 1 ? '1 day ago' : `${diffDays} days ago`;
+    } else if (diffWeeks < 4) {
+        return diffWeeks === 1 ? '1 week ago' : `${diffWeeks} weeks ago`;
+    } else if (diffMonths < 12) {
+        return diffMonths === 1 ? '1 month ago' : `${diffMonths} months ago`;
+    } else {
+        return diffYears === 1 ? '1 year ago' : `${diffYears} years ago`;
+    }
+}
+function debugRelationshipState() {
+    console.log('🔍 === RELATIONSHIP DEBUG STATE ===');
+    console.log('Is Loaded:', treeRelationships.isLoaded);
+    console.log('Tree Data:', treeRelationships.tree);
+    console.log('Is Mother:', treeRelationships.is_mother);
+    console.log('Is Cutting:', treeRelationships.is_cutting);
+    console.log('Has Mother:', !!treeRelationships.mother);
+    console.log('Cutting Count:', treeRelationships.cuttings ? treeRelationships.cuttings.length : 0);
+    console.log('Mother Data:', treeRelationships.mother);
+    console.log('Cuttings Data:', treeRelationships.cuttings);
+    console.log('Summary:', treeRelationships.summary);
+    console.log('=====================================');
+    
+    // Update the debug display
+    const debugDisplay = document.getElementById('relationshipDebug');
+    if (debugDisplay) {
+        debugDisplay.innerHTML = `
+            <strong>Relationship Loading Status:</strong><br>
+            ✅ Loaded<br>
+            Is Mother: ${treeRelationships.is_mother ? '✅' : '❌'}<br>
+            Is Cutting: ${treeRelationships.is_cutting ? '✅' : '❌'}<br>
+            Has Mother: ${treeRelationships.mother ? '✅' : '❌'}<br>
+            Cutting Count: ${treeRelationships.cuttings ? treeRelationships.cuttings.length : 0}<br>
+            Tree Type: ${treeRelationships.summary ? treeRelationships.summary.tree_type : 'Unknown'}
+        `;
+    }
+}
+
+async function loadTreeRelationships() {
+    try {
+        console.log('🔗 === STARTING RELATIONSHIP LOADING ===');
+        console.log('Tree ID:', treeId);
+        console.log('API URL:', `/api/tree/${treeId}/relationships`);
+        
+        // Update debug status
+        const debugStatus = document.getElementById('debugStatus');
+        if (debugStatus) {
+            debugStatus.innerHTML = '<span style="color: blue;">🔄 Loading...</span>';
+        }
+        
+        const response = await fetch(`/api/tree/${treeId}/relationships`);
+        console.log('📡 API Response Status:', response.status);
+        console.log('📡 API Response OK:', response.ok);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const result = await response.json();
+        console.log('📦 Raw API Result:', result);
+        console.log('📦 Result Success:', result.success);
+        
+        // ✅ UPDATED: Handle the wrapped relationships response
+        if (result.success && result.relationships) {
+            console.log('✅ API call successful, processing relationships data...');
+            
+            const relationships = result.relationships;
+            console.log('🔗 Relationships data:', relationships);
+            
+            // ✅ CRITICAL: Use the relationships object directly
+            treeRelationships = {
+                tree: relationships.tree,
+                is_mother: relationships.is_mother,
+                is_cutting: relationships.is_cutting,
+                mother: relationships.mother,
+                cuttings: relationships.cuttings,
+                summary: relationships.summary,
+                isLoaded: true
+            };
+            
+            console.log('✅ Tree relationships processed:', treeRelationships);
+            
+            // Debug the processed data
+            debugRelationshipState();
+            
+            // Display the relationships
+            displayTreeRelationships();
+            
+            // Update debug status
+            if (debugStatus) {
+                const statusText = `✅ Loaded - Type: ${relationships.summary.tree_type}, Mother: ${relationships.summary.has_mother ? '✅' : '❌'}, Cuttings: ${relationships.summary.cutting_count || 0}`;
+                debugStatus.innerHTML = `<span style="color: green;">${statusText}</span>`;
+            }
+            
+        } else {
+            console.error('❌ API returned unsuccessful result or missing relationships:', result);
+            const errorMsg = result.error || 'Missing relationships data';
+            showRelationshipError(`API Error: ${errorMsg}`);
+            
+            // Update debug status
+            if (debugStatus) {
+                debugStatus.innerHTML = `<span style="color: red;">❌ API Error: ${errorMsg}</span>`;
+            }
+        }
+        
+    } catch (error) {
+        console.error('❌ === RELATIONSHIP LOADING FAILED ===');
+        console.error('Error Type:', error.constructor.name);
+        console.error('Error Message:', error.message);
+        console.error('Error Stack:', error.stack);
+        console.error('=========================================');
+        
+        showRelationshipError(`Loading Error: ${error.message}`);
+        
+        // Update debug status
+        const debugStatus = document.getElementById('debugStatus');
+        if (debugStatus) {
+            debugStatus.innerHTML = `<span style="color: red;">❌ Error: ${error.message}</span>`;
+        }
+        
+        // Try to show some basic info from template data
+        tryFallbackDisplay();
+    }
+}
+function tryFallbackDisplay() {
+    console.log('🔄 Attempting fallback display using template data...');
+    
+    // Try to get plant type from template debug info
+    const debugSection = document.querySelector('[style*="background: #fff3cd"]');
+    if (debugSection) {
+        const debugText = debugSection.textContent;
+        console.log('🔍 Debug section text:', debugText);
+        
+        const plantTypeMatch = debugText.match(/Tree Plant Type: "([^"]+)"/);
+        if (plantTypeMatch && plantTypeMatch[1] && plantTypeMatch[1] !== 'NULL') {
+            const plantType = plantTypeMatch[1];
+            console.log('🔍 Found plant type from template:', plantType);
+            
+            // Create basic relationship data
+            treeRelationships = {
+                tree: { id: treeId, plant_type: plantType },
+                is_mother: plantType === 'mother',
+                is_cutting: plantType === 'cutting',
+                mother: null,
+                cuttings: [],
+                summary: { plant_type: plantType },
+                isLoaded: true
+            };
+            
+            console.log('✅ Fallback relationships created:', treeRelationships);
+            displayTreeRelationships();
+            return;
+        }
+    }
+    
+    console.log('⚠️ No fallback data available');
+}
+
+// Display tree relationships in the UI
+function displayTreeRelationships() {
+    if (!treeRelationships.isLoaded) {
+        console.warn('⚠️ Tree relationships not loaded yet');
+        return;
+    }
+    
+    console.log('🎨 Displaying tree relationships UI...');
+    console.log('🎨 Relationships data:', treeRelationships);
+    
+    // Update tree type badge
+    updateTreeTypeBadge();
+    
+    // Show/hide sections based on tree type
+    if (treeRelationships.is_mother) {
+        showMotherTreeSections();
+    } else if (treeRelationships.is_cutting) {
+        showCuttingTreeSections();
+    } else {
+        showUnknownTreeSections();
+    }
+    
+    // Update action buttons
+    updateRelationshipActions();
+}
+
+// Update tree type badge
+function updateTreeTypeBadge() {
+    const badge = document.getElementById('treeTypeBadge');
+    const text = document.getElementById('treeTypeText');
+    const description = document.getElementById('treeTypeDescription');
+    
+    if (!badge || !text || !description) {
+        console.warn('⚠️ Tree type badge elements not found');
+        return;
+    }
+    
+    // Remove existing classes
+    badge.classList.remove('mother', 'cutting', 'unknown');
+    
+    if (treeRelationships.is_mother) {
+        badge.classList.add('mother');
+        badge.querySelector('.tree-type-icon').textContent = '🌳';
+        text.textContent = 'Mother Tree';
+        const cuttingCount = treeRelationships.summary ? treeRelationships.summary.cutting_count : 0;
+        description.textContent = `This is a mother tree with ${cuttingCount} cutting(s)`;
+    } else if (treeRelationships.is_cutting) {
+        badge.classList.add('cutting');
+        badge.querySelector('.tree-type-icon').textContent = '✂️';
+        text.textContent = 'Cutting Tree';
+        if (treeRelationships.mother) {
+            description.textContent = `This tree was grown from a cutting of "${treeRelationships.mother.name}"`;
+        } else {
+            description.textContent = 'This tree is a cutting but mother tree not found';
+        }
+    } else {
+        badge.classList.add('unknown');
+        badge.querySelector('.tree-type-icon').textContent = '🌱';
+        text.textContent = 'Independent Tree';
+        description.textContent = 'This tree has no defined mother/cutting relationships';
+    }
+}
+
+
+
+
+// Show sections for mother trees
+function showMotherTreeSections() {
+    const motherSection = document.getElementById('motherTreeSection');
+    const cuttingSection = document.getElementById('cuttingTreesSection');
+    
+    if (motherSection) motherSection.style.display = 'none';
+    if (cuttingSection) cuttingSection.style.display = 'block';
+    
+    displayCuttingTrees();
+}
+
+
+function updateLifeDaysIndicator() {
+    const lifeDaysInput = document.getElementById('lifeDays');
+    const indicator = document.getElementById('lifeDaysIndicator');
+    const helpText = document.getElementById('lifeDaysHelpText');
+    const resetBtn = document.getElementById('resetLifeDaysBtn');
+    
+    if (!lifeDaysInput || !indicator || !helpText) return;
+    
+    const manualDays = parseInt(lifeDaysInput.value) || 0;
+    const calculatedDays = globalCalculatedAge;
+    
+    // Determine which value to use for the indicator
+    const effectiveDays = manualDays > 0 ? manualDays : calculatedDays;
+    
+    // Update indicator based on effective days
+    const { stage, className, text } = getLifeStageInfo(effectiveDays);
+    
+    // Remove all life stage classes
+    indicator.className = 'life-indicator';
+    indicator.classList.add(className);
+    indicator.textContent = text;
+    
+    // Update help text
+    if (manualDays > 0) {
+        const difference = Math.abs(manualDays - calculatedDays);
+        if (difference > 0) {
+            const comparison = manualDays > calculatedDays ? 'more' : 'less';
+            helpText.innerHTML = `Using manual override: <strong>${manualDays} days</strong> (${difference} days ${comparison} than calculated age)`;
+            resetBtn.style.display = 'inline-block';
+        } else {
+            helpText.innerHTML = `Using manual value: <strong>${manualDays} days</strong> (same as calculated age)`;
+            resetBtn.style.display = 'inline-block';
+        }
+    } else {
+        helpText.innerHTML = `Currently using calculated age: <strong>${calculatedDays} days</strong>`;
+        resetBtn.style.display = 'none';
+    }
+}
+function getLifeStageInfo(days) {
+    if (days < 7) {
+        return { stage: 'Seedling', className: 'life-seedling', text: 'Seedling' };
+    } else if (days < 30) {
+        return { stage: 'Young', className: 'life-young', text: 'Young' };
+    } else if (days < 90) {
+        return { stage: 'Growing', className: 'life-growing', text: 'Growing' };
+    } else if (days < 180) {
+        return { stage: 'Mature', className: 'life-mature', text: 'Mature' };
+    } else if (days < 365) {
+        return { stage: 'Adult', className: 'life-adult', text: 'Adult' };
+    } else {
+        return { stage: 'Ancient', className: 'life-ancient', text: 'Ancient' };
+    }
+}
+function resetToCalculatedAge() {
+    const lifeDaysInput = document.getElementById('lifeDays');
+    if (lifeDaysInput) {
+        lifeDaysInput.value = 0;
+        updateLifeDaysIndicator();
+    }
+}
+
+// ✅ ENHANCED: Update the calculated age display
+function updateCalculatedAgeInForm(calculatedDays) {
+    globalCalculatedAge = calculatedDays;
+    
+    const calculatedAgeDisplay = document.getElementById('calculatedAgeDisplay');
+    if (calculatedAgeDisplay) {
+        const ageText = formatDaysToAge(calculatedDays);
+        const { stage, className } = getLifeStageInfo(calculatedDays);
+        
+        calculatedAgeDisplay.innerHTML = `
+            <strong>${ageText}</strong> 
+            <span class="life-indicator ${className}" style="margin-left: 8px; font-size: 10px;">
+                ${stage}
+            </span>
+        `;
+    }
+    
+    // Update the manual life days indicator
+    updateLifeDaysIndicator();
+}
+
+// Show sections for cutting trees
+function showCuttingTreeSections() {
+    const motherSection = document.getElementById('motherTreeSection');
+    const cuttingSection = document.getElementById('cuttingTreesSection');
+    
+    if (motherSection) motherSection.style.display = 'block';
+    if (cuttingSection) cuttingSection.style.display = 'none';
+    
+    displayMotherTree();
+}
+
+function showUnknownTreeSections() {
+    console.log('🌱 Configuring UI for independent tree...');
+    
+    const motherSection = document.getElementById('motherTreeSection');
+    const cuttingSection = document.getElementById('cuttingTreesSection');
+    
+    if (motherSection) motherSection.style.display = 'none';
+    if (cuttingSection) cuttingSection.style.display = 'none';
+    
+    console.log('✅ Independent tree sections configured');
+}
+// Display mother tree information
+function displayMotherTree() {
+    const container = document.getElementById('motherTreeInfo');
+    if (!container) {
+        console.warn('⚠️ Mother tree info container not found');
+        return;
+    }
+    
+    if (!treeRelationships.mother) {
+        container.innerHTML = '<div class="no-relationships">No mother tree linked</div>';
+        return;
+    }
+    
+    const mother = treeRelationships.mother;
+    container.innerHTML = `
+        <div class="mother-tree-card" onclick="goToTree(${mother.id})">
+            <div class="tree-card-info">
+                <div class="tree-card-name">${mother.name}</div>
+                <div class="tree-card-details">
+                    ${mother.breed ? `🧬 ${mother.breed}` : 'No breed specified'} • 
+                    Position: (${mother.internal_row}, ${mother.internal_col}) • 
+                    ${mother.life_days || 0} days old
+                    ${mother.cutting_count ? ` • ${mother.cutting_count} total cuttings` : ''}
+                </div>
+            </div>
+            <div class="tree-card-actions">
+                <button class="tree-card-btn view" onclick="event.stopPropagation(); goToTree(${mother.id})">
+                    👁️ View
+                </button>
+            </div>
+        </div>
+    `;
+}
+
+
+// Display cutting trees list
+function displayCuttingTrees() {
+    const countElement = document.getElementById('cuttingTreesCount');
+    const listElement = document.getElementById('cuttingTreesList');
+    
+    if (!countElement || !listElement) {
+        console.warn('⚠️ Cutting trees display elements not found');
+        return;
+    }
+    
+    const cuttingCount = treeRelationships.cuttings ? treeRelationships.cuttings.length : 0;
+    
+    // Update count
+    countElement.innerHTML = `
+        <span class="count-badge">${cuttingCount}</span> 
+        cutting tree${cuttingCount !== 1 ? 's' : ''} from this mother
+    `;
+    
+    // Display list
+    if (cuttingCount === 0) {
+        listElement.innerHTML = '<div class="no-relationships">No cutting trees created yet</div>';
+        return;
+    }
+    
+    const cuttingsHtml = treeRelationships.cuttings.map(cutting => `
+        <div class="cutting-tree-card" onclick="goToTree(${cutting.id})">
+            <div class="tree-card-info">
+                <div class="tree-card-name">${cutting.name}</div>
+                <div class="tree-card-details">
+                    ${cutting.breed ? `🧬 ${cutting.breed}` : 'No breed specified'} • 
+                    Position: (${cutting.internal_row}, ${cutting.internal_col}) • 
+                    ${cutting.life_days || 0} days old
+                    ${cutting.cutting_notes ? `• Notes: ${cutting.cutting_notes}` : ''}
+                </div>
+            </div>
+            <div class="tree-card-actions">
+                <button class="tree-card-btn view" onclick="event.stopPropagation(); goToTree(${cutting.id})">
+                    👁️ View
+                </button>
+            </div>
+        </div>
+    `).join('');
+    
+    listElement.innerHTML = cuttingsHtml;
+}
+// Update relationship action buttons
+function updateRelationshipActions() {
+    const convertBtn = document.getElementById('convertToMotherBtn');
+    const linkBtn = document.getElementById('linkToMotherBtn');
+    const unlinkBtn = document.getElementById('unlinkFromMotherBtn');
+    
+    if (!treeRelationships.summary) {
+        console.warn('⚠️ No summary data available for action buttons');
+        return;
+    }
+    
+    if (convertBtn) {
+        convertBtn.style.display = treeRelationships.summary.can_convert_to_mother ? 'inline-block' : 'none';
+    }
+    
+    if (linkBtn) {
+        linkBtn.style.display = treeRelationships.summary.can_link_to_mother ? 'inline-block' : 'none';
+    }
+    
+    if (unlinkBtn) {
+        unlinkBtn.style.display = treeRelationships.summary.can_unlink_from_mother ? 'inline-block' : 'none';
+    }
+}
+
+// Navigation function
+function goToTree(treeId) {
+    console.log(`🔗 Navigating to tree ${treeId}`);
+    window.location.href = `/tree_info/${treeId}`;
+}
+
+// Create new cutting tree
+async function createCuttingTree() {
+    try {
+        const cuttingName = prompt('Enter name for the new cutting tree:');
+        if (!cuttingName || !cuttingName.trim()) {
+            return;
+        }
+        
+        const cuttingNotes = prompt('Enter notes about this cutting (optional):') || '';
+        
+        showUploadStatus('Creating cutting tree...', 'info');
+        
+        const response = await fetch(`/api/tree/${treeId}/create_cutting`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                name: cuttingName.trim(),
+                cutting_notes: cuttingNotes.trim()
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showUploadStatus('Cutting tree created successfully!', 'success');
+            
+            // Reload relationships
+            await loadTreeRelationships();
+            
+            // Ask if user wants to go to the new cutting
+            if (confirm('Cutting tree created! Would you like to view it now?')) {
+                goToTree(result.cutting_tree.id);
+            }
+        } else {
+            showUploadStatus(result.error || 'Failed to create cutting tree', 'error');
+        }
+        
+    } catch (error) {
+        console.error('❌ Error creating cutting tree:', error);
+        showUploadStatus('Error creating cutting tree', 'error');
+    }
+}
+
+// Convert tree to mother
+async function convertToMother() {
+    if (!confirm('Convert this tree to a mother tree? This will allow it to produce cuttings.')) {
+        return;
+    }
+    
+    try {
+        showUploadStatus('Converting to mother tree...', 'info');
+        
+        const response = await fetch(`/api/tree/${treeId}/convert_to_mother`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showUploadStatus('Tree converted to mother successfully!', 'success');
+            await loadTreeRelationships();
+        } else {
+            showUploadStatus(result.error || 'Failed to convert to mother tree', 'error');
+        }
+        
+    } catch (error) {
+        console.error('❌ Error converting to mother:', error);
+        showUploadStatus('Error converting to mother tree', 'error');
+    }
+}
+
+
+// Link to mother tree
+async function linkToMother() {
+    try {
+        // Get list of available mother trees
+        const response = await fetch(`/api/dome/${domeId}/mother_trees`);
+        const result = await response.json();
+        
+        if (!result.success || !result.mother_trees.length) {
+            alert('No mother trees available in this dome. Create a mother tree first.');
+            return;
+        }
+        
+        // Create selection dialog
+        const motherOptions = result.mother_trees.map(mother => 
+            `${mother.id}: ${mother.name} (${mother.breed || 'No breed'})`
+        ).join('\n');
+        
+        const selectedMother = prompt(`Select mother tree by ID:\n\n${motherOptions}\n\nEnter mother tree ID:`);
+        
+        if (!selectedMother) return;
+        
+        const motherId = parseInt(selectedMother);
+        if (isNaN(motherId)) {
+            alert('Invalid mother tree ID');
+            return;
+        }
+        
+        const cuttingNotes = prompt('Enter notes about this cutting relationship (optional):') || '';
+        
+        showUploadStatus('Linking to mother tree...', 'info');
+        
+        const linkResponse = await fetch(`/api/tree/${treeId}/link_to_mother`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                mother_tree_id: motherId,
+                cutting_notes: cuttingNotes.trim()
+            })
+        });
+        
+        const linkResult = await linkResponse.json();
+        
+        if (linkResult.success) {
+            showUploadStatus('Linked to mother tree successfully!', 'success');
+            await loadTreeRelationships();
+        } else {
+            showUploadStatus(linkResult.error || 'Failed to link to mother tree', 'error');
+        }
+        
+    } catch (error) {
+        console.error('❌ Error linking to mother:', error);
+        showUploadStatus('Error linking to mother tree', 'error');
+    }
+}
+
+// Unlink from mother tree
+async function unlinkFromMother() {
+    if (!confirm('Unlink this tree from its mother? This will remove the cutting relationship.')) {
+        return;
+    }
+    
+    try {
+        showUploadStatus('Unlinking from mother tree...', 'info');
+        
+        const response = await fetch(`/api/tree/${treeId}/unlink_from_mother`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showUploadStatus('Unlinked from mother tree successfully!', 'success');
+            await loadTreeRelationships();
+        } else {
+            showUploadStatus(result.error || 'Failed to unlink from mother tree', 'error');
+        }
+        
+    } catch (error) {
+        console.error('❌ Error unlinking from mother:', error);
+        showUploadStatus('Error unlinking from mother tree', 'error');
+    }
+}
+
+// Show relationship error
+function showRelationshipError(message) {
+    console.error('❌ Relationship Error:', message);
+    
+    const sections = ['motherTreeSection', 'cuttingTreesSection'];
+    sections.forEach(sectionId => {
+        const section = document.getElementById(sectionId);
+        if (section) {
+            section.innerHTML = `
+                <div class="no-relationships" style="background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb;">
+                    <strong>Error:</strong> ${message}<br>
+                    <button onclick="loadTreeRelationships()" style="margin-top: 10px; padding: 5px 10px; background: #dc3545; color: white; border: none; border-radius: 3px; cursor: pointer;">
+                        🔄 Retry Loading
+                    </button>
+                </div>
+            `;
+        }
+    });
+    
+    // Also update debug status
+    const debugStatus = document.getElementById('debugStatus');
+    if (debugStatus) {
+        debugStatus.innerHTML = `<span style="color: red;">❌ ${message}</span>`;
+    }
+}
+function formatTreeAge(createdTimestamp, plantedTimestamp, calculatedDays = null) {
+    // If calculatedDays is provided, use it directly
+    if (calculatedDays !== null) {
+        return formatDaysToAge(calculatedDays);
+    }
+    
+    // Otherwise calculate from timestamps
+    if (!createdTimestamp && !plantedTimestamp) return 'Unknown age';
+    
+    const now = new Date();
+    const baseDate = plantedTimestamp ? new Date(plantedTimestamp) : new Date(createdTimestamp);
+    const diffMs = now - baseDate;
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    
+    return formatDaysToAge(diffDays);
+}
+function updateTimeDisplays() {
+    // Update created time
+    const createdElement = document.getElementById('createdTimeDisplay');
+    const createdAgoElement = document.getElementById('createdTimeAgo');
+    
+    let calculatedAgeDays = 0;
+    
+    if (createdElement && createdAgoElement) {
+        const createdTimestamp = createdElement.getAttribute('data-timestamp');
+        if (createdTimestamp) {
+            createdAgoElement.textContent = `(${formatRelativeTime(createdTimestamp)})`;
+            
+            // Calculate age in days from creation date
+            const createdDate = new Date(createdTimestamp);
+            const now = new Date();
+            calculatedAgeDays = Math.floor((now - createdDate) / (1000 * 60 * 60 * 24));
+        }
+    }
+    
+    // Update planted time
+    const plantedElement = document.getElementById('plantedTimeDisplay');
+    const plantedAgoElement = document.getElementById('plantedTimeAgo');
+    
+    if (plantedElement && plantedAgoElement) {
+        const plantedTimestamp = plantedElement.getAttribute('data-timestamp');
+        if (plantedTimestamp) {
+            plantedAgoElement.textContent = `(${formatRelativeTime(plantedTimestamp)})`;
+            
+            // If planted date exists, use it for age calculation instead
+            const plantedDate = new Date(plantedTimestamp);
+            const now = new Date();
+            calculatedAgeDays = Math.floor((now - plantedDate) / (1000 * 60 * 60 * 24));
+        }
+    }
+    
+    // ✅ FIXED: Update tree age with calculated days
+    updateTreeAge(calculatedAgeDays);
+    
+    // ✅ NEW: Update the form's calculated age display
+    updateCalculatedAgeInForm(calculatedAgeDays);
+    
+    // ✅ FIXED: Show manual life days info if it differs significantly from calculated age
+    updateLifeDaysInfo(calculatedAgeDays);
+}
+
+function formatDaysToAge(days) {
+    if (days < 0) return 'Future date (error)';
+    if (days === 0) return 'Just created';
+    if (days === 1) return '1 day old';
+    
+    const years = Math.floor(days / 365);
+    const months = Math.floor((days % 365) / 30);
+    const remainingDays = days % 30;
+    
+    let ageText = '';
+    
+    if (years > 0) {
+        ageText += `${years} year${years !== 1 ? 's' : ''}`;
+        if (months > 0) {
+            ageText += `, ${months} month${months !== 1 ? 's' : ''}`;
+        }
+    } else if (months > 0) {
+        ageText += `${months} month${months !== 1 ? 's' : ''}`;
+        if (remainingDays > 0) {
+            ageText += `, ${remainingDays} day${remainingDays !== 1 ? 's' : ''}`;
+        }
+    } else {
+        ageText = `${days} day${days !== 1 ? 's' : ''}`;
+    }
+    
+    return ageText + ' old';
+}
+function updateTreeAge(calculatedDays) {
+    const ageElement = document.getElementById('treeAgeDisplay');
+    const stageElement = document.getElementById('treeLifeStage');
+    
+    if (!ageElement) return;
+    
+    // Format age text
+    const ageText = formatTreeAge(null, null, calculatedDays);
+    ageElement.textContent = ageText;
+    
+    // ✅ FIXED: Determine life stage based on calculated age, not stored life_days
+    const { stage, color, emoji } = getLifeStage(calculatedDays);
+    
+    if (stageElement) {
+        stageElement.textContent = `${emoji} ${stage}`;
+        stageElement.className = `life-indicator life-${stage.toLowerCase()}`;
+        stageElement.style.background = color;
+        stageElement.style.color = 'white';
+    }
+    
+    // Update status
+    updateTreeStatus(calculatedDays, stage);
+}
+function getLifeStage(days) {
+    if (days < 7) {
+        return { stage: 'Seedling', color: '#4CAF50', emoji: '🌱' };
+    } else if (days < 30) {
+        return { stage: 'Young', color: '#8BC34A', emoji: '🌿' };
+    } else if (days < 90) {
+        return { stage: 'Growing', color: '#FFC107', emoji: '🌳' };
+    } else if (days < 180) {
+        return { stage: 'Mature', color: '#FF9800', emoji: '🌲' };
+    } else if (days < 365) {
+        return { stage: 'Adult', color: '#FF5722', emoji: '🌴' };
+    } else {
+        return { stage: 'Ancient', color: '#795548', emoji: '🌰' };
+    }
+}
+function updateTreeStatus(days, stage) {
+    const statusElement = document.getElementById('treeStatusDisplay');
+    if (!statusElement) return;
+    
+    let statusText = '';
+    let statusColor = '#28a745';
+    
+    if (days < 7) {
+        statusText = '🌱 Just sprouted and establishing roots';
+        statusColor = '#4CAF50';
+    } else if (days < 30) {
+        statusText = '🌿 Young and growing rapidly';
+        statusColor = '#8BC34A';
+    } else if (days < 90) {
+        statusText = '🌳 Developing strong structure';
+        statusColor = '#FFC107';
+    } else if (days < 180) {
+        statusText = '🌲 Mature and well-established';
+        statusColor = '#FF9800';
+    } else if (days < 365) {
+        statusText = '🌴 Adult tree in prime condition';
+        statusColor = '#FF5722';
+    } else {
+        statusText = '🌰 Ancient and wise tree';
+        statusColor = '#795548';
+    }
+    
+    statusElement.innerHTML = `<span style="color: ${statusColor}; font-weight: bold;">${statusText}</span>`;
+}
+function updateLifeDaysInfo(calculatedDays) {
+    const lifeDaysInfo = document.getElementById('lifeDaysInfo');
+    const storedLifeDaysElement = document.getElementById('storedLifeDays');
+    
+    if (!lifeDaysInfo || !storedLifeDaysElement) return;
+    
+    // Get stored life days from template or form
+    const lifeDaysInput = document.getElementById('lifeDays');
+    const storedLifeDays = lifeDaysInput ? parseInt(lifeDaysInput.value) || 0 : 0;
+    
+    storedLifeDaysElement.textContent = storedLifeDays;
+    
+    // Show the info only if stored life days differs significantly from calculated age
+    const difference = Math.abs(calculatedDays - storedLifeDays);
+    
+    if (difference > 2 && storedLifeDays > 0) {
+        // Show the manual life days info because it's significantly different
+        lifeDaysInfo.style.display = 'block';
+        
+        // Add comparison text
+        const comparisonText = calculatedDays > storedLifeDays ? 
+            `(${difference} days less than calculated age)` : 
+            `(${difference} days more than calculated age)`;
+            
+        lifeDaysInfo.querySelector('small').textContent = 
+            `This is manually set and differs from calculated age by ${difference} days. ${comparisonText}`;
+    } else {
+        // Hide it because it's close to calculated age or zero
+        lifeDaysInfo.style.display = 'none';
+    }
+}
 function forceGoToGrid() {
     console.log('🔧 Force navigation to grid');
     
@@ -784,20 +2268,205 @@ function openImageUpload() {
     document.getElementById('imageInput').click();
 }
     
-    function showUploadStatus(message, type) {
-        const statusDiv = document.getElementById('uploadStatus');
-        statusDiv.textContent = message;
-        statusDiv.className = `upload-status upload-${type === 'error' ? 'error' : 'success'}`;
-        statusDiv.style.display = 'block';
+function showUploadStatus(message, type) {
+    console.log(`📢 Status: ${message} (${type})`);
+    
+    // Try to find existing status element
+    let statusElement = document.getElementById('uploadStatus');
+    
+    // If not found, create one
+    if (!statusElement) {
+        statusElement = document.createElement('div');
+        statusElement.id = 'uploadStatus';
+        statusElement.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 12px 20px;
+            border-radius: 6px;
+            font-weight: bold;
+            z-index: 10000;
+            max-width: 300px;
+            word-wrap: break-word;
+        `;
+        document.body.appendChild(statusElement);
+    }
+    
+    // Set message and style based on type
+    statusElement.textContent = message;
+    statusElement.className = `status-${type}`;
+    
+    // Style based on type
+    switch(type) {
+        case 'success':
+            statusElement.style.background = '#d4edda';
+            statusElement.style.color = '#155724';
+            statusElement.style.border = '1px solid #c3e6cb';
+            break;
+        case 'error':
+            statusElement.style.background = '#f8d7da';
+            statusElement.style.color = '#721c24';
+            statusElement.style.border = '1px solid #f5c6cb';
+            break;
+        case 'info':
+            statusElement.style.background = '#d1ecf1';
+            statusElement.style.color = '#0c5460';
+            statusElement.style.border = '1px solid #bee5eb';
+            break;
+        default:
+            statusElement.style.background = '#f8f9fa';
+            statusElement.style.color = '#495057';
+            statusElement.style.border = '1px solid #dee2e6';
+    }
+    
+    // Show the element
+    statusElement.style.display = 'block';
+    
+    // Auto-hide after 5 seconds for success/info, 8 seconds for errors
+    const hideDelay = type === 'error' ? 8000 : 5000;
+    setTimeout(() => {
+        if (statusElement && statusElement.parentNode) {
+            statusElement.style.display = 'none';
+        }
+    }, hideDelay);
+}
+function updateLifeIndicator(treeData) {
+    console.log('🔄 Updating life indicator with tree data:', treeData);
+    
+    // Get actual life days (calculated from planted date)
+    const lifeDays = treeData.life_days || 0;
+    const storedLifeDays = treeData.stored_life_days || 0;
+    const plantedDate = treeData.planted_date;
+    const createdDate = treeData.created_at;
+    const lifeStage = treeData.life_stage || 'Unknown';
+    const lifeStageColor = treeData.life_stage_color || '#32CD32';
+    const isPaused = treeData.is_paused || false;
+    const totalPausedDays = treeData.total_paused_days || 0;
+    
+    // Update life days display
+    const lifeDaysElement = document.getElementById('lifeDaysDisplay');
+    if (lifeDaysElement) {
+        let lifeDayText = `${lifeDays} days`;
         
-        // Hide after 3 seconds for success messages
-        if (type === 'success') {
-            setTimeout(() => {
-                statusDiv.style.display = 'none';
-            }, 3000);
+        // Add life stage with color
+        lifeDayText += ` <span style="color: ${lifeStageColor}; font-weight: bold;">(${lifeStage})</span>`;
+        
+        // Add paused indicator if paused
+        if (isPaused) {
+            lifeDayText += ` <span style="color: #ff6b6b; font-weight: bold;">⏸️ PAUSED</span>`;
+        }
+        
+        lifeDaysElement.innerHTML = lifeDayText;
+    }
+    
+    // Update time displays if we have new data
+    if (createdDate) {
+        const createdElement = document.getElementById('createdTimeDisplay');
+        if (createdElement) {
+            createdElement.setAttribute('data-timestamp', createdDate);
         }
     }
     
+    if (plantedDate) {
+        const plantedElement = document.getElementById('plantedTimeDisplay');
+        if (plantedElement) {
+            plantedElement.setAttribute('data-timestamp', plantedDate);
+        }
+    }
+    
+    // Update all time displays
+    updateTimeDisplays();
+    
+    // Update tree visual representation based on life stage
+    updateTreeVisual(lifeStage, lifeStageColor, isPaused);
+}
+
+function updateTreeVisual(lifeStage, color, isPaused) {
+    // ✅ NEW: Update tree visual based on life stage
+    const treeElement = document.querySelector('.tree-visual, .tree-icon');
+    if (treeElement) {
+        // Update tree emoji based on life stage
+        const stageEmojis = {
+            'Seedling': '🌱',
+            'Young': '🌿',
+            'Mature': '🌳',
+            'Adult': '🌲',
+            'Ancient': '🌴'
+        };
+        
+        let emoji = stageEmojis[lifeStage] || '🌳';
+        
+        // Add paused indicator
+        if (isPaused) {
+            emoji += '⏸️';
+        }
+        
+        treeElement.innerHTML = emoji;
+        treeElement.style.color = color;
+    }
+}
+
+// ✅ NEW: Add life day management functions
+async function pauseTreeLifeCounting(treeId) {
+    try {
+        const response = await fetch(`/api/tree/${treeId}/pause_life`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'}
+        });
+        
+        const result = await response.json();
+        if (result.success) {
+            showSuccessMessage('Tree life counting paused');
+            // Refresh tree data
+            loadTreeInfo(treeId);
+        } else {
+            showErrorMessage('Failed to pause tree life counting: ' + result.error);
+        }
+    } catch (error) {
+        showErrorMessage('Error pausing tree life counting: ' + error.message);
+    }
+}
+
+async function resumeTreeLifeCounting(treeId) {
+    try {
+        const response = await fetch(`/api/tree/${treeId}/resume_life`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'}
+        });
+        
+        const result = await response.json();
+        if (result.success) {
+            showSuccessMessage('Tree life counting resumed');
+            // Refresh tree data
+            loadTreeInfo(treeId);
+        } else {
+            showErrorMessage('Failed to resume tree life counting: ' + result.error);
+        }
+    } catch (error) {
+        showErrorMessage('Error resuming tree life counting: ' + error.message);
+    }
+}
+
+async function adjustTreeLifeDays(treeId, adjustment) {
+    try {
+        const response = await fetch(`/api/tree/${treeId}/adjust_life`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({adjustment: adjustment})
+        });
+        
+        const result = await response.json();
+        if (result.success) {
+            showSuccessMessage(`Tree life days adjusted by ${adjustment} days`);
+            // Refresh tree data
+            loadTreeInfo(treeId);
+        } else {
+            showErrorMessage('Failed to adjust tree life days: ' + result.error);
+        }
+    } catch (error) {
+        showErrorMessage('Error adjusting tree life days: ' + error.message);
+    }
+}
     // QR Code functions
     async function generateQRCode() {
         try {
@@ -887,7 +2556,321 @@ function openImageUpload() {
             alert('Link copied to clipboard!');
         }
     }
+    // ✅ NEW: Breed Management Variables
+let treeBreeds = [];
+const currentTreeBreed = '{{ tree.breed or "" }}';
+
+// ✅ NEW: Load breeds from backend
+async function loadTreeBreeds() {
+    try {
+        console.log('🧬 Loading tree breeds from backend...');
+        
+        // Get current tree breed from the page
+        const currentBreed = getCurrentTreeBreed();
+        console.log('🧬 Current tree breed:', currentBreed);
+        
+        // ✅ FIXED: Get farm ID from multiple sources
+        let currentFarmId = null;
+        
+        // Method 1: From dome data in template
+        {% if dome and dome.farm_id %}
+            currentFarmId = {{ dome.farm_id }};
+            console.log('🧬 Farm ID from template dome:', currentFarmId);
+        {% endif %}
+        
+        // Method 2: From global variables
+        if (!currentFarmId && typeof farmId !== 'undefined' && farmId) {
+            currentFarmId = farmId;
+            console.log('🧬 Farm ID from global variable:', currentFarmId);
+        }
+        
+        // Method 3: Get from dome API
+        if (!currentFarmId && domeId) {
+            try {
+                console.log('🧬 Fetching farm ID from dome API...');
+                const domeResponse = await fetch(`/api/dome/${domeId}/info`);
+                if (domeResponse.ok) {
+                    const domeData = await domeResponse.json();
+                    if (domeData.success && domeData.dome && domeData.dome.farm_id) {
+                        currentFarmId = domeData.dome.farm_id;
+                        window.farmId = currentFarmId; // Store for future use
+                        console.log('🧬 Farm ID from dome API:', currentFarmId);
+                    }
+                }
+            } catch (domeError) {
+                console.warn('⚠️ Could not get farm ID from dome API:', domeError);
+            }
+        }
+        
+        // Method 4: Try to get from tree API
+        if (!currentFarmId && treeId) {
+            try {
+                console.log('🧬 Fetching farm ID from tree API...');
+                const treeResponse = await fetch(`/api/tree/${treeId}`);
+                if (treeResponse.ok) {
+                    const treeData = await treeResponse.json();
+                    if (treeData.success && treeData.tree && treeData.tree.dome) {
+                        currentFarmId = treeData.tree.dome.farm_id;
+                        console.log('🧬 Farm ID from tree API:', currentFarmId);
+                    }
+                }
+            } catch (treeError) {
+                console.warn('⚠️ Could not get farm ID from tree API:', treeError);
+            }
+        }
+        
+        if (!currentFarmId) {
+            console.error('❌ No farm ID available, cannot load breeds from backend');
+            console.log('🧬 Using default breeds as fallback');
+            populateBreedDropdown(['Apple', 'Orange', 'Mango', 'Banana', 'Coconut', 'Avocado'], currentBreed);
+            return false;
+        }
+        
+        console.log('🧬 Using farm ID:', currentFarmId);
+        
+        // ✅ FIXED: Load breeds from backend
+        const response = await fetch(`/api/farm/${currentFarmId}/breeds`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+
+        console.log('🧬 Breeds API response status:', response.status);
+
+        if (response.ok) {
+            const result = await response.json();
+            console.log('🧬 Breeds API result:', result);
+            
+            if (result.success && result.breeds && Array.isArray(result.breeds)) {
+                // ✅ FIXED: Extract breed names properly
+                const breedNames = result.breeds.map(breed => {
+                    if (typeof breed === 'string') {
+                        return breed;
+                    } else if (typeof breed === 'object' && breed.name) {
+                        return breed.name;
+                    } else {
+                        console.warn('⚠️ Unexpected breed format:', breed);
+                        return String(breed);
+                    }
+                }).filter(name => name && name.trim()); // Remove empty names
+                
+                console.log('✅ Loaded breeds from backend:', breedNames);
+                
+                if (breedNames.length > 0) {
+                    populateBreedDropdown(breedNames, currentBreed);
+                    return true;
+                } else {
+                    console.warn('⚠️ No valid breeds found in backend response');
+                    populateBreedDropdown(['Apple', 'Orange', 'Mango', 'Banana', 'Coconut', 'Avocado'], currentBreed);
+                    return false;
+                }
+                
+            } else {
+                console.warn('⚠️ Invalid breeds response format:', result);
+                populateBreedDropdown(['Apple', 'Orange', 'Mango', 'Banana', 'Coconut', 'Avocado'], currentBreed);
+                return false;
+            }
+        } else {
+            console.error('❌ Failed to load breeds from backend, status:', response.status);
+            const errorText = await response.text().catch(() => 'Unknown error');
+            console.error('❌ Error response:', errorText);
+            populateBreedDropdown(['Apple', 'Orange', 'Mango', 'Banana', 'Coconut', 'Avocado'], currentBreed);
+            return false;
+        }
+        
+    } catch (error) {
+        console.error('❌ Error loading tree breeds:', error);
+        populateBreedDropdown(['Apple', 'Orange', 'Mango', 'Banana', 'Coconut', 'Avocado'], getCurrentTreeBreed());
+        return false;
+    }
+}
+
+
+// ✅ NEW: Get current tree breed from the page
+function getCurrentTreeBreed() {
+    // Method 1: From template variable (most reliable)
+    const templateBreed = '{{ tree.breed or "" }}';
+    if (templateBreed && templateBreed.trim() && templateBreed !== 'None') {
+        console.log('🧬 Found breed from template:', templateBreed);
+        return templateBreed.trim();
+    }
     
+    // Method 2: From debug info
+    const debugSection = document.querySelector('[style*="background: #e8f4f8"]');
+    if (debugSection) {
+        const debugText = debugSection.textContent;
+        const breedMatch = debugText.match(/Tree Breed: "([^"]+)"/);
+        if (breedMatch && breedMatch[1] && breedMatch[1] !== 'NULL' && breedMatch[1] !== 'None') {
+            console.log('🧬 Found breed from debug info:', breedMatch[1]);
+            return breedMatch[1];
+        }
+    }
+    
+    // Method 3: From tree stats display
+    const breedDisplay = document.querySelector('.tree-breed-display');
+    if (breedDisplay) {
+        const breedText = breedDisplay.textContent.replace('🧬 ', '').trim();
+        if (breedText && breedText !== 'No breed specified') {
+            console.log('🧬 Found breed from display:', breedText);
+            return breedText;
+        }
+    }
+    
+    // Method 4: From global tree object (if exists)
+    if (typeof tree !== 'undefined' && tree && tree.breed) {
+        console.log('🧬 Found breed from global tree object:', tree.breed);
+        return tree.breed;
+    }
+    
+    console.log('🧬 No current breed found');
+    return null;
+}
+function populateBreedDropdown(breeds, currentBreed = null) {
+    const breedSelect = document.getElementById('treeBreed');
+    if (!breedSelect) {
+        console.error('❌ Breed select element not found');
+        return;
+    }
+    
+    console.log('🧬 Populating breed dropdown with:', breeds);
+    console.log('🧬 Current breed to select:', currentBreed);
+    
+    // Clear existing options
+    breedSelect.innerHTML = '';
+    
+    // Add default option
+    const defaultOption = document.createElement('option');
+    defaultOption.value = '';
+    defaultOption.textContent = 'Select breed...';
+    defaultOption.disabled = true;
+    breedSelect.appendChild(defaultOption);
+    
+    // Sort breeds alphabetically
+    const sortedBreeds = [...breeds].sort((a, b) => a.localeCompare(b));
+    
+    // Add breed options
+    sortedBreeds.forEach(breed => {
+        const option = document.createElement('option');
+        option.value = breed;
+        option.textContent = breed;
+        breedSelect.appendChild(option);
+    });
+    
+    // ✅ CRITICAL: Select the current breed
+    if (currentBreed) {
+        // Try exact match first
+        let optionFound = false;
+        for (let option of breedSelect.options) {
+            if (option.value === currentBreed) {
+                option.selected = true;
+                optionFound = true;
+                console.log('✅ Selected exact breed match:', currentBreed);
+                break;
+            }
+        }
+        
+        // Try case-insensitive match if exact match failed
+        if (!optionFound) {
+            for (let option of breedSelect.options) {
+                if (option.value.toLowerCase() === currentBreed.toLowerCase()) {
+                    option.selected = true;
+                    optionFound = true;
+                    console.log('✅ Selected case-insensitive breed match:', currentBreed);
+                    break;
+                }
+            }
+        }
+        
+        // If still not found, add the current breed as an option and select it
+        if (!optionFound) {
+            console.log('⚠️ Current breed not found in list, adding it:', currentBreed);
+            const customOption = document.createElement('option');
+            customOption.value = currentBreed;
+            customOption.textContent = `${currentBreed} (current)`;
+            customOption.selected = true;
+            customOption.style.fontStyle = 'italic';
+            customOption.style.color = '#666';
+            breedSelect.appendChild(customOption);
+        }
+        
+        // Set the value directly as backup
+        breedSelect.value = currentBreed;
+        
+    } else {
+        // No current breed, select the default option
+        breedSelect.selectedIndex = 0;
+        console.log('ℹ️ No current breed, selected default option');
+    }
+    
+    console.log('✅ Breed dropdown populated, selected value:', breedSelect.value);
+    console.log('✅ Selected option text:', breedSelect.options[breedSelect.selectedIndex]?.textContent);
+}
+// ✅ NEW: Populate breed select dropdown
+function populateBreedSelect() {
+    const breedSelect = document.getElementById('treeBreed');
+    if (!breedSelect) return;
+    
+    // Clear existing options except the first one
+    breedSelect.innerHTML = '<option value="">Select breed...</option>';
+    
+    // Add breed options
+    treeBreeds.forEach(breed => {
+        const option = document.createElement('option');
+        option.value = breed;
+        option.textContent = breed;
+        
+        // Select current breed if it matches
+        if (breed === currentTreeBreed) {
+            option.selected = true;
+        }
+        
+        breedSelect.appendChild(option);
+    });
+    
+    // Add "Other" option
+    const otherOption = document.createElement('option');
+    otherOption.value = 'OTHER';
+    otherOption.textContent = '+ Add New Breed';
+    breedSelect.appendChild(otherOption);
+    
+    console.log(`✅ Populated breed select with ${treeBreeds.length} breeds`);
+}
+
+// ✅ NEW: Handle breed selection
+function handleBreedSelection() {
+    const breedSelect = document.getElementById('treeBreed');
+    if (!breedSelect) return;
+    
+    breedSelect.addEventListener('change', function() {
+        if (this.value === 'OTHER') {
+            const newBreed = prompt('Enter new breed name:');
+            if (newBreed && newBreed.trim()) {
+                const breedName = newBreed.trim();
+                
+                // Add to breeds array if not exists
+                if (!treeBreeds.includes(breedName)) {
+                    treeBreeds.push(breedName);
+                    
+                    // Save to localStorage
+                    const farmId = {{ dome.farm_id if dome else 'null' }};
+                    if (farmId) {
+                        localStorage.setItem(`farm_${farmId}_breeds`, JSON.stringify(treeBreeds));
+                    }
+                }
+                
+                // Repopulate select and select the new breed
+                populateBreedSelect();
+                this.value = breedName;
+                
+                console.log(`✅ Added new breed: ${breedName}`);
+            } else {
+                // Reset to previous value
+                this.value = currentTreeBreed;
+            }
+        }
+    });
+}
     function downloadQR() {
         try {
             const img = document.querySelector('#qrcode img');
@@ -922,46 +2905,86 @@ function openImageUpload() {
     }
     
     // Tree management functions
-    async function updateTree() {
-        const name = document.getElementById('treeName').value.trim();
-        const info = document.getElementById('treeInfo').value.trim();
-        const lifeDays = parseInt(document.getElementById('lifeDays').value) || 0;
-        
-        if (!name) {
-            alert('Please enter a tree name');
-            return;
-        }
-        
-        try {
-            const response = await fetch(`/update_tree/${treeId}`, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({
-                    name: name,
-                    info: info,
-                    life_days: lifeDays
-                })
-            });
-            
-            const result = await response.json();
-            
-            if (result.success) {
-                document.querySelector('.tree-name').textContent = name;
-                updateLifeIndicator(lifeDays);
-                
-                setTimeout(() => {
-                    generateQRCode();
-                }, 500);
-                
-                alert('Tree updated successfully');
-            } else {
-                alert(result.error || 'Failed to update tree');
-            }
-        } catch (error) {
-            console.error('Error updating tree:', error);
-            alert('Error updating tree. Please try again.');
-        }
+async function updateTree() {
+    console.log('🌱 Updating tree...');
+    
+    // Get form values
+    const name = document.getElementById('treeName').value.trim();
+    const info = document.getElementById('treeInfo').value.trim();
+    const lifeDays = parseInt(document.getElementById('lifeDays').value) || 0;
+    
+    // Get breed value properly
+    let breed = '';
+    const breedSelect = document.getElementById('treeBreed');
+    if (breedSelect && breedSelect.value) {
+        breed = breedSelect.value.trim();
+        console.log('🧬 Selected breed for update:', breed);
     }
+    
+    // Validation
+    if (!name) {
+        showUploadStatus('Please enter a tree name', 'error');
+        return;
+    }
+    
+    try {
+        showUploadStatus('Updating tree...', 'info');
+        
+        const updateData = {
+            name: name,
+            breed: breed,
+            info: info,
+            life_days: lifeDays
+        };
+        
+        console.log('🌱 Sending update data:', updateData);
+        
+        const response = await fetch(`/update_tree/${treeId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(updateData)
+        });
+        
+        const result = await response.json();
+        console.log('🌱 Update response:', result);
+        
+        if (result.success) {
+            showUploadStatus('Tree updated successfully!', 'success');
+            
+            // Update breed display
+            updateBreedDisplay(breed);
+            
+            // ✅ FIXED: Update time displays which will recalculate age and show/hide manual life days
+            updateTimeDisplays();
+            
+            console.log('✅ Tree updated successfully');
+        } else {
+            showUploadStatus(result.error || 'Failed to update tree', 'error');
+        }
+        
+    } catch (error) {
+        console.error('❌ Error updating tree:', error);
+        showUploadStatus('Error updating tree. Please try again.', 'error');
+    }
+}
+// ✅ NEW: Update breed display function
+function updateBreedDisplay(breed) {
+    // Find breed display elements and update them
+    const breedElements = document.querySelectorAll('.tree-stats p');
+    breedElements.forEach(p => {
+        if (p.innerHTML.includes('<strong>Breed:</strong>')) {
+            if (breed) {
+                p.innerHTML = `<strong>Breed:</strong> <span class="tree-breed-display">🧬 ${breed}</span>`;
+            } else {
+                p.innerHTML = `<strong>Breed:</strong> <span style="color: #999; font-style: italic;">No breed specified</span>`;
+            }
+        }
+    });
+    
+    console.log(`✅ Updated breed display: ${breed || 'None'}`);
+}
     
     async function deleteTree() {
         if (confirm('Are you sure you want to delete this tree? This action cannot be undone.')) {
@@ -1001,35 +3024,133 @@ function openImageUpload() {
     }
     
     // ✅ INITIALIZATION (runs when page loads)
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('Tree info page loaded, initializing...');
     
-    // ✅ NEW: Add error handling for tree images
-    const treeImage = document.getElementById('treeImage');
-    if (treeImage) {
-        treeImage.onerror = function() {
-            console.error('❌ Failed to load tree image');
-            showUploadStatus('Failed to load image', 'error');
-            
-            // Replace with placeholder
-            this.parentNode.parentNode.innerHTML = `
-                <div class="tree-placeholder" id="treePlaceholder" onclick="openImageUpload()">
-                    🌳
-                </div>
-            `;
-            document.getElementById('removeBtn').style.display = 'none';
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🌳 === TREE INFO PAGE INITIALIZATION ===');
+    console.log('Tree ID:', treeId);
+    console.log('Dome ID:', domeId);
+    
+    // Add manual test button for debugging
+    const debugSection = document.getElementById('relationshipDebugInfo');
+    if (debugSection) {
+        const testButton = document.createElement('button');
+        testButton.textContent = '🔧 Test Relationship Loading';
+        testButton.style.cssText = 'margin: 5px; padding: 5px 10px; background: #007bff; color: white; border: none; border-radius: 3px; cursor: pointer;';
+        testButton.onclick = () => {
+            console.log('🔧 Manual test triggered');
+            debugRelationshipState();
+            loadTreeRelationships();
         };
-        
-        treeImage.onload = function() {
-            console.log('✅ Tree image loaded successfully');
-        };
+        debugSection.appendChild(testButton);
     }
     
-    // Generate QR code after a short delay
+    // Initialize other components first
+    updateTimeDisplays();
+    setInterval(updateTimeDisplays, 60000);
+    
+    // Load breeds
+    setTimeout(async () => {
+        try {
+            const success = await loadTreeBreeds();
+            console.log('🧬 Breed loading result:', success);
+        } catch (error) {
+            console.error('❌ Breed loading error:', error);
+        }
+    }, 100);
+    
+    // ✅ CRITICAL: Load tree relationships with multiple attempts
+    console.log('🔗 Scheduling relationship loading...');
+    
+    // First attempt after 500ms
+    setTimeout(() => {
+        console.log('🔗 First relationship loading attempt...');
+        loadTreeRelationships();
+    }, 500);
+    
+    // Second attempt after 2 seconds (in case first fails)
+    setTimeout(() => {
+        if (!treeRelationships.isLoaded) {
+            console.log('🔗 Second relationship loading attempt (first failed)...');
+            loadTreeRelationships();
+        } else {
+            console.log('✅ Relationships already loaded, skipping second attempt');
+        }
+    }, 2000);
+    
+    // Third attempt after 5 seconds (final fallback)
+    setTimeout(() => {
+        if (!treeRelationships.isLoaded) {
+            console.log('🔗 Final relationship loading attempt...');
+            loadTreeRelationships();
+        } else {
+            console.log('✅ Relationships already loaded, skipping final attempt');
+        }
+    }, 5000);
+        setTimeout(() => {
+        updateLifeDaysIndicator();
+    }, 1000);
+    // Generate QR code
     setTimeout(() => {
         generateQRCode();
     }, 1000);
+    
+    console.log('✅ Tree info page initialization completed');
 });
+
+// ✅ NEW: Add window error handler for debugging
+window.addEventListener('error', function(event) {
+    console.error('🚨 Global JavaScript Error:', {
+        message: event.message,
+        filename: event.filename,
+        lineno: event.lineno,
+        colno: event.colno,
+        error: event.error
+    });
+});
+
+// ✅ NEW: Add unhandled promise rejection handler
+window.addEventListener('unhandledrejection', function(event) {
+    console.error('🚨 Unhandled Promise Rejection:', event.reason);
+});
+
+// ✅ ENHANCED: Add refresh relationships functionality
+async function refreshTreeRelationships() {
+    try {
+        console.log('🔄 Refreshing tree relationships...');
+        showUploadStatus('Refreshing relationships...', 'info');
+        
+        // Clear any cached relationship data
+        treeRelationships = {
+            tree: null,
+            is_mother: false,
+            is_cutting: false,
+            mother: null,
+            cuttings: [],
+            summary: null,
+            isLoaded: false
+        };
+        
+        // Reload relationships from server
+        await loadTreeRelationships();
+        
+        showUploadStatus('Relationships refreshed successfully!', 'success');
+        
+    } catch (error) {
+        console.error('❌ Error refreshing relationships:', error);
+        showUploadStatus('Error refreshing relationships', 'error');
+    }
+}
+
+// ✅ ENHANCED: Add auto-refresh when page becomes visible (for paste operations)
+document.addEventListener('visibilitychange', function() {
+    if (!document.hidden && treeRelationships.isLoaded) {
+        console.log('🔄 Page became visible, checking for relationship updates...');
+        setTimeout(() => {
+            refreshTreeRelationships();
+        }, 1000); // Small delay to allow any ongoing operations to complete
+    }
+});
+
 </script>
 </body>
 </html>

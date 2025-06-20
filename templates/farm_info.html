@@ -213,6 +213,45 @@
         .btn-warning:hover {
             background: #e0a800;
         }
+        .modal {
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-content {
+    background: white;
+    padding: 30px;
+    border-radius: 10px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    max-width: 400px;
+    width: 90%;
+    text-align: center;
+}
+
+.modal-content h3 {
+    color: #8B4513;
+    margin-bottom: 15px;
+}
+
+.modal-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin-top: 20px;
+}
+
+.modal-actions .btn {
+    flex: 1;
+    max-width: 150px;
+}
         .btn-info {
             background: #17a2b8;
             color: white;
@@ -421,7 +460,41 @@
             {% endif %}
         </div>
     </div>
+<div id="passwordModal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <h3>🔐 Enter Farm Password</h3>
+        <p>This farm is password protected. Please enter the password to view domes.</p>
+        <div class="form-group">
+            <label>Password:</label>
+            <input type="password" id="farmPasswordInput" placeholder="Enter farm password" required>
+        </div>
+        <div style="text-align: center; margin: 15px 0;">
+            <a href="#" onclick="showForgotPassword()" style="color: #007bff; text-decoration: none; font-size: 14px;">
+                🔑 Forgot Password?
+            </a>
+        </div>
+        <div class="modal-actions">
+            <button class="btn btn-primary" onclick="verifyFarmPassword()">🔓 Access Domes</button>
+            <button class="btn btn-secondary" onclick="closePasswordModal()">Cancel</button>
+        </div>
+    </div>
+</div>
 
+<!-- Forgot Password Modal -->
+<div id="forgotPasswordModal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <h3>🔑 Reset Farm Password</h3>
+        <p>Enter your email address to receive password reset instructions.</p>
+        <div class="form-group">
+            <label>Email Address:</label>
+            <input type="email" id="resetEmailInput" placeholder="Enter your email" required>
+        </div>
+        <div class="modal-actions">
+            <button class="btn btn-primary" onclick="sendPasswordReset()">📧 Send Reset Link</button>
+            <button class="btn btn-secondary" onclick="closeForgotPasswordModal()">Cancel</button>
+        </div>
+    </div>
+</div>
     <script>
         const farmId = {{ farm.id }};
         let nameChanged = false;
@@ -437,8 +510,11 @@
         
         // ✅ FIXED: Changed from viewDomes() to goToMainIndex() - always go to main index
 function goToFarmDomes() {
-    console.log('Going to farm dome view');
-    window.location.href = `/farm/${farmId}/domes`;
+    console.log('Requesting access to farm domes');
+    document.getElementById('passwordModal').style.display = 'flex';
+    setTimeout(() => {
+        document.getElementById('farmPasswordInput').focus();
+    }, 100);
 }
         
         // ✅ REMOVED: viewDomes() function that went to /?farm_id=X
@@ -505,7 +581,112 @@ function goToFarmDomes() {
         function openImageUpload() {
             document.getElementById('imageUploadSection').style.display = 'block';
         }
+function closePasswordModal() {
+    document.getElementById('passwordModal').style.display = 'none';
+    document.getElementById('farmPasswordInput').value = '';
+}
+
+function showForgotPassword() {
+    document.getElementById('passwordModal').style.display = 'none';
+    document.getElementById('forgotPasswordModal').style.display = 'flex';
+    setTimeout(() => {
+        document.getElementById('resetEmailInput').focus();
+    }, 100);
+}
+
+function closeForgotPasswordModal() {
+    document.getElementById('forgotPasswordModal').style.display = 'none';
+    document.getElementById('resetEmailInput').value = '';
+}
+
+async function verifyFarmPassword() {
+    const password = document.getElementById('farmPasswordInput').value.trim();
+    
+    if (!password) {
+        showStatus('Please enter the password', 'error');
+        return;
+    }
+    
+    try {
+        showLoading(true);
+        showStatus('Verifying password...', 'info');
         
+        const response = await fetch(`/verify_farm_password/${farmId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                password: password
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showStatus('Access granted!', 'success');
+            closePasswordModal();
+            
+            // Navigate to domes page
+            setTimeout(() => {
+                window.location.href = `/farm/${farmId}/domes`;
+            }, 1000);
+        } else {
+            showStatus('Incorrect password. Please try again.', 'error');
+            document.getElementById('farmPasswordInput').value = '';
+            document.getElementById('farmPasswordInput').focus();
+        }
+    } catch (error) {
+        console.error('Error verifying password:', error);
+        showStatus('Error verifying password. Please try again.', 'error');
+    } finally {
+        showLoading(false);
+    }
+}
+
+async function sendPasswordReset() {
+    const email = document.getElementById('resetEmailInput').value.trim();
+    
+    if (!email) {
+        showStatus('Please enter your email address', 'error');
+        return;
+    }
+    
+    if (!email.includes('@')) {
+        showStatus('Please enter a valid email address', 'error');
+        return;
+    }
+    
+    try {
+        showLoading(true);
+        showStatus('Sending reset link...', 'info');
+        
+        const response = await fetch('/request_farm_password_reset', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                email: email,
+                farm_id: farmId
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showStatus('Password reset link sent to your email!', 'success');
+            closeForgotPasswordModal();
+        } else {
+            showStatus(result.error || 'Failed to send reset link', 'error');
+        }
+    } catch (error) {
+        console.error('Error sending password reset:', error);
+        showStatus('Error sending reset link. Please try again.', 'error');
+    } finally {
+        showLoading(false);
+    }
+}        
         function closeImageUpload() {
             document.getElementById('imageUploadSection').style.display = 'none';
         }
@@ -644,8 +825,29 @@ async function uploadFarmImage() {
         `;
     }
 }       
+window.onclick = function(event) {
+    const passwordModal = document.getElementById('passwordModal');
+    const forgotPasswordModal = document.getElementById('forgotPasswordModal');
+    
+    if (event.target === passwordModal) {
+        closePasswordModal();
+    }
+    
+    if (event.target === forgotPasswordModal) {
+        closeForgotPasswordModal();
+    }
+}
+ document.getElementById('farmPasswordInput').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+        verifyFarmPassword();
+    }
+});
 
-        
+document.getElementById('resetEmailInput').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+        sendPasswordReset();
+    }
+});       
         function setupDragAndDrop() {
             const uploadArea = document.querySelector('.upload-area');
             

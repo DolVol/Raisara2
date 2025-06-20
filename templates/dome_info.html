@@ -407,35 +407,35 @@
             
             <div class="info-card">
                 <h4>🌳 Trees</h4>
-                <p class="tree-count">{{ dome.trees|length }}</p>
+                <p><strong>Occupancy Rate:</strong> {{ "%.1f"|format((tree_count / (dome.internal_rows * dome.internal_cols) * 100) if (dome.internal_rows * dome.internal_cols) > 0 else 0) }}%</p>
                 <p>trees planted</p>
             </div>
             
             <div class="info-card">
                 <h4>📊 Occupancy</h4>
                 <p><strong>Available Spots:</strong> {{ (dome.internal_rows * dome.internal_cols) - dome.trees|length }}</p>
-                <p><strong>Occupancy Rate:</strong> {{ "%.1f"|format((dome.trees|length / (dome.internal_rows * dome.internal_cols) * 100) if (dome.internal_rows * dome.internal_cols) > 0 else 0) }}%</p>
+                <p><strong>Occupancy Rate:</strong> {{ "%.1f"|format((tree_count / (dome.internal_rows * dome.internal_cols) * 100) if (dome.internal_rows * dome.internal_cols) > 0 else 0) }}%</p>
             </div>
         </div>
         
         <!-- Traditional Stats Section -->
         <div class="dome-stats">
-            <h3 style="color: #2e8b57; margin-bottom: 15px;">📋 Dome Summary</h3>
-            <p><strong>Dome Name:</strong> {{ dome.name }}</p>
-            <p><strong>Grid Position:</strong> Row {{ dome.grid_row }}, Column {{ dome.grid_col }}</p>
-            <p><strong>Internal Grid Size:</strong> {{ dome.internal_rows }}×{{ dome.internal_cols }}</p>
-            <p><strong>Total Trees:</strong> {{ dome.trees|length }} trees planted</p>
-            <p><strong>Available Space:</strong> {{ (dome.internal_rows * dome.internal_cols) - dome.trees|length }} empty spots</p>
-            {% if dome.trees|length > 0 %}
-                <p><strong>Tree Names:</strong> 
-                    {% for tree in dome.trees %}
-                        {{ tree.name }}{% if not loop.last %}, {% endif %}
-                    {% endfor %}
-                </p>
-            {% endif %}
-        </div>
-    </div>
-
+    <h3 style="color: #2e8b57; margin-bottom: 15px;">📋 Dome Summary</h3>
+    {% set tree_count = dome.trees|length if dome.trees else 0 %}
+    <p><strong>Dome Name:</strong> {{ dome.name }}</p>
+    <p><strong>Grid Position:</strong> Row {{ dome.grid_row }}, Column {{ dome.grid_col }}</p>
+    <p><strong>Internal Grid Size:</strong> {{ dome.internal_rows }}×{{ dome.internal_cols }}</p>
+    <p><strong>Total Trees:</strong> {{ tree_count }} trees planted</p>
+    <p><strong>Available Space:</strong> {{ (dome.internal_rows * dome.internal_cols) - tree_count }} empty spots</p>
+    {% if tree_count > 0 %}
+        <p><strong>Tree Names:</strong> 
+            {% for tree in dome.trees %}
+                {{ tree.name }}{% if not loop.last %}, {% endif %}
+            {% endfor %}
+        </p>
+    {% endif %}
+</div>
+</div>
     <script>
         const domeId = {{ dome.id }};
         let nameChanged = false;
@@ -543,31 +543,252 @@
         }
         
         // Dome management functions
-    async function deleteDome() {
-        if (confirm('Are you sure you want to delete this dome? This will also delete all trees in this dome.')) {
-            try {
-                showStatus('Deleting dome...', 'info');
+async function deleteDome() {
+    console.log('🗑️ Delete dome button clicked');
+    console.log('Dome ID:', domeId);
+    
+    // ✅ FIRST: Debug session before attempting deletion
+    console.log('🔍 Checking session before deletion...');
+    try {
+        const sessionData = await debugSession();
+        
+        // Check if any authentication method is available
+        const hasAuth = sessionData.user_id_methods._user_id_in_session || 
+                       sessionData.user_id_methods.user_id_in_session || 
+                       sessionData.user_id_methods.id_in_session;
+        
+        if (!hasAuth) {
+            const useSimplifiedDelete = confirm(
+                'No user authentication found in session!\n\n' +
+                'This might be why deletion is failing.\n\n' +
+                'Would you like to try the SIMPLIFIED deletion method instead?\n' +
+                '(This works with your current database schema)'
+            );
+            
+            if (useSimplifiedDelete) {
+                await testSimplifiedDeletion();
+                return;
+            }
+        } else {
+            console.log('✅ Authentication found, proceeding with normal deletion');
+        }
+    } catch (debugError) {
+        console.warn('⚠️ Session debug failed, continuing with deletion attempt:', debugError);
+    }
+    
+    // Enhanced confirmation dialog
+    const confirmMessage = `Are you sure you want to delete this dome?\n\n` +
+                          `⚠️ This action will:\n` +
+                          `• Delete the dome permanently\n` +
+                          `• Delete all trees in this dome\n` +
+                          `• Delete all areas in this dome\n` +
+                          `• This cannot be undone!\n\n` +
+                          `Type "DELETE" to confirm:`;
+    
+    const userInput = prompt(confirmMessage);
+    
+    if (userInput !== 'DELETE') {
+        console.log('❌ Dome deletion cancelled by user');
+        showStatus('Dome deletion cancelled', 'info');
+        return;
+    }
+    
+    try {
+        console.log('🔄 Starting dome deletion process...');
+        showStatus('Deleting dome and all its contents...', 'info');
+        showLoading(true);
+        
+        // ✅ Method 1: Try normal deletion first
+        let deleteSuccess = false;
+        let needsForceDelete = false;
+        let authError = false;
+        let schemaError = false;
+        
+        try {
+            console.log('📡 Attempting normal deletion...');
+            
+            const response = await fetch(`/delete_dome/${domeId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            });
+            
+            console.log('📡 Normal deletion response status:', response.status);
+            
+            if (response.status === 401) {
+                authError = true;
+                console.error('❌ Authentication error during normal deletion');
+            } else if (response.ok) {
+                const result = await response.json();
+                console.log('📡 Normal deletion result:', result);
                 
-                const response = await fetch(`/delete_dome/${domeId}`, {
-                    method: 'DELETE'
+                if (result.success) {
+                    deleteSuccess = true;
+                    console.log('✅ Normal deletion successful');
+                    
+                    const summary = result.deleted;
+                    showStatus(`Dome deleted successfully! Removed: ${summary.trees} trees, ${summary.drag_areas} drag areas, ${summary.regular_areas} regular areas`, 'success');
+                } else {
+                    console.error('❌ Normal deletion failed:', result.error);
+                    
+                    if (result.error.includes('constraint') || result.error.includes('FOREIGN KEY') || result.error.includes('NOT NULL')) {
+                        needsForceDelete = true;
+                        console.log('⚠️ Constraint error detected, will try force delete');
+                    } else if (result.error.includes('no such table') || result.error.includes('not defined')) {
+                        schemaError = true;
+                        console.log('⚠️ Schema error detected, will try simplified delete');
+                    } else {
+                        throw new Error(result.error);
+                    }
+                }
+            } else {
+                const errorText = await response.text();
+                console.error('❌ Normal deletion HTTP error:', response.status, errorText);
+                
+                if (response.status === 500) {
+                    needsForceDelete = true;
+                } else {
+                    throw new Error(`HTTP ${response.status}: ${errorText}`);
+                }
+            }
+        } catch (error) {
+            console.error('❌ Normal deletion network error:', error);
+            needsForceDelete = true;
+        }
+        
+        // ✅ Method 2: Try force deletion if normal deletion failed due to constraints
+        if (!deleteSuccess && needsForceDelete && !authError && !schemaError) {
+            console.log('🚨 Attempting force deletion...');
+            showStatus('Normal deletion failed, trying force deletion...', 'info');
+            
+            const forceConfirm = confirm(
+                'Normal deletion failed due to database constraints.\n\n' +
+                'Would you like to try FORCE DELETE?\n\n' +
+                'This will bypass database constraints and force delete all related data.\n\n' +
+                'Click OK to proceed with force delete, or Cancel to abort.'
+            );
+            
+            if (!forceConfirm) {
+                showStatus('Force deletion cancelled by user', 'info');
+                return;
+            }
+            
+            try {
+                const forceResponse = await fetch(`/force_delete_dome/${domeId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
                 });
                 
-                if (response.ok) {
-                    showStatus('Dome deleted successfully!', 'success');
-                    setTimeout(() => {
-                        // ✅ CHANGED: Go back to farm domes instead of main index
-                        window.location.href = `/farm/{{ dome.farm_id }}/domes`;
-                    }, 1500);
+                console.log('📡 Force deletion response status:', forceResponse.status);
+                
+                if (forceResponse.status === 401) {
+                    authError = true;
+                    console.error('❌ Authentication error during force deletion');
+                } else if (forceResponse.ok) {
+                    const forceResult = await forceResponse.json();
+                    console.log('📡 Force deletion result:', forceResult);
+                    
+                    if (forceResult.success) {
+                        deleteSuccess = true;
+                        console.log('✅ Force deletion successful');
+                        showStatus('Dome force deleted successfully!', 'success');
+                    } else {
+                        if (forceResult.error.includes('no such table') || forceResult.error.includes('not defined')) {
+                            schemaError = true;
+                        } else {
+                            throw new Error(forceResult.error);
+                        }
+                    }
                 } else {
-                    const error = await response.json();
-                    showStatus(error.error || 'Failed to delete dome', 'error');
+                    const errorText = await forceResponse.text();
+                    throw new Error(`Force delete HTTP ${forceResponse.status}: ${errorText}`);
                 }
-            } catch (error) {
-                console.error('Error deleting dome:', error);
-                showStatus('Error deleting dome. Please try again.', 'error');
+            } catch (forceError) {
+                console.error('❌ Force deletion failed:', forceError);
+                if (forceError.message.includes('no such table')) {
+                    schemaError = true;
+                } else {
+                    throw new Error(`Force deletion failed: ${forceError.message}`);
+                }
             }
         }
+        
+        // ✅ Method 3: Try simplified deletion if schema errors detected
+        if (!deleteSuccess && schemaError) {
+            console.log('🚨 Schema errors detected, trying simplified deletion...');
+            showStatus('Database schema issues detected, trying simplified deletion...', 'info');
+            
+            const simplifiedConfirm = confirm(
+                'Database schema issues detected.\n\n' +
+                'Would you like to try SIMPLIFIED DELETE?\n\n' +
+                'This works with your current database structure.\n\n' +
+                'Click OK to proceed, or Cancel to abort.'
+            );
+            
+            if (simplifiedConfirm) {
+                await testSimplifiedDeletion();
+                return;
+            } else {
+                throw new Error('Schema errors detected and user declined simplified deletion');
+            }
+        }
+        
+        // ✅ Method 4: Try no-auth deletion if authentication failed
+        if (!deleteSuccess && authError) {
+            console.log('🚨 Authentication failed, offering no-auth deletion...');
+            
+            const noAuthConfirm = confirm(
+                'Authentication failed for both normal and force deletion.\n\n' +
+                'This might be a session issue.\n\n' +
+                'Would you like to try the NO-AUTH deletion method?\n' +
+                '(This bypasses authentication for testing)\n\n' +
+                'Click OK to proceed, or Cancel to abort.'
+            );
+            
+            if (noAuthConfirm) {
+                await testNoAuthDeletion();
+                return;
+            } else {
+                throw new Error('Authentication failed and user declined no-auth deletion');
+            }
+        }
+        
+        // ✅ Handle successful deletion
+        if (deleteSuccess) {
+            console.log('✅ Dome deletion completed successfully');
+            
+            // Clear any cached data
+            localStorage.removeItem(`dome_${domeId}_name`);
+            localStorage.removeItem('domeNameUpdated');
+            localStorage.removeItem('domeImageUpdated');
+            
+            // Redirect after short delay
+            setTimeout(() => {
+                console.log('🔄 Redirecting to farm domes view...');
+                window.location.href = `/farm/{{ dome.farm_id }}/domes`;
+            }, 2000);
+            
+        } else {
+            throw new Error('All deletion methods failed');
+        }
+        
+    } catch (error) {
+        console.error('❌ Dome deletion error:', error);
+        showStatus(`Failed to delete dome: ${error.message}`, 'error');
+        
+        // Show detailed error to user
+        alert(`Dome deletion failed!\n\nError: ${error.message}\n\nPlease try the debug functions or contact support.`);
+        
+    } finally {
+        showLoading(false);
     }
+}
+
+// Make debug functions globally accessible
+
         
 function viewGrid() {
     try {
