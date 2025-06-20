@@ -11768,13 +11768,13 @@ def reset_password():
             token = data.get('token')
             new_password = data.get('new_password') or data.get('password')
             confirm_password = data.get('confirm_password')
-            
+
             if not token or not new_password:
                 return jsonify({'success': False, 'error': 'Token and password are required'}), 400
-            
+
             if new_password != confirm_password:
                 return jsonify({'success': False, 'error': 'Passwords do not match'}), 400
-            
+
             if len(new_password) < 6:
                 return jsonify({'success': False, 'error': 'Password must be at least 6 characters'}), 400
             
@@ -13266,13 +13266,22 @@ def paste_drag_area_from_backend(dome_id):
                         
                         print(f"🔍 Found {len(all_old_cuttings)} total cutting trees linked to old mother {old_mother_id}")
                         
-                        # ✅ CRITICAL: Transfer ALL cutting trees to the new mother
+                        # ✅ FIXED: Only transfer cutting trees that were NOT copied (to avoid duplicates)
                         for old_cutting in all_old_cuttings:
-                            # Transfer the cutting tree to the new mother
-                            old_cutting.mother_plant_id = mother['new_id']
-                            old_cutting.plant_type = 'cutting'
-                            transferred_cuttings += 1
-                            print(f"🔄 Transferred cutting '{old_cutting.name}' (ID: {old_cutting.id}) from old mother {old_mother_id} to new mother {mother['new_id']}")
+                            # Check if this cutting was copied (by checking if its ID is in the copied list)
+                            cutting_was_copied = any(c['old_id'] == old_cutting.id for c in cutting_trees_pasted)
+                            
+                            if not cutting_was_copied:
+                                # Transfer the cutting tree to the new mother (only if it wasn't copied)
+                                old_cutting.mother_plant_id = mother['new_id']
+                                old_cutting.plant_type = 'cutting'
+                                transferred_cuttings += 1
+                                print(f"🔄 Transferred non-copied cutting '{old_cutting.name}' (ID: {old_cutting.id}) from old mother {old_mother_id} to new mother {mother['new_id']}")
+                            else:
+                                # Remove the original cutting since it was copied
+                                old_cutting.mother_plant_id = None
+                                old_cutting.plant_type = 'mother'  # Convert to independent
+                                print(f"🗑️ Removed copied cutting '{old_cutting.name}' (ID: {old_cutting.id}) from old mother (copy exists)")
                         
                         # ✅ VERIFICATION: Check that old mother has no cutting trees left
                         remaining_cuttings_check = Tree.query.filter_by(
