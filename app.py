@@ -30,6 +30,7 @@ from services.life_updater import TreeLifeUpdater
 from flask_mail import Mail, Message
 import sqlite3
 import logging
+from auto_fix_db import auto_fix_user_table
 mail = Mail()
 
 # Configuration constants
@@ -355,6 +356,9 @@ def force_schema_refresh():
 
 def create_app():
     app = Flask(__name__)
+    
+    # ✅ AUTO-FIX: Run database column fix on startup (Render only)
+    auto_fix_user_table()
     
     # ✅ FIXED: Use the determined database URL
     app.config['SECRET_KEY'] = SECRET_KEY
